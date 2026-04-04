@@ -30,6 +30,8 @@
       this.chatForm = document.getElementById("chat-form");
       this.chatInput = document.getElementById("chat-input");
       this.chatSimpleToggle = document.getElementById("chat-simple-toggle");
+      this.downloadCsvButton = document.getElementById("download-csv");
+      this.downloadPngButton = document.getElementById("download-png");
 
       this.state = {
         agents: [],
@@ -70,6 +72,13 @@
           );
         });
       }
+      if (this.downloadCsvButton) {
+        this.downloadCsvButton.addEventListener("click", () => this.downloadCsv());
+      }
+      if (this.downloadPngButton) {
+        this.downloadPngButton.addEventListener("click", () => this.downloadPng());
+      }
+      this.bindLessonPresets();
     }
 
     handleResize() {
@@ -262,6 +271,7 @@
       this.runButton.disabled = false;
       this.updateStatus(true);
       this.updateTeachingExplanation();
+      this.setExportEnabled(true);
       this.draw();
     }
 
@@ -490,6 +500,7 @@
         "Assistant",
         "Ready to discuss results. Run the simulation or ask how mobility, density, and preference rules connect to Smaldino & Schank (2012)."
       );
+      this.setExportEnabled(false);
     }
 
     updateTeachingExplanation() {
@@ -770,6 +781,92 @@
       }
 
       return anchors;
+    }
+
+    setExportEnabled(isEnabled) {
+      if (this.downloadCsvButton) this.downloadCsvButton.disabled = !isEnabled;
+      if (this.downloadPngButton) this.downloadPngButton.disabled = !isEnabled;
+    }
+
+    downloadCsv() {
+      if (!this.state.lastRun) {
+        this.addChatMessage("Assistant", "Run first, then download the summary.");
+        return;
+      }
+
+      const { metrics, mobilityLevel, densityLevel, preferenceRule } = this.state.lastRun;
+      const rows = [
+        ["date", new Date().toISOString()],
+        ["mobility", mobilityLevel],
+        ["density", densityLevel],
+        ["preferenceRule", preferenceRule],
+        ["pairs", metrics.pairCount],
+        ["matchingStrength", metrics.matchingStrength.toFixed(3)],
+        ["averageSearchSteps", metrics.averageSearchSteps.toFixed(2)],
+        ["matchedAgents", metrics.matchedCount],
+        ["totalAgents", this.state.agents.length],
+        [],
+        ["pair_id", "a_id", "b_id", "a_attr", "b_attr"],
+        ...this.state.pairs.map((pair, index) => {
+          const a = this.state.agents[pair.agent1];
+          const b = this.state.agents[pair.agent2];
+          return [index, a.id, b.id, a.attractiveness, b.attractiveness];
+        }),
+      ];
+
+      const csv = rows.map((r) => r.join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      this.triggerDownload(url, "simulation-summary.csv");
+    }
+
+    downloadPng() {
+      const dataUrl = this.canvas.toDataURL("image/png");
+      this.triggerDownload(dataUrl, "simulation-grid.png");
+    }
+
+    triggerDownload(url, filename) {
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      if (url.startsWith("blob:")) {
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    bindLessonPresets() {
+      const buttons = document.querySelectorAll("[data-preset]");
+      buttons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const preset = button.getAttribute("data-preset");
+          this.applyPreset(preset);
+          this.handleRun();
+        });
+      });
+    }
+
+    applyPreset(preset) {
+      const setSelect = (select, value) => {
+        if (!select) return;
+        select.value = value;
+      };
+
+      if (preset === "sparse-low-attractiveness") {
+        setSelect(this.densitySelect, "Sparse");
+        setSelect(this.mobilitySelect, "Low");
+        setSelect(this.preferenceSelect, "Attractiveness-based");
+      } else if (preset === "dense-high-attractiveness") {
+        setSelect(this.densitySelect, "Dense");
+        setSelect(this.mobilitySelect, "High");
+        setSelect(this.preferenceSelect, "Attractiveness-based");
+      } else if (preset === "normal-high-similarity") {
+        setSelect(this.densitySelect, "Normal");
+        setSelect(this.mobilitySelect, "High");
+        setSelect(this.preferenceSelect, "Similarity-based");
+      }
     }
 
     shuffle(items) {

@@ -17,12 +17,33 @@
       <header class="hero">
         <div class="hero-top">
           <p class="eyebrow">Teaching Website Structure</p>
-          <a class="pill-link" href="paper.html" target="_blank" rel="noopener">View Research PDF</a>
+          <div class="hero-actions">
+            <a class="pill-link outline" href="#how-to">How to use</a>
+            <a class="pill-link" href="paper.html" target="_blank" rel="noopener">View Research PDF</a>
+          </div>
         </div>
         <h1>Human Mate Choice Models</h1>
         <p class="subtitle">
           How environment and space shape matching patterns
         </p>
+        <div class="hero-steps" id="how-to">
+          <div class="step-card">
+            <strong>1. Choose settings</strong>
+            <span>Pick rule, mobility, density.</span>
+          </div>
+          <div class="step-card">
+            <strong>2. Run &amp; watch</strong>
+            <span>See agents move, pair, and link.</span>
+          </div>
+          <div class="step-card">
+            <strong>3. Read &amp; cite</strong>
+            <span>Explanations cite Smaldino &amp; Schank (2012).</span>
+          </div>
+          <div class="step-card">
+            <strong>4. Export</strong>
+            <span>Download a CSV summary or PNG of the grid.</span>
+          </div>
+        </div>
       </header>
 
       <main class="content-stack">
@@ -97,6 +118,10 @@
             <button class="run-button" id="run-simulation" type="button">
               Run Simulation
             </button>
+            <div class="export-row">
+              <button class="secondary-button" id="download-csv" type="button" disabled>Download run summary (CSV)</button>
+              <button class="secondary-button" id="download-png" type="button" disabled>Save canvas (PNG)</button>
+            </div>
 
             <section class="simulation-grid" aria-labelledby="simulation-grid-title">
               <div class="simulation-grid-header">
@@ -116,16 +141,27 @@
           </section>
         </section>
 
-        <section class="panel panel-teaching">
-          <div class="panel-header">
-            <p class="panel-kicker">Bottom Panel</p>
-            <h2>Teaching Explanation</h2>
-          </div>
+          <section class="panel panel-teaching">
+            <div class="panel-header">
+              <p class="panel-kicker">Bottom Panel</p>
+              <h2>Teaching Explanation</h2>
+            </div>
           <p class="teaching-copy" id="teaching-explanation">
             Placeholder paragraph for explaining how these two models differ,
             what students should notice in the comparison, and how simulated
             outcomes connect back to the theory.
           </p>
+          <section class="lesson-guide" aria-label="Guided lesson prompts">
+            <div class="lesson-header">
+              <h3>Guided Lesson</h3>
+              <p class="lesson-subtitle">Load a preset, run, then compare with the citations.</p>
+            </div>
+            <div class="lesson-buttons">
+              <button class="secondary-button" data-preset="sparse-low-attractiveness">Sparse + Low mobility + Attractiveness</button>
+              <button class="secondary-button" data-preset="dense-high-attractiveness">Dense + High mobility + Attractiveness</button>
+              <button class="secondary-button" data-preset="normal-high-similarity">Normal + High mobility + Similarity</button>
+            </div>
+          </section>
           <section class="chat-assistant" aria-label="Research chat assistant">
             <div class="chat-header">
               <h3>Research Chat Assistant</h3>

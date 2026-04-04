@@ -83,6 +83,41 @@ body::before {
   opacity: 0.9;
 }
 
+.hero-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.pill-link.outline {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid rgba(15, 118, 110, 0.4);
+  box-shadow: none;
+}
+
+.hero-steps {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.step-card {
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(79, 57, 36, 0.12);
+  border-radius: var(--radius-lg);
+  background: #fffdf9;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  display: grid;
+  gap: 0.25rem;
+}
+
+.step-card strong {
+  font-size: 0.98rem;
+}
+
 .eyebrow,
 .panel-kicker {
   margin: 0 0 0.75rem;
@@ -247,6 +282,27 @@ select {
   cursor: progress;
 }
 
+.export-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.secondary-button {
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(15, 118, 110, 0.32);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, #fffdf9 0%, #f2e7da 100%);
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondary-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .simulation-grid {
   position: relative;
   z-index: 1;
@@ -393,6 +449,33 @@ select {
   color: #f7fffe;
   font-weight: 700;
   cursor: pointer;
+}
+
+.lesson-guide {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border: 1px solid rgba(79, 57, 36, 0.12);
+  border-radius: var(--radius-lg);
+  background: var(--surface-strong);
+  display: grid;
+  gap: 0.65rem;
+}
+
+.lesson-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.lesson-subtitle {
+  margin: 0.1rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.lesson-buttons {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 @media (max-width: 900px) {
