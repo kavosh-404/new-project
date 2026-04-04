@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Human Mate Choice Models</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="hero">
+        <div class="hero-top">
+          <p class="eyebrow">Teaching Website Structure</p>
+          <a class="pill-link" href="paper.html" target="_blank" rel="noopener">View Research PDF</a>
+        </div>
+        <h1>Human Mate Choice Models</h1>
+        <p class="subtitle">
+          How environment and space shape matching patterns
+        </p>
+      </header>
+
+      <main class="content-stack">
+        <section class="workspace-grid" aria-label="Main teaching interface">
+          <aside class="panel panel-overview">
+            <div class="panel-header">
+              <p class="panel-kicker">Left Column</p>
+              <h2>Model Overview</h2>
+            </div>
+
+            <section class="module comparison-module" aria-labelledby="kalick-hamilton-title">
+              <h3 id="kalick-hamilton-title">Kalick &amp; Hamilton (1986)</h3>
+              <ul class="placeholder-list">
+                <li>Well-mixed population; no spatial constraints.</li>
+                <li>Random encounters among all individuals.</li>
+                <li>Matching emerges from preferences + simple rules.</li>
+                <li>Everyone has equal access to all potential partners.</li>
+                <li>Assumes fixed attractiveness-based preferences.</li>
+              </ul>
+            </section>
+
+            <section class="module comparison-module" aria-labelledby="smaldino-schank-title">
+              <h3 id="smaldino-schank-title">Smaldino &amp; Schank (2012)</h3>
+              <ul class="placeholder-list">
+                <li>Agents live on a 2D spatial grid.</li>
+                <li>Local neighborhoods restrict encounter opportunities.</li>
+                <li>Mobility changes partners over time.</li>
+                <li>Density affects encounter rates and search difficulty.</li>
+                <li>Satisficing: agents relax after repeated failures.</li>
+                <li>
+                  Ability to switch between attractiveness- and similarity-based
+                  mate choice.
+                </li>
+              </ul>
+            </section>
+          </aside>
+
+          <section class="panel panel-simulation">
+            <div class="panel-header">
+              <p class="panel-kicker">Right Column</p>
+              <h2>Simulation Controls</h2>
+            </div>
+
+            <form class="controls-grid" id="simulation-controls" aria-label="Simulation controls">
+              <label class="control-field">
+                <span>Preference Rule</span>
+                <select id="preference-rule" name="preference-rule">
+                  <option>Attractiveness-based</option>
+                  <option>Similarity-based</option>
+                </select>
+              </label>
+
+              <label class="control-field">
+                <span>Mobility Level</span>
+                <select id="mobility-level" name="mobility-level">
+                  <option>Low</option>
+                  <option>Medium</option>
+                  <option>High</option>
+                </select>
+              </label>
+
+              <label class="control-field">
+                <span>Density Level</span>
+                <select id="density-level" name="density-level">
+                  <option>Sparse</option>
+                  <option>Normal</option>
+                  <option>Dense</option>
+                </select>
+              </label>
+            </form>
+
+            <button class="run-button" id="run-simulation" type="button">
+              Run Simulation
+            </button>
+
+            <section class="simulation-grid" aria-labelledby="simulation-grid-title">
+              <div class="simulation-grid-header">
+                <h3 id="simulation-grid-title">Simulation Grid</h3>
+                <p id="simulation-status">
+                  Ready to simulate density, mobility, and mate choice encounters.
+                </p>
+              </div>
+              <div class="simulation-grid-shell">
+                <canvas
+                  class="simulation-canvas"
+                  id="simulation-canvas"
+                  aria-label="Simulation grid canvas"
+                ></canvas>
+              </div>
+            </section>
+          </section>
+        </section>
+
+        <section class="panel panel-teaching">
+          <div class="panel-header">
+            <p class="panel-kicker">Bottom Panel</p>
+            <h2>Teaching Explanation</h2>
+          </div>
+          <p class="teaching-copy" id="teaching-explanation">
+            Placeholder paragraph for explaining how these two models differ,
+            what students should notice in the comparison, and how simulated
+            outcomes connect back to the theory.
+          </p>
+          <section class="chat-assistant" aria-label="Research chat assistant">
+            <div class="chat-header">
+              <h3>Research Chat Assistant</h3>
+              <div class="chat-controls">
+                <label class="chat-toggle-label">
+                  <input type="checkbox" id="chat-simple-toggle" />
+                  Simple mode
+                </label>
+                <p class="chat-subtitle">Ask about the run or request citations.</p>
+              </div>
+            </div>
+            <div class="chat-log" id="chat-log" aria-live="polite"></div>
+            <form class="chat-form" id="chat-form">
+              <label class="chat-label" for="chat-input">Chain-of-thought prompt</label>
+              <div class="chat-input-row">
+                <textarea id="chat-input" rows="2" placeholder="Ask how this run aligns with Smaldino & Schank (2012)…"></textarea>
+                <button type="submit" class="chat-send">Send</button>
+              </div>
+            </form>
+          </section>
+        </section>
+      </main>
+    </div>
+    <script src="script.js"></script>
+  </body>
+</html>

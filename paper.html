@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Research Paper Viewer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      .paper-container {
+        display: grid;
+        gap: 1rem;
+      }
+      .pdf-frame {
+        width: 100%;
+        min-height: 80vh;
+        border: 1px solid rgba(79, 57, 36, 0.16);
+        border-radius: var(--radius-xl);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+        background: #fffdf9;
+      }
+      .pdf-frame object {
+        width: 100%;
+        height: 100%;
+        border: 0;
+      }
+      .notice {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+      .pill-link.back {
+        background: linear-gradient(135deg, #b08968 0%, #8a5a44 100%);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="hero">
+        <div class="hero-top">
+          <p class="eyebrow">Reference Viewer</p>
+          <a class="pill-link back" href="index.html">Back to Simulation</a>
+        </div>
+        <h1>Smaldino &amp; Schank (2012)</h1>
+        <p class="subtitle">
+          Embedded reference copy for quick citation checks alongside the simulation.
+        </p>
+      </header>
+
+      <main class="paper-container">
+        <p class="notice">
+          If the PDF does not load, open it directly:
+          <a href="smaldino-schank-2012.pdf">smaldino-schank-2012.pdf</a>
+        </p>
+        <div class="pdf-frame" aria-label="Embedded research PDF">
+          <object
+            data="smaldino-schank-2012.pdf"
+            type="application/pdf"
+          >
+            <p>
+              PDF viewer not supported. Use the direct link above to open the paper.
+            </p>
+          </object>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>
