@@ -47,6 +47,7 @@
       };
 
       this.lastCitation = null;
+      this.simpleMode = false; // Default to technical mode
 
       this.handleResize = this.handleResize.bind(this);
       this.handleRun = this.handleRun.bind(this);
@@ -541,7 +542,13 @@
 
       this.teachingExplanation.textContent = sentences.join(" ");
       this.appendRunSummary(metrics, mobilityLevel, densityLevel, preferenceRule);
-      this.addChatMessage("Assistant", this.buildRunCitationMessage(metrics, mobilityLevel, densityLevel, preferenceRule));
+      
+      // Use simple mode or technical citation based on user preference
+      const chatMessage = this.simpleMode
+        ? this.buildExplainMessage(metrics, mobilityLevel, densityLevel, preferenceRule)
+        : this.buildRunCitationMessage(metrics, mobilityLevel, densityLevel, preferenceRule);
+      
+      this.addChatMessage("Assistant", chatMessage);
       this.state.lastRun = {
         metrics,
         mobilityLevel,
