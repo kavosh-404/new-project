@@ -567,6 +567,37 @@ select {
   background: rgba(15, 118, 110, 0.03);
 }
 
+.research-graph-grid {
+  margin-top: 0.7rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.7rem;
+}
+
+.research-graph-card {
+  margin: 0;
+  padding: 0.6rem;
+  border-radius: 12px;
+  border: 1px solid rgba(79, 57, 36, 0.11);
+  background: rgba(255, 255, 255, 0.72);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.research-graph-card figcaption {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0f4f4a;
+}
+
+.research-graph-frame {
+  width: 100%;
+  height: 220px;
+  border: 1px dashed rgba(15, 118, 110, 0.24);
+  border-radius: 10px;
+  background: #fffdf9;
+}
+
 .preview-raw-csv {
   border: 1px dashed rgba(15, 118, 110, 0.25);
   border-radius: 12px;
