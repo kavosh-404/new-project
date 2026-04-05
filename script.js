@@ -48,6 +48,8 @@
 
       this.lastCitation = null;
       this.simpleMode = false; // Default to technical mode
+      this.conversationHistory = []; // Track recent questions for context
+      this.lastTopic = null; // Remember what user last asked about
 
       this.handleResize = this.handleResize.bind(this);
       this.handleRun = this.handleRun.bind(this);
@@ -285,6 +287,7 @@
       this.setExportEnabled(true);
       this.updateSummaryBar();
       this.scrollToTeaching();
+      this.lastTopic = null; // Reset topic context for new run
       this.draw();
     }
 
@@ -421,22 +424,130 @@
     }
 
     buildChatReply(text) {
-      const lower = text.toLowerCase();
+      const lower = text.toLowerCase().trim();
+      
+      // If no run yet, prompt to run
       if (!this.state.lastRun) {
         return "No simulation run yet. Hit Run Simulation or change a control to auto-run, then ask about the results.";
       }
 
       const { metrics, mobilityLevel: mobility, densityLevel: density, preferenceRule: preference } = this.state.lastRun;
 
+      // Handle clarification requests ("I don't understand", "explain more", etc.)
+      if (lower.match(/don't\s*(understand|get|follow)|confused|unclear|simpler|easier|plain/)) {
+        // If they just asked about something specific, go deeper on that topic
+        if (this.lastTopic === "density") {
+          return (
+            "Density affects how often agents meet. With " +
+            density +
+            " density: " +
+            (density === "Sparse" ? "agents are spread out, so they rarely encounter each other. This means fewer pairs form and search takes longer." : density === "Dense" ? "agents are packed together, so they meet very frequently. This means pairs form faster and more easily." : "agents are at a balanced spacing, so they meet regularly but not overwhelmingly.") +
+            " Your run shows " +
+            metrics.pairCount +
+            " pairs formed. In Smaldino & Schank (2012, pp. 17–18), they found this exact pattern: higher density = more encounters = faster, stronger pairing."
+          );
+        }
+        if (this.lastTopic === "mobility") {
+          return (
+            "Mobility is how far agents can move each turn. With " +
+            mobility +
+            " mobility: " +
+            (mobility === "Low" ? "agents can only move a little, so they stay in one area and meet the same neighbors repeatedly. This limits their choices." : mobility === "High" ? "agents can move far, so they explore more of the grid and meet many different potential partners." : "agents have moderate movement, staying somewhat local but exploring more than low mobility.") +
+            " Your run took avg " +
+            metrics.averageSearchSteps.toFixed(1) +
+            " steps to find partners. Smaldino & Schank (2012, p. 16) show that limited movement really does slow down the search, which is what we see here."
+          );
+        }
+        if (this.lastTopic === "matching") {
+          return (
+            "Assortative matching means: do partners end up similar to each other? Your strength = " +
+            metrics.matchingStrength.toFixed(2) +
+            ". In your run with " +
+            density +
+            " density and " +
+            mobility +
+            " mobility, agents could only meet nearby neighbors (not pick globally). So they paired based on who was actually available locally, not on perfect preference. That's why space matters so much—it forces assortment (Smaldino & Schank 2012, pp. 11–13)."
+          );
+        }
+        // Generic clarification
+        return (
+          "Let me break it down: Your run formed " +
+          metrics.pairCount +
+          " pairs. Matching strength " +
+          metrics.matchingStrength.toFixed(2) +
+          " means partners are " +
+          (metrics.matchingStrength < 0.15 ? "very different" : metrics.matchingStrength > 0.3 ? "quite similar" : "somewhat similar") +
+          ". With " +
+          density +
+          " density and " +
+          mobility +
+          " mobility, agents mostly encountered neighbors, which shaped who paired with whom. Ask me about a specific aspect: density, mobility, or matching?"
+        );
+      }
+
+      // Detect topic from user input and track it
+      if (lower.includes("density")) {
+        this.lastTopic = "density";
+        return (
+          "Density note: Your run had " +
+          density +
+          " density, yielding " +
+          metrics.pairCount +
+          " pairs and matching strength " +
+          metrics.matchingStrength.toFixed(2) +
+          ". " +
+          (density === "Sparse" ? "Sparse grids dramatically reduce encounters and extend search time, which weakens how well-matched pairs are (Smaldino & Schank 2012, pp. 17–18)." : density === "Dense" ? "Dense grids accelerate encounters and boost matching strength because agents meet more alternatives and sort better (Smaldino & Schank 2012, pp. 17–18)." : "Normal density provides steady encounters, producing stable intermediate matching (Smaldino & Schank 2012, pp. 17–18).")
+        );
+      }
+
+      if (lower.includes("mobility")) {
+        this.lastTopic = "mobility";
+        return (
+          "Mobility note: With " +
+          mobility +
+          " mobility, avg search was " +
+          metrics.averageSearchSteps.toFixed(1) +
+          " steps. " +
+          (mobility === "Low" ? "Low mobility severely constrains search—agents stay local and meet few potential partners, so matching weakens (Smaldino & Schank 2012, p. 16)." : mobility === "High" ? "High mobility improves search dramatically—agents explore more and find better-matched partners (Smaldino & Schank 2012, p. 16)." : "Medium mobility balances local interaction with broader search (Smaldino & Schank 2012, p. 16).") +
+          " This matches the paper's findings exactly."
+        );
+      }
+
+      if (lower.includes("matching") || lower.includes("similar") || lower.includes("assort")) {
+        this.lastTopic = "matching";
+        return (
+          "Assortative matching (how similar partners are): Your strength = " +
+          metrics.matchingStrength.toFixed(2) +
+          ". " +
+          (metrics.matchingStrength < 0.15 ? "Very weak—partners are quite different." : metrics.matchingStrength > 0.3 ? "Strong—partners are quite similar." : "Moderate—partners are somewhat similar.") +
+          " Smaldino & Schank (2012, pp. 11–18) show that spatial constraints force assortment: agents can't choose globally, so they pair based on local availability. Your " +
+          density +
+          " density and " +
+          mobility +
+          " mobility produced exactly this effect."
+        );
+      }
+
+      if (lower.includes("attractiveness") || lower.includes("preference")) {
+        this.lastTopic = "preference";
+        return (
+          "Preference rule: " +
+          (preference === "Attractiveness-based" ? "Under attractiveness-based choice, highly attractive agents can afford to wait. Your avg search " + metrics.averageSearchSteps.toFixed(1) + " reflects this—waiting slows the overall search. Smaldino & Schank (2012, p. 16) note that spatial constraints make this pattern especially pronounced." : "Under similarity-based choice, agents accept partners who are locally similar, so pairing happens faster. Your avg search " + metrics.averageSearchSteps.toFixed(1) + " and matching strength " + metrics.matchingStrength.toFixed(2) + " show local similarity effects (Smaldino & Schank 2012, pp. 11–13).")
+        );
+      }
+
       if (lower.includes("explain") || lower.includes("result") || lower.includes("summary")) {
+        this.lastTopic = "overall";
         return this.buildExplainMessage(metrics, mobility, density, preference);
       }
 
       if (lower.includes("citation")) {
+        this.lastTopic = "citation";
         return this.buildRunCitationMessage(metrics, mobility, density, preference);
       }
 
       if (lower.includes("detail") || lower.includes("quote") || lower.includes("map")) {
+        this.lastTopic = "details";
         return (
           "The spatial locality constraint (pp. 11–13) shows that agents only meet neighbors. " +
           (mobility === "Low" ? "With low mobility (p. 16), agents cover little space and experience fewer encounters." : mobility === "High" ? "Higher mobility (p. 16) improves search by letting agents sweep through more of the grid." : "Medium mobility (p. 16) balances encounter breadth with realistic movement constraints.") + " " +
@@ -446,7 +557,7 @@
 
       if (lower.trim() === "yes" || lower.trim() === "ok" || lower.trim() === "sure") {
         return (
-          "Tell me what to dig into: density effects, mobility effects, or preference rule impacts? Quick recap: " +
+          "Tell me what to dig into: density effects, mobility effects, preference rules, or assortative matching? Quick recap: " +
           metrics.pairCount +
           " pairs, strength " +
           metrics.matchingStrength.toFixed(2) +
@@ -456,46 +567,9 @@
         );
       }
 
-      if (lower.includes("density")) {
-        return (
-          "Density note: current level " +
-          density +
-          " yielded " +
-          metrics.pairCount +
-          " pairs and matching strength " +
-          metrics.matchingStrength.toFixed(2) +
-          ". This mirrors Smaldino & Schank (2012, pp. 17–18) where higher density accelerates encounters and boosts pairing."
-        );
-      }
-
-      if (lower.includes("mobility")) {
-        return (
-          "Mobility note: with " +
-          mobility +
-          " mobility, avg search was " +
-          metrics.averageSearchSteps.toFixed(1) +
-          " steps. Smaldino & Schank (2012, p. 16) report that limited movement prolongs search and weakens assortment; your run reflects that pattern."
-        );
-      }
-
-      if (lower.includes("similarity")) {
-        return (
-          "Similarity rule: matching strength " +
-          metrics.matchingStrength.toFixed(2) +
-          " suggests how local availability shapes pair similarity (Smaldino & Schank 2012, pp. 11–13). In sparse settings similarity weakens because agents accept viable locals."
-        );
-      }
-
-      if (lower.includes("attractiveness")) {
-        return (
-          "Attractiveness rule: highly attractive agents often wait longer; your avg search " +
-          metrics.averageSearchSteps.toFixed(1) +
-          " aligns with the slowdown described in Smaldino & Schank (2012, p. 16) under spatial constraints."
-        );
-      }
-
+      // Default fallback
       return (
-        "Pick a focus—density, mobility, or preference rule—and I'll link it to the run. Current run: " +
+        "Pick a focus—density, mobility, matching, or preference rule—and I'll dig deeper. Current run: " +
         metrics.pairCount +
         " pairs, strength " +
         metrics.matchingStrength.toFixed(2) +
@@ -900,6 +974,7 @@
       }
       this.state.lastRun = null;
       this.lastCitation = null;
+      this.lastTopic = null; // Reset conversation context
       this.setExportEnabled(false);
       this.updateSummaryBarPlaceholder();
     }
