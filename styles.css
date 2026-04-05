@@ -591,11 +591,19 @@ select {
 }
 
 .research-graph-frame {
+  display: block;
   width: 100%;
   height: 220px;
   border: 1px dashed rgba(15, 118, 110, 0.24);
   border-radius: 10px;
   background: #fffdf9;
+}
+
+.research-graph-link {
+  color: #0f4f4a;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: underline;
 }
 
 .preview-raw-csv {

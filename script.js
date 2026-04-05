@@ -73,6 +73,9 @@
       this.previewDifferenceChart = document.getElementById("preview-difference-chart");
       this.previewMetricsInsight = document.getElementById("preview-metrics-insight");
       this.previewDifferenceInsight = document.getElementById("preview-difference-insight");
+      this.researchFigurePage16 = document.getElementById("research-figure-page-16");
+      this.researchFigurePage17 = document.getElementById("research-figure-page-17");
+      this.researchFigurePage18 = document.getElementById("research-figure-page-18");
       this.summaryPairs = document.getElementById("summary-pairs");
       this.summaryStrength = document.getElementById("summary-strength");
       this.summarySearch = document.getElementById("summary-search");
@@ -107,6 +110,7 @@
       this.handleControlHelpDocumentClick = this.handleControlHelpDocumentClick.bind(this);
       this.handleControlHelpKeydown = this.handleControlHelpKeydown.bind(this);
       this.debounceTimer = null;
+      this.researchFiguresRendered = false;
 
       this.bindEvents();
       this.handleResize();
@@ -1675,6 +1679,92 @@
       this.drawMetricsChart(reportData);
       this.drawDifferenceChart(reportData);
       this.populateChartInsights(reportData);
+      this.renderResearchFigureCanvases();
+    }
+
+    renderResearchFigureCanvases() {
+      if (this.researchFiguresRendered) return;
+
+      const figureTargets = [
+        { canvas: this.researchFigurePage16, pageNumber: 16 },
+        { canvas: this.researchFigurePage17, pageNumber: 17 },
+        { canvas: this.researchFigurePage18, pageNumber: 18 },
+      ].filter((item) => !!item.canvas);
+
+      if (!figureTargets.length) {
+        this.researchFiguresRendered = true;
+        return;
+      }
+
+      if (!window.pdfjsLib) {
+        figureTargets.forEach(({ canvas }) => this.paintFigureFallback(canvas, "PDF renderer unavailable"));
+        return;
+      }
+
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+      const loadingTask = window.pdfjsLib.getDocument("smaldino-schank-2012.pdf");
+      loadingTask.promise
+        .then((pdfDoc) => {
+          return Promise.all(
+            figureTargets.map((target) => this.renderPdfPageToCanvas(pdfDoc, target.pageNumber, target.canvas))
+          );
+        })
+        .then(() => {
+          this.researchFiguresRendered = true;
+        })
+        .catch(() => {
+          figureTargets.forEach(({ canvas }) => this.paintFigureFallback(canvas, "Could not render this page"));
+        });
+    }
+
+    renderPdfPageToCanvas(pdfDoc, pageNumber, canvas) {
+      return pdfDoc.getPage(pageNumber).then((page) => {
+        const baseViewport = page.getViewport({ scale: 1 });
+        const targetWidth = Math.max(280, canvas.clientWidth || 320);
+        const scale = targetWidth / baseViewport.width;
+        const viewport = page.getViewport({ scale });
+        const ratio = window.devicePixelRatio || 1;
+        const ctx = canvas.getContext("2d");
+
+        canvas.width = Math.floor(viewport.width * ratio);
+        canvas.height = Math.floor(viewport.height * ratio);
+        canvas.style.width = Math.floor(viewport.width) + "px";
+        canvas.style.height = Math.floor(viewport.height) + "px";
+
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        ctx.clearRect(0, 0, viewport.width, viewport.height);
+
+        return page.render({
+          canvasContext: ctx,
+          viewport,
+        }).promise;
+      });
+    }
+
+    paintFigureFallback(canvas, message) {
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      const width = Math.max(280, canvas.clientWidth || 320);
+      const height = 220;
+
+      canvas.width = width;
+      canvas.height = height;
+      canvas.style.width = width + "px";
+      canvas.style.height = height + "px";
+
+      ctx.fillStyle = "#fffdf9";
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = "rgba(15, 118, 110, 0.28)";
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(8, 8, width - 16, height - 16);
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#355c57";
+      ctx.font = "13px Instrument Sans, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(message, width / 2, height / 2);
     }
 
     buildPreviewReportData() {
