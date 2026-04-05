@@ -57,6 +57,9 @@
       this.downloadCsvButton = document.getElementById("download-csv");
       this.downloadPngButton = document.getElementById("download-png");
       this.copyCitationButton = document.getElementById("copy-citation");
+      this.batchRunCountSelect = document.getElementById("batch-run-count");
+      this.runBatchButton = document.getElementById("run-batch");
+      this.batchSummary = document.getElementById("batch-summary");
       this.summaryPairs = document.getElementById("summary-pairs");
       this.summaryStrength = document.getElementById("summary-strength");
       this.summarySearch = document.getElementById("summary-search");
@@ -84,6 +87,7 @@
 
       this.handleResize = this.handleResize.bind(this);
       this.handleRun = this.handleRun.bind(this);
+      this.handleBatchRun = this.handleBatchRun.bind(this);
       this.handleControlChange = this.handleControlChange.bind(this);
       this.handleChatSubmit = this.handleChatSubmit.bind(this);
       this.debounceTimer = null;
@@ -109,6 +113,9 @@
       }
       if (this.explorationSelect) {
         this.explorationSelect.addEventListener("change", this.handleControlChange);
+      }
+      if (this.runBatchButton) {
+        this.runBatchButton.addEventListener("click", this.handleBatchRun);
       }
       this.chatForm.addEventListener("submit", this.handleChatSubmit);
       if (this.chatCapabilitiesButton) {
@@ -170,6 +177,11 @@
         return;
       }
 
+      if (this.batchSummary) {
+        this.batchSummary.classList.remove("is-visible");
+        this.batchSummary.textContent = "";
+      }
+
       this.state = {
         agents: this.createAgents(this.getDensityCount(this.densitySelect.value)),
         pairs: [],
@@ -181,6 +193,156 @@
       this.status.textContent = "Simulation started. Agents are moving into their first encounters.";
       this.draw();
       this.animate();
+    }
+
+    handleBatchRun() {
+      if (this.state.isRunning) {
+        return;
+      }
+
+      const runCount = parseInt(this.batchRunCountSelect ? this.batchRunCountSelect.value : "30", 10) || 30;
+      const metricsList = [];
+
+      this.runButton.disabled = true;
+      if (this.runBatchButton) this.runBatchButton.disabled = true;
+      this.status.textContent = "Running batch experiment: " + runCount + " simulations...";
+
+      for (let runIndex = 0; runIndex < runCount; runIndex += 1) {
+        this.state = {
+          agents: this.createAgents(this.getDensityCount(this.densitySelect.value)),
+          pairs: [],
+          step: 0,
+          isRunning: false,
+          lastRun: this.state.lastRun,
+        };
+
+        for (let stepIndex = 0; stepIndex < STEP_COUNT; stepIndex += 1) {
+          this.stepSimulation();
+          this.state.step = stepIndex + 1;
+        }
+
+        metricsList.push(this.getSimulationMetrics());
+      }
+
+      const pairStats = this.computeBatchStats(metricsList.map((m) => m.pairCount));
+      const strengthStats = this.computeBatchStats(metricsList.map((m) => m.matchingStrength));
+      const searchStats = this.computeBatchStats(metricsList.map((m) => m.averageSearchSteps));
+      const lastMetrics = metricsList[metricsList.length - 1];
+
+      this.state.lastRun = {
+        metrics: lastMetrics,
+        mobilityLevel: this.mobilitySelect.value,
+        densityLevel: this.densitySelect.value,
+        preferenceRule: this.preferenceSelect.value,
+        selectivityLevel: this.selectivitySelect ? this.selectivitySelect.value : "Medium",
+        patienceLevel: this.patienceSelect ? this.patienceSelect.value : "Normal",
+        explorationLevel: this.explorationSelect ? this.explorationSelect.value : "Balanced",
+      };
+
+      this.lastCitation = this.buildRunCitationMessage(
+        this.state.lastRun.metrics,
+        this.state.lastRun.mobilityLevel,
+        this.state.lastRun.densityLevel,
+        this.state.lastRun.preferenceRule,
+        this.state.lastRun.selectivityLevel,
+        this.state.lastRun.patienceLevel,
+        this.state.lastRun.explorationLevel
+      );
+
+      this.updateSummaryBar();
+      this.setExportEnabled(true);
+      this.renderInsightQuestions();
+      this.draw();
+      this.showBatchSummary(runCount, pairStats, strengthStats, searchStats);
+
+      this.status.textContent =
+        "Batch complete: " +
+        runCount +
+        " runs. Mean pairs " +
+        pairStats.mean.toFixed(1) +
+        ", mean strength " +
+        strengthStats.mean.toFixed(2) +
+        ", mean search " +
+        searchStats.mean.toFixed(1) +
+        ".";
+
+      this.addChatMessage(
+        "Assistant",
+        "Batch experiment complete (n=" +
+          runCount +
+          "). Mean pairs=" +
+          pairStats.mean.toFixed(1) +
+          " (95% CI " +
+          pairStats.ciLow.toFixed(1) +
+          " to " +
+          pairStats.ciHigh.toFixed(1) +
+          "), matching strength=" +
+          strengthStats.mean.toFixed(2) +
+          " (95% CI " +
+          strengthStats.ciLow.toFixed(2) +
+          " to " +
+          strengthStats.ciHigh.toFixed(2) +
+          "), avg search=" +
+          searchStats.mean.toFixed(1) +
+          " (95% CI " +
+          searchStats.ciLow.toFixed(1) +
+          " to " +
+          searchStats.ciHigh.toFixed(1) +
+          ")."
+      );
+
+      this.runButton.disabled = false;
+      if (this.runBatchButton) this.runBatchButton.disabled = false;
+    }
+
+    computeBatchStats(values) {
+      const n = values.length;
+      if (!n) {
+        return { mean: 0, sd: 0, ciLow: 0, ciHigh: 0 };
+      }
+
+      const mean = values.reduce((sum, value) => sum + value, 0) / n;
+      const variance =
+        n > 1
+          ? values.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / (n - 1)
+          : 0;
+      const sd = Math.sqrt(variance);
+      const margin = n > 1 ? 1.96 * (sd / Math.sqrt(n)) : 0;
+
+      return {
+        mean,
+        sd,
+        ciLow: mean - margin,
+        ciHigh: mean + margin,
+      };
+    }
+
+    showBatchSummary(runCount, pairStats, strengthStats, searchStats) {
+      if (!this.batchSummary) return;
+
+      this.batchSummary.innerHTML =
+        "Batch n=" +
+        runCount +
+        " | Pairs mean=" +
+        pairStats.mean.toFixed(1) +
+        " (95% CI " +
+        pairStats.ciLow.toFixed(1) +
+        " to " +
+        pairStats.ciHigh.toFixed(1) +
+        ") | Strength mean=" +
+        strengthStats.mean.toFixed(2) +
+        " (95% CI " +
+        strengthStats.ciLow.toFixed(2) +
+        " to " +
+        strengthStats.ciHigh.toFixed(2) +
+        ") | Avg search mean=" +
+        searchStats.mean.toFixed(1) +
+        " (95% CI " +
+        searchStats.ciLow.toFixed(1) +
+        " to " +
+        searchStats.ciHigh.toFixed(1) +
+        ").";
+      this.batchSummary.classList.add("is-visible");
     }
 
     handleControlChange() {
@@ -1540,6 +1702,10 @@
       this.summaryStrength.textContent = "Strength —";
       this.summarySearch.textContent = "Avg search —";
       if (this.runSummary) this.runSummary.classList.remove("is-visible");
+      if (this.batchSummary) {
+        this.batchSummary.textContent = "";
+        this.batchSummary.classList.remove("is-visible");
+      }
     }
 
     shuffle(items) {

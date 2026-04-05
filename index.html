@@ -156,6 +156,19 @@
               <span class="summary-metric" id="summary-strength">Strength —</span>
               <span class="summary-metric" id="summary-search">Avg search —</span>
             </div>
+            <div class="batch-tools" aria-label="Batch experiment controls">
+              <label class="batch-field" for="batch-run-count">
+                <span>Batch runs</span>
+                <select id="batch-run-count" name="batch-run-count">
+                  <option>10</option>
+                  <option selected>30</option>
+                  <option>50</option>
+                  <option>100</option>
+                </select>
+              </label>
+              <button class="secondary-button" id="run-batch" type="button">Run batch experiment</button>
+            </div>
+            <div class="batch-summary" id="batch-summary" aria-live="polite"></div>
 
             <section class="simulation-grid" aria-labelledby="simulation-grid-title">
               <div class="simulation-grid-header">

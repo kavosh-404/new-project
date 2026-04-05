@@ -333,6 +333,48 @@ select {
   font-size: 0.92rem;
 }
 
+.batch-tools {
+  margin-top: 0.65rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: end;
+}
+
+.batch-field {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 9rem;
+}
+
+.batch-field span {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.batch-field select {
+  padding: 0.6rem 0.85rem;
+}
+
+.batch-summary {
+  margin-top: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(79, 57, 36, 0.12);
+  border-radius: var(--radius-md);
+  background: rgba(15, 118, 110, 0.05);
+  color: var(--text);
+  line-height: 1.45;
+  font-size: 0.93rem;
+  display: none;
+}
+
+.batch-summary.is-visible {
+  display: block;
+}
+
 .simulation-grid {
   position: relative;
   z-index: 1;
