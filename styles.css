@@ -606,6 +606,34 @@ select {
   text-decoration: underline;
 }
 
+.rule-analytics-table-wrap {
+  margin-top: 0.7rem;
+  overflow-x: auto;
+}
+
+.rule-analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+  font-size: 0.82rem;
+}
+
+.rule-analytics-table th,
+.rule-analytics-table td {
+  border: 1px solid rgba(79, 57, 36, 0.12);
+  padding: 0.42rem 0.48rem;
+  text-align: left;
+}
+
+.rule-analytics-table th {
+  background: rgba(15, 118, 110, 0.1);
+  color: #0f4f4a;
+}
+
+.rule-hazard-card {
+  margin-top: 0.7rem;
+}
+
 .preview-raw-csv {
   border: 1px dashed rgba(15, 118, 110, 0.25);
   border-radius: 12px;

@@ -73,6 +73,10 @@
       this.previewDifferenceChart = document.getElementById("preview-difference-chart");
       this.previewMetricsInsight = document.getElementById("preview-metrics-insight");
       this.previewDifferenceInsight = document.getElementById("preview-difference-insight");
+      this.ruleAnalyticsDefinitions = document.getElementById("rule-analytics-definitions");
+      this.ruleAnalyticsBody = document.getElementById("rule-analytics-body");
+      this.ruleHazardChart = document.getElementById("rule-hazard-chart");
+      this.ruleHazardInsight = document.getElementById("rule-hazard-insight");
       this.researchFigurePage16 = document.getElementById("research-figure-page-16");
       this.researchFigurePage17 = document.getElementById("research-figure-page-17");
       this.researchFigurePage18 = document.getElementById("research-figure-page-18");
@@ -473,6 +477,7 @@
           y: this.randomFloat(padding, size - padding),
           matched: false,
           partnerId: null,
+          matchedAtStep: null,
           searchSteps: 0,
         });
       }
@@ -499,8 +504,9 @@
     }
 
     stepSimulation() {
+      const currentStep = this.state.step + 1;
       this.moveAgents();
-      this.resolveEncounters();
+      this.resolveEncounters(currentStep);
 
       this.state.agents.forEach((agent) => {
         if (!agent.matched) {
@@ -526,7 +532,7 @@
       });
     }
 
-    resolveEncounters() {
+    resolveEncounters(currentStep) {
       const unmatchedAgents = this.shuffle(this.state.agents.filter((agent) => !agent.matched));
 
       for (let index = 0; index < unmatchedAgents.length; index += 1) {
@@ -548,7 +554,7 @@
           }
 
           if (this.mutuallyAccept(agent, candidate)) {
-            this.matchAgents(agent, candidate);
+            this.matchAgents(agent, candidate, currentStep);
             break;
           }
         }
@@ -564,23 +570,24 @@
     }
 
     getAcceptanceScore(agent, candidate, preferenceRule) {
-      const selectivity = selectivityMultipliers[this.selectivitySelect ? this.selectivitySelect.value : "Medium"] || 1;
-      const patienceRate = patienceRates[this.patienceSelect ? this.patienceSelect.value : "Normal"] || 0.01;
-      const patienceBoost = agent.searchSteps * patienceRate;
-
-      if (preferenceRule === "Similarity-based") {
-        const difference = Math.abs(agent.attractiveness - candidate.attractiveness);
-        return this.clamp((1 - difference / 9) * selectivity + patienceBoost, 0.1, 1);
-      }
-
-      return this.clamp((candidate.attractiveness / 10) * selectivity + patienceBoost, 0.1, 1);
+      const selectivityLevel = this.selectivitySelect ? this.selectivitySelect.value : "Medium";
+      const patienceLevel = this.patienceSelect ? this.patienceSelect.value : "Normal";
+      return this.getAcceptanceScoreWithSettings(
+        agent,
+        candidate,
+        preferenceRule,
+        selectivityLevel,
+        patienceLevel
+      );
     }
 
-    matchAgents(agent, candidate) {
+    matchAgents(agent, candidate, stepNumber) {
       agent.matched = true;
       candidate.matched = true;
       agent.partnerId = candidate.id;
       candidate.partnerId = agent.id;
+      agent.matchedAtStep = stepNumber;
+      candidate.matchedAtStep = stepNumber;
 
       this.state.pairs.push({ agent1: agent.id, agent2: candidate.id });
     }
@@ -1679,6 +1686,7 @@
       this.drawMetricsChart(reportData);
       this.drawDifferenceChart(reportData);
       this.populateChartInsights(reportData);
+      this.populateRuleAnalytics(reportData);
       this.renderResearchFigureCanvases();
     }
 
@@ -1701,10 +1709,10 @@
         return;
       }
 
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-
-      const loadingTask = window.pdfjsLib.getDocument("smaldino-schank-2012.pdf");
+      const loadingTask = window.pdfjsLib.getDocument({
+        url: "smaldino-schank-2012.pdf",
+        disableWorker: true,
+      });
       loadingTask.promise
         .then((pdfDoc) => {
           return Promise.all(
@@ -1714,8 +1722,9 @@
         .then(() => {
           this.researchFiguresRendered = true;
         })
-        .catch(() => {
-          figureTargets.forEach(({ canvas }) => this.paintFigureFallback(canvas, "Could not render this page"));
+        .catch((error) => {
+          const reason = error && error.message ? error.message : "render failed";
+          figureTargets.forEach(({ canvas }) => this.paintFigureFallback(canvas, "Could not render: " + reason));
         });
     }
 
@@ -1952,6 +1961,321 @@
       }
     }
 
+    populateRuleAnalytics(reportData) {
+      if (!this.ruleAnalyticsBody || !this.ruleHazardChart || !this.ruleHazardInsight) return;
+
+      const settings = {
+        densityLevel: reportData.densityLevel,
+        mobilityLevel: reportData.mobilityLevel,
+        selectivityLevel: reportData.selectivityLevel,
+        patienceLevel: reportData.patienceLevel,
+      };
+
+      const analyticsRows = this.computeRuleAnalyticsRows(settings, 10);
+
+      this.renderRuleAnalyticsTable(analyticsRows);
+      this.drawRuleHazardChart(analyticsRows);
+    }
+
+    computeRuleAnalyticsRows(settings, runCount) {
+      const combinations = [
+        { ruleLabel: "Rule 1", ruleShort: "R1", preferenceRule: "Attractiveness-based", movement: "NS", explorationLevel: "Local" },
+        { ruleLabel: "Rule 1", ruleShort: "R1", preferenceRule: "Attractiveness-based", movement: "ZZ", explorationLevel: "Balanced" },
+        { ruleLabel: "Rule 1", ruleShort: "R1", preferenceRule: "Attractiveness-based", movement: "BR", explorationLevel: "Wide" },
+        { ruleLabel: "Rule 2", ruleShort: "R2", preferenceRule: "Similarity-based", movement: "NS", explorationLevel: "Local" },
+        { ruleLabel: "Rule 2", ruleShort: "R2", preferenceRule: "Similarity-based", movement: "ZZ", explorationLevel: "Balanced" },
+        { ruleLabel: "Rule 2", ruleShort: "R2", preferenceRule: "Similarity-based", movement: "BR", explorationLevel: "Wide" },
+      ];
+
+      return combinations.map((combo) => {
+        const pairCorrValues = [];
+        const meanDateValues = [];
+        const meanHazardValues = [];
+        const hazardSum = new Array(STEP_COUNT).fill(0);
+
+        for (let runIndex = 0; runIndex < runCount; runIndex += 1) {
+          const result = this.runSyntheticSimulation({
+            preferenceRule: combo.preferenceRule,
+            movementLevel: combo.explorationLevel,
+            densityLevel: settings.densityLevel,
+            mobilityLevel: settings.mobilityLevel,
+            selectivityLevel: settings.selectivityLevel,
+            patienceLevel: settings.patienceLevel,
+          });
+
+          pairCorrValues.push(result.interPairCorrelation);
+          meanDateValues.push(result.meanDateToMate);
+          meanHazardValues.push(result.meanHazard);
+          result.hazardSeries.forEach((value, index) => {
+            hazardSum[index] += value;
+          });
+        }
+
+        return {
+          ...combo,
+          interPairCorrelation: this.computeBatchStats(pairCorrValues).mean,
+          meanDateToMate: this.computeBatchStats(meanDateValues).mean,
+          meanHazard: this.computeBatchStats(meanHazardValues).mean,
+          hazardSeries: hazardSum.map((value) => value / runCount),
+        };
+      });
+    }
+
+    runSyntheticSimulation(settings) {
+      const size = this.getCanvasSize();
+      const padding = AGENT_RADIUS + 2;
+      const densityMultiplier = densityMultipliers[settings.densityLevel] || 1;
+      const agentCount = Math.max(10, Math.round(size * size * baseDensityFactor * densityMultiplier));
+
+      const agents = [];
+      const pairs = [];
+      for (let i = 0; i < agentCount; i += 1) {
+        agents.push({
+          id: i,
+          attractiveness: this.randomInt(1, 10),
+          x: this.randomFloat(padding, size - padding),
+          y: this.randomFloat(padding, size - padding),
+          matched: false,
+          partnerId: null,
+          matchedAtStep: null,
+          searchSteps: 0,
+        });
+      }
+
+      const movement = (mobilitySizes[settings.mobilityLevel] || mobilitySizes.Medium) *
+        (explorationMultipliers[settings.movementLevel] || explorationMultipliers.Balanced);
+
+      for (let step = 1; step <= STEP_COUNT; step += 1) {
+        agents.forEach((agent) => {
+          if (agent.matched) return;
+          agent.x = this.clamp(agent.x + this.randomFloat(-movement, movement), padding, size - padding);
+          agent.y = this.clamp(agent.y + this.randomFloat(-movement, movement), padding, size - padding);
+        });
+
+        const unmatched = this.shuffle(agents.filter((agent) => !agent.matched));
+        for (let i = 0; i < unmatched.length; i += 1) {
+          const first = unmatched[i];
+          if (first.matched) continue;
+
+          for (let j = i + 1; j < unmatched.length; j += 1) {
+            const second = unmatched[j];
+            if (second.matched) continue;
+            if (this.getDistance(first, second) > ENCOUNTER_DISTANCE) continue;
+
+            const acceptFirst = this.getAcceptanceScoreWithSettings(
+              first,
+              second,
+              settings.preferenceRule,
+              settings.selectivityLevel,
+              settings.patienceLevel
+            );
+            const acceptSecond = this.getAcceptanceScoreWithSettings(
+              second,
+              first,
+              settings.preferenceRule,
+              settings.selectivityLevel,
+              settings.patienceLevel
+            );
+
+            if (Math.random() < acceptFirst && Math.random() < acceptSecond) {
+              first.matched = true;
+              second.matched = true;
+              first.partnerId = second.id;
+              second.partnerId = first.id;
+              first.matchedAtStep = step;
+              second.matchedAtStep = step;
+              pairs.push({ agent1: first.id, agent2: second.id });
+              break;
+            }
+          }
+        }
+
+        agents.forEach((agent) => {
+          if (!agent.matched) agent.searchSteps += 1;
+        });
+      }
+
+      const interPairCorrelation = this.computeInterPairCorrelation(agents, pairs);
+      const matchedAgents = agents.filter((agent) => agent.matched && agent.matchedAtStep !== null);
+      const meanDateToMate = matchedAgents.length
+        ? matchedAgents.reduce((sum, agent) => sum + agent.matchedAtStep, 0) / matchedAgents.length
+        : STEP_COUNT;
+      const hazardSeries = this.computeHazardSeries(agents);
+      const meanHazard = hazardSeries.reduce((sum, value) => sum + value, 0) / hazardSeries.length;
+
+      return {
+        interPairCorrelation,
+        meanDateToMate,
+        meanHazard,
+        hazardSeries,
+      };
+    }
+
+    getAcceptanceScoreWithSettings(agent, candidate, preferenceRule, selectivityLevel, patienceLevel) {
+      const selectivity = selectivityMultipliers[selectivityLevel || "Medium"] || 1;
+      const patienceRate = patienceRates[patienceLevel || "Normal"] || 0.01;
+      const patienceBoost = agent.searchSteps * patienceRate;
+
+      if (preferenceRule === "Similarity-based") {
+        const difference = Math.abs(agent.attractiveness - candidate.attractiveness);
+        return this.clamp((1 - difference / 9) * selectivity + patienceBoost, 0.1, 1);
+      }
+
+      return this.clamp((candidate.attractiveness / 10) * selectivity + patienceBoost, 0.1, 1);
+    }
+
+    computeInterPairCorrelation(agents, pairs) {
+      if (!pairs.length) return 0;
+
+      const xs = [];
+      const ys = [];
+      pairs.forEach((pair) => {
+        const first = agents[pair.agent1];
+        const second = agents[pair.agent2];
+        if (!first || !second) return;
+        xs.push(first.attractiveness);
+        ys.push(second.attractiveness);
+      });
+
+      if (xs.length < 2) return 0;
+
+      const n = xs.length;
+      const sumX = xs.reduce((sum, value) => sum + value, 0);
+      const sumY = ys.reduce((sum, value) => sum + value, 0);
+      const sumXX = xs.reduce((sum, value) => sum + value * value, 0);
+      const sumYY = ys.reduce((sum, value) => sum + value * value, 0);
+      const sumXY = xs.reduce((sum, value, index) => sum + value * ys[index], 0);
+
+      const numerator = n * sumXY - sumX * sumY;
+      const denomX = n * sumXX - sumX * sumX;
+      const denomY = n * sumYY - sumY * sumY;
+      const denominator = Math.sqrt(Math.max(denomX, 0) * Math.max(denomY, 0));
+
+      if (!denominator) return 0;
+      return this.clamp(numerator / denominator, -1, 1);
+    }
+
+    computeHazardSeries(agents) {
+      const series = [];
+      let atRisk = agents.length;
+
+      for (let step = 1; step <= STEP_COUNT; step += 1) {
+        if (atRisk <= 0) {
+          series.push(0);
+          continue;
+        }
+
+        const events = agents.filter((agent) => agent.matchedAtStep === step).length;
+        const hazard = events / atRisk;
+        series.push(hazard);
+        atRisk -= events;
+      }
+
+      return series;
+    }
+
+    renderRuleAnalyticsTable(rows) {
+      if (!this.ruleAnalyticsBody) return;
+      this.ruleAnalyticsBody.innerHTML = rows
+        .map((row) => {
+          return (
+            "<tr><td>" +
+            row.ruleLabel +
+            "</td><td>" +
+            row.movement +
+            "</td><td>" +
+            row.interPairCorrelation.toFixed(3) +
+            "</td><td>" +
+            row.meanDateToMate.toFixed(2) +
+            "</td><td>" +
+            row.meanHazard.toFixed(3) +
+            "</td></tr>"
+          );
+        })
+        .join("");
+
+      if (this.ruleAnalyticsDefinitions) {
+        this.ruleAnalyticsDefinitions.textContent =
+          "Definitions: inter-pair correlation r is Pearson correlation between attractiveness values of matched partners; mean date to mate is the average step where a matched agent formed a pair; mating hazard at step t is h(t)=matches(t)/atRisk(t). Rule 1 uses Attractiveness-based choice, Rule 2 uses Similarity-based choice. Movement labels: NS=local neighborhood search, ZZ=balanced zig-zag search, BR=broad random search.";
+      }
+    }
+
+    drawRuleHazardChart(rows) {
+      if (!this.ruleHazardChart) return;
+      const ctx = this.ruleHazardChart.getContext("2d");
+      if (!ctx) return;
+
+      const chartSize = this.prepareHiDPICanvas(this.ruleHazardChart, 220);
+      const width = chartSize.width;
+      const height = chartSize.height;
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#fdfaf5";
+      ctx.fillRect(0, 0, width, height);
+
+      const left = 46;
+      const right = width - 12;
+      const top = 18;
+      const bottom = height - 36;
+      const chartWidth = right - left;
+      const chartHeight = bottom - top;
+
+      const maxHazard = Math.max(
+        0.01,
+        ...rows.map((row) => Math.max(...row.hazardSeries))
+      );
+
+      ctx.strokeStyle = "rgba(79, 57, 36, 0.25)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(left, top);
+      ctx.lineTo(left, bottom);
+      ctx.lineTo(right, bottom);
+      ctx.stroke();
+
+      const colors = ["#0f766e", "#1d4ed8", "#7c3aed", "#b45309", "#dc2626", "#475569"];
+      rows.forEach((row, index) => {
+        ctx.beginPath();
+        ctx.strokeStyle = colors[index % colors.length];
+        ctx.lineWidth = 1.8;
+
+        row.hazardSeries.forEach((hazard, stepIndex) => {
+          const x = left + (stepIndex / (STEP_COUNT - 1)) * chartWidth;
+          const y = bottom - (hazard / maxHazard) * chartHeight;
+          if (stepIndex === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+        ctx.stroke();
+
+        const legendY = top + 12 + index * 12;
+        ctx.fillStyle = colors[index % colors.length];
+        ctx.fillRect(right - 150, legendY - 7, 10, 2);
+        ctx.fillStyle = "#3e352d";
+        ctx.font = "10px Instrument Sans, sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText(row.ruleShort + "-" + row.movement, right - 136, legendY - 4);
+      });
+
+      let peakRow = rows[0];
+      rows.forEach((row) => {
+        if (Math.max(...row.hazardSeries) > Math.max(...peakRow.hazardSeries)) {
+          peakRow = row;
+        }
+      });
+
+      if (this.ruleHazardInsight) {
+        this.ruleHazardInsight.textContent =
+          "Insight: Hazard at step t is h(t)=matches(t)/atRisk(t). The highest peak hazard in this benchmark appears under " +
+          peakRow.ruleLabel +
+          " " +
+          peakRow.movement +
+          ", meaning that combination yields the fastest early conversion from unmatched to matched states.";
+      }
+    }
+
     prepareHiDPICanvas(canvas, height) {
       const parentWidth = canvas.parentElement ? canvas.parentElement.clientWidth : 0;
       const width = Math.max(260, Math.floor(parentWidth || canvas.clientWidth || 440));
@@ -2033,6 +2357,24 @@
       if (this.previewDifferenceInsight) {
         this.previewDifferenceInsight.textContent =
           "Insight: This chart shows how similar partners were, with lower difference bins indicating stronger assortative matching.";
+      }
+      if (this.ruleAnalyticsDefinitions) {
+        this.ruleAnalyticsDefinitions.textContent =
+          "Definitions: Rule 1 maps to Attractiveness-based choice and Rule 2 maps to Similarity-based choice. Movement labels in this simulation are NS = local neighborhood search, ZZ = balanced zig-zag search, and BR = broad random search.";
+      }
+      if (this.ruleAnalyticsBody) {
+        this.ruleAnalyticsBody.innerHTML = "<tr><td colspan=\"5\">Run preview to compute analytics.</td></tr>";
+      }
+      if (this.ruleHazardInsight) {
+        this.ruleHazardInsight.textContent =
+          "Insight: Hazard at step t is matches at t divided by agents still unmatched at the start of t.";
+      }
+      if (this.ruleHazardChart) {
+        const ruleCtx = this.ruleHazardChart.getContext("2d");
+        if (ruleCtx) {
+          const chartSize = this.prepareHiDPICanvas(this.ruleHazardChart, 220);
+          ruleCtx.clearRect(0, 0, chartSize.width, chartSize.height);
+        }
       }
 
       if (this.previewMetricsChart) {
