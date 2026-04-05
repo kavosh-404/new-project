@@ -436,11 +436,10 @@
       }
 
       if (lower.includes("detail") || lower.includes("quote") || lower.includes("map")) {
-        const refs = this.getReferenceNotes(mobility, density, preference);
         return (
-          "Detailed pointers: " +
-          refs.join("; ") +
-          ". These map to the spatial locality, mobility, and density analyses in Smaldino & Schank (2012)."
+          "The spatial locality constraint (pp. 11–13) shows that agents only meet neighbors. " +
+          (mobility === "Low" ? "With low mobility (p. 16), agents cover little space and experience fewer encounters." : mobility === "High" ? "Higher mobility (p. 16) improves search by letting agents sweep through more of the grid." : "Medium mobility (p. 16) balances encounter breadth with realistic movement constraints.") + " " +
+          (density === "Sparse" ? "Sparse density (pp. 17–18) further limits encounters and extends search time." : density === "Dense" ? "Dense conditions (pp. 17–18) accelerate encounters and reduce search duration." : "Normal density (pp. 17–18) produces steady encounter rates.") + " These patterns align with Smaldino & Schank's (2012) findings on how space constrains matching."
         );
       }
 
@@ -672,8 +671,6 @@
         );
       }
 
-      const refs = this.getReferenceNotes(mobility, density, preference);
-      const anchors = this.getParagraphAnchors(mobility, density, preference);
       return (
         "Result recap: " +
         metrics.pairCount +
@@ -683,15 +680,11 @@
         strengthLabel +
         "); avg search " +
         metrics.averageSearchSteps.toFixed(1) +
-        ". Interpretation: " +
+        ". According to Smaldino & Schank (2012), spatial locality (pp. 11–13) constrains encounters such that assortment reflects nearby availability more than global choice. With " +
         density.toLowerCase() +
-        " density limited encounter options and " +
+        " density (pp. 17–18) and " +
         mobility.toLowerCase() +
-        " mobility set how far agents could search, so assortment reflects nearby availability more than global choice. Sources: " +
-        refs.join("; ") +
-        ". Locate in text: " +
-        anchors.join(" | ") +
-        "."
+        " mobility (p. 16), agents mostly meet nearby others, producing patterns consistent with the paper's spatial and movement effects on partner selection."
       );
     }
 
@@ -749,67 +742,6 @@
       return "The average search time of " +
         averageSearchSteps.toFixed(1) +
         " steps suggests that the search environment was comparatively manageable for this population (Smaldino & Schank 2012, p. 16).";
-    }
-
-    getReferenceNotes(mobilityLevel, densityLevel, preferenceRule) {
-      const notes = [];
-
-      // Spatial locality baseline
-      notes.push("local neighborhoods constrain encounters (pp. 11–13)");
-
-      if (mobilityLevel === "Low") {
-        notes.push("low mobility slows search and weakens assortment (p. 16, mobility discussion)");
-      } else if (mobilityLevel === "High") {
-        notes.push("higher mobility improves partner search (p. 16, mobility effects)");
-      } else {
-        notes.push("medium mobility yields intermediate search efficiency (p. 16)");
-      }
-
-      if (densityLevel === "Sparse") {
-        notes.push("sparse grids reduce matching, extend search time (pp. 17–18, density results)");
-      } else if (densityLevel === "Dense") {
-        notes.push("dense grids increase encounter rates, faster matching (pp. 17–18)");
-      } else {
-        notes.push("normal density produces steady encounters (pp. 17–18)");
-      }
-
-      if (preferenceRule === "Attractiveness-based") {
-        notes.push("attractiveness priority raises wait times for high-attractiveness agents (p. 16)");
-      } else {
-        notes.push("similarity rule depends on local availability more than global sorting (pp. 11–13)");
-      }
-
-      return notes;
-    }
-
-    getParagraphAnchors(mobilityLevel, densityLevel, preferenceRule) {
-      const anchors = [];
-
-      anchors.push('pp. 11–13: early section noting that agents only meet near neighbors ("spatial locality")');
-
-      if (mobilityLevel === "Low") {
-        anchors.push('p. 16: paragraph discussing how limited movement slows search and weakens assortment');
-      } else if (mobilityLevel === "High") {
-        anchors.push('p. 16: paragraph showing higher movement boosts encounters and matching');
-      } else {
-        anchors.push('p. 16: mobility section, mid-paragraph on intermediate movement rates');
-      }
-
-      if (densityLevel === "Sparse") {
-        anchors.push('pp. 17–18: results on sparse grids—few encounters and longer search');
-      } else if (densityLevel === "Dense") {
-        anchors.push('pp. 17–18: results on dense grids—more encounters and faster matching');
-      } else {
-        anchors.push('pp. 17–18: "normal density" case with steady encounters');
-      }
-
-      if (preferenceRule === "Attractiveness-based") {
-        anchors.push('p. 16: note that prioritizing attractiveness makes highly attractive agents wait longer');
-      } else {
-        anchors.push('pp. 11–13: discussion of similarity choices depending on who is locally available');
-      }
-
-      return anchors;
     }
 
     setExportEnabled(isEnabled) {
