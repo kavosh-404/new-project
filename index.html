@@ -247,25 +247,22 @@
               </div>
 
               <section class="report-section" aria-labelledby="research-graphs-title">
-                <h4 id="research-graphs-title">Research Graphs (From Smaldino &amp; Schank, 2012)</h4>
+                <h4 id="research-graphs-title">Regenerated Research-Style Figures</h4>
                 <p>
-                  These panels embed figure-heavy pages from the original paper so readers can compare your run with the published patterns.
+                  These figures are regenerated from your simulation analytics to mirror the paper-style comparisons for Rule 1 and Rule 2 under NS/ZZ/BR conditions.
                 </p>
                 <div class="research-graph-grid">
                   <figure class="research-graph-card">
-                    <figcaption>Paper Figure Panel A (p. 16)</figcaption>
-                    <canvas class="research-graph-frame" id="research-figure-page-16" aria-label="Rendered research figure panel page 16"></canvas>
-                    <a class="research-graph-link" href="smaldino-schank-2012.pdf#page=16" target="_blank" rel="noopener">Open full page 16 in PDF</a>
+                    <figcaption>Figure 5 (Recreated): Inter-pair Correlation</figcaption>
+                    <canvas class="research-graph-frame" id="recreated-figure5-chart" aria-label="Recreated figure 5 inter-pair correlation chart"></canvas>
                   </figure>
                   <figure class="research-graph-card">
-                    <figcaption>Paper Figure Panel B (p. 17)</figcaption>
-                    <canvas class="research-graph-frame" id="research-figure-page-17" aria-label="Rendered research figure panel page 17"></canvas>
-                    <a class="research-graph-link" href="smaldino-schank-2012.pdf#page=17" target="_blank" rel="noopener">Open full page 17 in PDF</a>
+                    <figcaption>Figure 6 (Recreated): Mean Date to Mate</figcaption>
+                    <canvas class="research-graph-frame" id="recreated-figure6-chart" aria-label="Recreated figure 6 mean date to mate chart"></canvas>
                   </figure>
                   <figure class="research-graph-card">
-                    <figcaption>Paper Figure Panel C (p. 18)</figcaption>
-                    <canvas class="research-graph-frame" id="research-figure-page-18" aria-label="Rendered research figure panel page 18"></canvas>
-                    <a class="research-graph-link" href="smaldino-schank-2012.pdf#page=18" target="_blank" rel="noopener">Open full page 18 in PDF</a>
+                    <figcaption>Figure 7 (Recreated): Mating Hazard (Early Zoom)</figcaption>
+                    <canvas class="research-graph-frame" id="recreated-figure7-chart" aria-label="Recreated figure 7 mating hazard chart"></canvas>
                   </figure>
                 </div>
               </section>
@@ -299,6 +296,10 @@
                   <p class="preview-chart-insight" id="rule-hazard-insight">
                     Insight: Hazard at step t is matches at t divided by agents still unmatched at the start of t.
                   </p>
+                </figure>
+                <figure class="preview-chart-card rule-hazard-card">
+                  <figcaption>Mating Hazard Early-Phase Zoom (steps 1-15)</figcaption>
+                  <canvas id="rule-hazard-zoom-chart" width="640" height="260" aria-label="Early-phase hazard zoom"></canvas>
                 </figure>
               </section>
 
@@ -382,7 +383,6 @@
         </section>
       </main>
     </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="script.js?v=20260409"></script>
+    <script src="script.js?v=20260410"></script>
   </body>
 </html>

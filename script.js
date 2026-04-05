@@ -77,10 +77,11 @@
       this.ruleAnalyticsDefinitions = document.getElementById("rule-analytics-definitions");
       this.ruleAnalyticsBody = document.getElementById("rule-analytics-body");
       this.ruleHazardChart = document.getElementById("rule-hazard-chart");
+      this.ruleHazardZoomChart = document.getElementById("rule-hazard-zoom-chart");
       this.ruleHazardInsight = document.getElementById("rule-hazard-insight");
-      this.researchFigurePage16 = document.getElementById("research-figure-page-16");
-      this.researchFigurePage17 = document.getElementById("research-figure-page-17");
-      this.researchFigurePage18 = document.getElementById("research-figure-page-18");
+      this.recreatedFigure5Chart = document.getElementById("recreated-figure5-chart");
+      this.recreatedFigure6Chart = document.getElementById("recreated-figure6-chart");
+      this.recreatedFigure7Chart = document.getElementById("recreated-figure7-chart");
       this.summaryPairs = document.getElementById("summary-pairs");
       this.summaryStrength = document.getElementById("summary-strength");
       this.summarySearch = document.getElementById("summary-search");
@@ -115,7 +116,6 @@
       this.handleControlHelpDocumentClick = this.handleControlHelpDocumentClick.bind(this);
       this.handleControlHelpKeydown = this.handleControlHelpKeydown.bind(this);
       this.debounceTimer = null;
-      this.researchFiguresRendered = false;
 
       this.bindEvents();
       this.handleResize();
@@ -1688,93 +1688,6 @@
       this.drawDifferenceChart(reportData);
       this.populateChartInsights(reportData);
       this.populateRuleAnalytics(reportData);
-      this.renderResearchFigureCanvases();
-    }
-
-    renderResearchFigureCanvases() {
-      if (this.researchFiguresRendered) return;
-
-      const figureTargets = [
-        { canvas: this.researchFigurePage16, pageNumber: 16 },
-        { canvas: this.researchFigurePage17, pageNumber: 17 },
-        { canvas: this.researchFigurePage18, pageNumber: 18 },
-      ].filter((item) => !!item.canvas);
-
-      if (!figureTargets.length) {
-        this.researchFiguresRendered = true;
-        return;
-      }
-
-      if (!window.pdfjsLib) {
-        figureTargets.forEach(({ canvas }) => this.paintFigureFallback(canvas, "PDF renderer unavailable"));
-        return;
-      }
-
-      const loadingTask = window.pdfjsLib.getDocument({
-        url: "smaldino-schank-2012.pdf",
-        disableWorker: true,
-      });
-      loadingTask.promise
-        .then((pdfDoc) => {
-          return Promise.all(
-            figureTargets.map((target) => this.renderPdfPageToCanvas(pdfDoc, target.pageNumber, target.canvas))
-          );
-        })
-        .then(() => {
-          this.researchFiguresRendered = true;
-        })
-        .catch((error) => {
-          const reason = error && error.message ? error.message : "render failed";
-          figureTargets.forEach(({ canvas }) => this.paintFigureFallback(canvas, "Could not render: " + reason));
-        });
-    }
-
-    renderPdfPageToCanvas(pdfDoc, pageNumber, canvas) {
-      return pdfDoc.getPage(pageNumber).then((page) => {
-        const baseViewport = page.getViewport({ scale: 1 });
-        const targetWidth = Math.max(280, canvas.clientWidth || 320);
-        const scale = targetWidth / baseViewport.width;
-        const viewport = page.getViewport({ scale });
-        const ratio = window.devicePixelRatio || 1;
-        const ctx = canvas.getContext("2d");
-
-        canvas.width = Math.floor(viewport.width * ratio);
-        canvas.height = Math.floor(viewport.height * ratio);
-        canvas.style.width = Math.floor(viewport.width) + "px";
-        canvas.style.height = Math.floor(viewport.height) + "px";
-
-        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-        ctx.clearRect(0, 0, viewport.width, viewport.height);
-
-        return page.render({
-          canvasContext: ctx,
-          viewport,
-        }).promise;
-      });
-    }
-
-    paintFigureFallback(canvas, message) {
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      const width = Math.max(280, canvas.clientWidth || 320);
-      const height = 220;
-
-      canvas.width = width;
-      canvas.height = height;
-      canvas.style.width = width + "px";
-      canvas.style.height = height + "px";
-
-      ctx.fillStyle = "#fffdf9";
-      ctx.fillRect(0, 0, width, height);
-      ctx.strokeStyle = "rgba(15, 118, 110, 0.28)";
-      ctx.setLineDash([6, 4]);
-      ctx.strokeRect(8, 8, width - 16, height - 16);
-      ctx.setLineDash([]);
-      ctx.fillStyle = "#355c57";
-      ctx.font = "13px Instrument Sans, sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(message, width / 2, height / 2);
     }
 
     buildPreviewReportData() {
@@ -1976,6 +1889,10 @@
 
       this.renderRuleAnalyticsTable(analyticsRows);
       this.drawRuleHazardChart(analyticsRows);
+      this.drawRuleHazardZoomChart(analyticsRows, 15);
+      this.drawRecreatedFigure5(analyticsRows);
+      this.drawRecreatedFigure6(analyticsRows);
+      this.drawRecreatedFigure7(analyticsRows);
     }
 
     computeRuleAnalyticsRows(settings, runCount) {
@@ -1992,6 +1909,8 @@
         const pairCorrValues = [];
         const meanDateValues = [];
         const meanHazardValues = [];
+        const pairCorrReplacementValues = [];
+        const meanDateReplacementValues = [];
         const hazardSum = new Array(STEP_COUNT).fill(0);
 
         for (let runIndex = 0; runIndex < runCount; runIndex += 1) {
@@ -2003,10 +1922,21 @@
             selectivityLevel: settings.selectivityLevel,
             patienceLevel: settings.patienceLevel,
           });
+          const replacementResult = this.runSyntheticSimulation({
+            preferenceRule: combo.preferenceRule,
+            movementLevel: combo.explorationLevel,
+            densityLevel: settings.densityLevel,
+            mobilityLevel: settings.mobilityLevel,
+            selectivityLevel: settings.selectivityLevel,
+            patienceLevel: settings.patienceLevel,
+            withReplacement: true,
+          });
 
           pairCorrValues.push(result.interPairCorrelation);
           meanDateValues.push(result.meanDateToMate);
           meanHazardValues.push(result.meanHazard);
+          pairCorrReplacementValues.push(replacementResult.interPairCorrelation);
+          meanDateReplacementValues.push(replacementResult.meanDateToMate);
           result.hazardSeries.forEach((value, index) => {
             hazardSum[index] += value;
           });
@@ -2015,6 +1945,8 @@
         const corrStats = this.computeBatchStats(pairCorrValues);
         const dateStats = this.computeBatchStats(meanDateValues);
         const hazardStats = this.computeBatchStats(meanHazardValues);
+        const corrReplacementStats = this.computeBatchStats(pairCorrReplacementValues);
+        const dateReplacementStats = this.computeBatchStats(meanDateReplacementValues);
 
         return {
           ...combo,
@@ -2027,6 +1959,8 @@
           meanHazard: hazardStats.mean,
           meanHazardCiLow: hazardStats.ciLow,
           meanHazardCiHigh: hazardStats.ciHigh,
+          interPairCorrelationReplacement: corrReplacementStats.mean,
+          meanDateToMateReplacement: dateReplacementStats.mean,
           hazardSeries: hazardSum.map((value) => value / runCount),
         };
       });
@@ -2040,17 +1974,10 @@
 
       const agents = [];
       const pairs = [];
+      const matchedEventSteps = [];
+      const matchedPairValues = [];
       for (let i = 0; i < agentCount; i += 1) {
-        agents.push({
-          id: i,
-          attractiveness: this.randomInt(1, 10),
-          x: this.randomFloat(padding, size - padding),
-          y: this.randomFloat(padding, size - padding),
-          matched: false,
-          partnerId: null,
-          matchedAtStep: null,
-          searchSteps: 0,
-        });
+        agents.push(this.createSyntheticAgent(i, size, padding));
       }
 
       const movement = (mobilitySizes[settings.mobilityLevel] || mobilitySizes.Medium) *
@@ -2089,6 +2016,17 @@
             );
 
             if (Math.random() < acceptFirst && Math.random() < acceptSecond) {
+              matchedPairValues.push([first.attractiveness, second.attractiveness]);
+              matchedEventSteps.push(step, step);
+
+              if (settings.withReplacement) {
+                first.matched = true;
+                second.matched = true;
+                agents[first.id] = this.createSyntheticAgent(first.id, size, padding);
+                agents[second.id] = this.createSyntheticAgent(second.id, size, padding);
+                break;
+              }
+
               first.matched = true;
               second.matched = true;
               first.partnerId = second.id;
@@ -2106,12 +2044,15 @@
         });
       }
 
-      const interPairCorrelation = this.computeInterPairCorrelation(agents, pairs);
-      const matchedAgents = agents.filter((agent) => agent.matched && agent.matchedAtStep !== null);
-      const meanDateToMate = matchedAgents.length
-        ? matchedAgents.reduce((sum, agent) => sum + agent.matchedAtStep, 0) / matchedAgents.length
+      const interPairCorrelation = settings.withReplacement
+        ? this.computeInterPairCorrelationFromPairs(matchedPairValues)
+        : this.computeInterPairCorrelation(agents, pairs);
+      const meanDateToMate = matchedEventSteps.length
+        ? matchedEventSteps.reduce((sum, value) => sum + value, 0) / matchedEventSteps.length
         : STEP_COUNT;
-      const hazardSeries = this.computeHazardSeries(agents);
+      const hazardSeries = settings.withReplacement
+        ? this.computeHazardSeriesFromEvents(matchedEventSteps, agentCount)
+        : this.computeHazardSeries(agents);
       const meanHazard = hazardSeries.reduce((sum, value) => sum + value, 0) / hazardSeries.length;
 
       return {
@@ -2119,6 +2060,19 @@
         meanDateToMate,
         meanHazard,
         hazardSeries,
+      };
+    }
+
+    createSyntheticAgent(id, size, padding) {
+      return {
+        id,
+        attractiveness: this.randomInt(1, 10),
+        x: this.randomFloat(padding, size - padding),
+        y: this.randomFloat(padding, size - padding),
+        matched: false,
+        partnerId: null,
+        matchedAtStep: null,
+        searchSteps: 0,
       };
     }
 
@@ -2166,6 +2120,27 @@
       return this.clamp(numerator / denominator, -1, 1);
     }
 
+    computeInterPairCorrelationFromPairs(pairValues) {
+      if (!pairValues.length) return 0;
+      const xs = pairValues.map((pair) => pair[0]);
+      const ys = pairValues.map((pair) => pair[1]);
+      if (xs.length < 2) return 0;
+
+      const n = xs.length;
+      const sumX = xs.reduce((sum, value) => sum + value, 0);
+      const sumY = ys.reduce((sum, value) => sum + value, 0);
+      const sumXX = xs.reduce((sum, value) => sum + value * value, 0);
+      const sumYY = ys.reduce((sum, value) => sum + value * value, 0);
+      const sumXY = xs.reduce((sum, value, index) => sum + value * ys[index], 0);
+
+      const numerator = n * sumXY - sumX * sumY;
+      const denomX = n * sumXX - sumX * sumX;
+      const denomY = n * sumYY - sumY * sumY;
+      const denominator = Math.sqrt(Math.max(denomX, 0) * Math.max(denomY, 0));
+      if (!denominator) return 0;
+      return this.clamp(numerator / denominator, -1, 1);
+    }
+
     computeHazardSeries(agents) {
       const series = [];
       let atRisk = agents.length;
@@ -2182,6 +2157,15 @@
         atRisk -= events;
       }
 
+      return series;
+    }
+
+    computeHazardSeriesFromEvents(matchedEventSteps, atRiskCount) {
+      const series = [];
+      for (let step = 1; step <= STEP_COUNT; step += 1) {
+        const events = matchedEventSteps.filter((value) => value === step).length;
+        series.push(atRiskCount > 0 ? events / atRiskCount : 0);
+      }
       return series;
     }
 
@@ -2267,7 +2251,7 @@
       const ctx = this.ruleHazardChart.getContext("2d");
       if (!ctx) return;
 
-      const chartSize = this.prepareHiDPICanvas(this.ruleHazardChart, 220);
+      const chartSize = this.prepareHiDPICanvas(this.ruleHazardChart, 260);
       const width = chartSize.width;
       const height = chartSize.height;
 
@@ -2299,7 +2283,7 @@
       rows.forEach((row, index) => {
         ctx.beginPath();
         ctx.strokeStyle = colors[index % colors.length];
-        ctx.lineWidth = 1.8;
+        ctx.lineWidth = 2.6;
 
         row.hazardSeries.forEach((hazard, stepIndex) => {
           const x = left + (stepIndex / (STEP_COUNT - 1)) * chartWidth;
@@ -2312,13 +2296,13 @@
         });
         ctx.stroke();
 
-        const legendY = top + 12 + index * 12;
+        const legendY = top + 16 + index * 14;
         ctx.fillStyle = colors[index % colors.length];
-        ctx.fillRect(right - 150, legendY - 7, 10, 2);
+        ctx.fillRect(right - 162, legendY - 7, 12, 3);
         ctx.fillStyle = "#3e352d";
-        ctx.font = "10px Instrument Sans, sans-serif";
+        ctx.font = "11px Instrument Sans, sans-serif";
         ctx.textAlign = "left";
-        ctx.fillText(row.ruleShort + "-" + row.movement, right - 136, legendY - 4);
+        ctx.fillText(row.ruleShort + "-" + row.movement, right - 146, legendY - 4);
       });
 
       let peakRow = rows[0];
@@ -2334,8 +2318,197 @@
           peakRow.ruleLabel +
           " " +
           peakRow.movement +
-          ", meaning that combination yields the fastest early conversion from unmatched to matched states.";
+          ", meaning that combination yields the fastest early conversion from unmatched to matched states. See the zoom chart for readable early-step separation.";
       }
+    }
+
+    drawRuleHazardZoomChart(rows, maxStep) {
+      if (!this.ruleHazardZoomChart) return;
+      const ctx = this.ruleHazardZoomChart.getContext("2d");
+      if (!ctx) return;
+
+      const chartSize = this.prepareHiDPICanvas(this.ruleHazardZoomChart, 260);
+      const width = chartSize.width;
+      const height = chartSize.height;
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#fdfaf5";
+      ctx.fillRect(0, 0, width, height);
+
+      const left = 46;
+      const right = width - 12;
+      const top = 18;
+      const bottom = height - 36;
+      const chartWidth = right - left;
+      const chartHeight = bottom - top;
+      const colors = ["#0f766e", "#1d4ed8", "#7c3aed", "#b45309", "#dc2626", "#475569"];
+
+      const maxHazard = Math.max(
+        0.01,
+        ...rows.map((row) => Math.max(...row.hazardSeries.slice(0, maxStep)))
+      );
+
+      ctx.strokeStyle = "rgba(79, 57, 36, 0.25)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(left, top);
+      ctx.lineTo(left, bottom);
+      ctx.lineTo(right, bottom);
+      ctx.stroke();
+
+      rows.forEach((row, index) => {
+        ctx.beginPath();
+        ctx.strokeStyle = colors[index % colors.length];
+        ctx.lineWidth = 2.8;
+
+        row.hazardSeries.slice(0, maxStep).forEach((hazard, stepIndex) => {
+          const x = left + (stepIndex / Math.max(1, maxStep - 1)) * chartWidth;
+          const y = bottom - (hazard / maxHazard) * chartHeight;
+          if (stepIndex === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      });
+    }
+
+    drawRecreatedFigure5(rows) {
+      if (!this.recreatedFigure5Chart) return;
+      this.drawRecreatedGroupedFigure(
+        this.recreatedFigure5Chart,
+        rows,
+        "interPairCorrelation",
+        "interPairCorrelationReplacement",
+        "Inter-pair correlation"
+      );
+    }
+
+    drawRecreatedFigure6(rows) {
+      if (!this.recreatedFigure6Chart) return;
+      this.drawRecreatedGroupedFigure(
+        this.recreatedFigure6Chart,
+        rows,
+        "meanDateToMate",
+        "meanDateToMateReplacement",
+        "Mean date to mate"
+      );
+    }
+
+    drawRecreatedFigure7(rows) {
+      if (!this.recreatedFigure7Chart) return;
+      const ctx = this.recreatedFigure7Chart.getContext("2d");
+      if (!ctx) return;
+      const chartSize = this.prepareHiDPICanvas(this.recreatedFigure7Chart, 300);
+      const width = chartSize.width;
+      const height = chartSize.height;
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#fdfaf5";
+      ctx.fillRect(0, 0, width, height);
+
+      const left = 44;
+      const right = width - 14;
+      const top = 20;
+      const bottom = height - 34;
+      const chartWidth = right - left;
+      const chartHeight = bottom - top;
+      const maxStep = 15;
+      const colors = ["#0f766e", "#1d4ed8", "#7c3aed", "#b45309", "#dc2626", "#475569"];
+      const maxHazard = Math.max(0.01, ...rows.map((row) => Math.max(...row.hazardSeries.slice(0, maxStep))));
+
+      ctx.strokeStyle = "rgba(79, 57, 36, 0.25)";
+      ctx.beginPath();
+      ctx.moveTo(left, top);
+      ctx.lineTo(left, bottom);
+      ctx.lineTo(right, bottom);
+      ctx.stroke();
+
+      rows.forEach((row, index) => {
+        ctx.beginPath();
+        ctx.strokeStyle = colors[index % colors.length];
+        ctx.lineWidth = 2.4;
+        row.hazardSeries.slice(0, maxStep).forEach((hazard, stepIndex) => {
+          const x = left + (stepIndex / Math.max(1, maxStep - 1)) * chartWidth;
+          const y = bottom - (hazard / maxHazard) * chartHeight;
+          if (stepIndex === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      });
+    }
+
+    drawRecreatedGroupedFigure(canvas, rows, noReplacementField, replacementField, yLabel) {
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      const chartSize = this.prepareHiDPICanvas(canvas, 300);
+      const width = chartSize.width;
+      const height = chartSize.height;
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#fdfaf5";
+      ctx.fillRect(0, 0, width, height);
+
+      const left = 50;
+      const right = width - 12;
+      const top = 24;
+      const bottom = height - 42;
+      const chartWidth = right - left;
+      const chartHeight = bottom - top;
+
+      const data = ["R1-NS", "R1-ZZ", "R1-BR", "R2-NS", "R2-ZZ", "R2-BR"].map((label) => {
+        const row = rows.find((item) => item.ruleShort + "-" + item.movement === label);
+        return {
+          label,
+          noRepl: row ? row[noReplacementField] : 0,
+          repl: row ? row[replacementField] : 0,
+        };
+      });
+
+      const maxValue = Math.max(
+        0.01,
+        ...data.map((d) => Math.max(d.noRepl, d.repl))
+      );
+
+      ctx.strokeStyle = "rgba(79, 57, 36, 0.25)";
+      ctx.beginPath();
+      ctx.moveTo(left, top);
+      ctx.lineTo(left, bottom);
+      ctx.lineTo(right, bottom);
+      ctx.stroke();
+
+      const groupWidth = chartWidth / data.length;
+      const barWidth = Math.max(8, groupWidth * 0.28);
+      const gap = Math.max(3, groupWidth * 0.08);
+
+      data.forEach((item, index) => {
+        const groupStart = left + index * groupWidth + (groupWidth - (2 * barWidth + gap)) / 2;
+        const noHeight = (item.noRepl / maxValue) * chartHeight;
+        const replHeight = (item.repl / maxValue) * chartHeight;
+
+        ctx.fillStyle = "#374151";
+        ctx.fillRect(groupStart, bottom - noHeight, barWidth, noHeight);
+        ctx.fillStyle = "#e5e7eb";
+        ctx.fillRect(groupStart + barWidth + gap, bottom - replHeight, barWidth, replHeight);
+        ctx.strokeStyle = "#6b7280";
+        ctx.strokeRect(groupStart + barWidth + gap, bottom - replHeight, barWidth, replHeight);
+
+        ctx.fillStyle = "#3e352d";
+        ctx.font = "10px Instrument Sans, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(item.label, left + index * groupWidth + groupWidth / 2, bottom + 14);
+      });
+
+      ctx.fillStyle = "#3e352d";
+      ctx.font = "11px Instrument Sans, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(yLabel, left + 4, top - 8);
+      ctx.fillStyle = "#374151";
+      ctx.fillRect(right - 130, top + 2, 10, 8);
+      ctx.fillStyle = "#3e352d";
+      ctx.fillText("No Replacement", right - 116, top + 10);
+      ctx.fillStyle = "#e5e7eb";
+      ctx.fillRect(right - 130, top + 16, 10, 8);
+      ctx.strokeStyle = "#6b7280";
+      ctx.strokeRect(right - 130, top + 16, 10, 8);
+      ctx.fillStyle = "#3e352d";
+      ctx.fillText("Replacement", right - 116, top + 24);
     }
 
     prepareHiDPICanvas(canvas, height) {
@@ -2434,10 +2607,24 @@
       if (this.ruleHazardChart) {
         const ruleCtx = this.ruleHazardChart.getContext("2d");
         if (ruleCtx) {
-          const chartSize = this.prepareHiDPICanvas(this.ruleHazardChart, 220);
+          const chartSize = this.prepareHiDPICanvas(this.ruleHazardChart, 260);
           ruleCtx.clearRect(0, 0, chartSize.width, chartSize.height);
         }
       }
+      if (this.ruleHazardZoomChart) {
+        const zoomCtx = this.ruleHazardZoomChart.getContext("2d");
+        if (zoomCtx) {
+          const chartSize = this.prepareHiDPICanvas(this.ruleHazardZoomChart, 260);
+          zoomCtx.clearRect(0, 0, chartSize.width, chartSize.height);
+        }
+      }
+      [this.recreatedFigure5Chart, this.recreatedFigure6Chart, this.recreatedFigure7Chart].forEach((canvas) => {
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        const chartSize = this.prepareHiDPICanvas(canvas, 300);
+        ctx.clearRect(0, 0, chartSize.width, chartSize.height);
+      });
 
       if (this.previewMetricsChart) {
         const metricsCtx = this.previewMetricsChart.getContext("2d");
