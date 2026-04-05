@@ -403,6 +403,33 @@ select {
   justify-items: end;
 }
 
+.chat-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.chat-utility-button {
+  padding: 0.45rem 0.75rem;
+  border: 1px solid rgba(15, 118, 110, 0.2);
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.08);
+  color: #0f4f4a;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.chat-utility-button:hover,
+.chat-utility-button:focus-visible {
+  background: rgba(15, 118, 110, 0.14);
+  border-color: rgba(15, 118, 110, 0.32);
+  outline: none;
+}
+
 .chat-subtitle {
   margin: 0;
   color: var(--muted);
@@ -562,6 +589,14 @@ select {
   .panel-overview {
     flex-basis: auto;
     width: 100%;
+  }
+
+  .chat-controls {
+    justify-items: stretch;
+  }
+
+  .chat-action-row {
+    justify-content: flex-start;
   }
 
   .site-shell {

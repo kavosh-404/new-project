@@ -31,6 +31,8 @@
       this.chatForm = document.getElementById("chat-form");
       this.chatInput = document.getElementById("chat-input");
       this.chatSimpleToggle = document.getElementById("chat-simple-toggle");
+      this.chatCapabilitiesButton = document.getElementById("chat-capabilities");
+      this.chatResetButton = document.getElementById("chat-reset");
       this.downloadCsvButton = document.getElementById("download-csv");
       this.downloadPngButton = document.getElementById("download-png");
       this.copyCitationButton = document.getElementById("copy-citation");
@@ -79,6 +81,16 @@
       this.mobilitySelect.addEventListener("change", this.handleControlChange);
       this.densitySelect.addEventListener("change", this.handleControlChange);
       this.chatForm.addEventListener("submit", this.handleChatSubmit);
+      if (this.chatCapabilitiesButton) {
+        this.chatCapabilitiesButton.addEventListener("click", () => {
+          this.addChatMessage("Assistant", this.buildCapabilityMessage());
+          this.renderInsightQuestions();
+          this.addChatMessage("Assistant", this.buildSuggestedQuestionsMessage());
+        });
+      }
+      if (this.chatResetButton) {
+        this.chatResetButton.addEventListener("click", () => this.resetChatSession());
+      }
       if (this.chatSimpleToggle) {
         this.chatSimpleToggle.addEventListener("change", () => {
           this.simpleMode = this.chatSimpleToggle.checked;
@@ -169,6 +181,26 @@
       this.addChatMessage("You", text);
       const reply = this.buildChatReply(text);
       this.addChatMessage("Assistant", reply);
+      this.renderInsightQuestions();
+      this.addChatMessage("Assistant", this.buildSuggestedQuestionsMessage());
+    }
+
+    resetChatSession() {
+      if (this.chatLog) {
+        this.chatLog.innerHTML = "";
+      }
+
+      this.conversationHistory = [];
+      this.lastTopic = null;
+      this.lastQuestionType = null;
+      this.topicDepth = 0;
+
+      this.addChatMessage(
+        "Assistant",
+        this.state.lastRun
+          ? "Chat reset. Ask about this scenario's density, mobility, preference rule, matching strength, or citations."
+          : "Chat reset. Run a scenario, then ask about density, mobility, preference rules, matching, or citations."
+      );
       this.renderInsightQuestions();
       this.addChatMessage("Assistant", this.buildSuggestedQuestionsMessage());
     }
@@ -512,18 +544,18 @@
 
       buildCapabilityMessage() {
         if (!this.state.lastRun) {
-          return "I use lightweight NLP and conversation state tracking, not a full LLM. I can help once you run the simulation by explaining density, mobility, preference rules, assortative matching, search time, and citation-based takeaways from Smaldino & Schank (2012). Start by running a scenario, then click one of the suggested questions or ask about a specific factor.";
+          return "I use lightweight NLP and conversation state tracking, not a full LLM. I can help with this simulation once you run it: density, mobility, preference rules, assortative matching, search time, results, and citations. Run a scenario, then ask a focused question or use the suggested prompts.";
         }
 
-        return "I use lightweight NLP and conversation state tracking, not a full LLM. That means I am good at explaining this simulation's density, mobility, preference rules, pair counts, matching strength, search time, and citations, but I am limited to this model and its supported teaching questions. For this run, the best next step is to ask about density, mobility, the preference rule, assortative matching, or click one of the suggested questions below.";
+        return "I use lightweight NLP and conversation state tracking, not a full LLM. I am good at explaining this simulation's density, mobility, preference rules, pair counts, matching strength, search time, and citations. For this run, ask about one of those topics or use the suggested questions below.";
       }
 
       buildOutOfScopeReply() {
         if (!this.state.lastRun) {
-          return "I did not understand that request. I am not a full LLM chat assistant here; I use lightweight NLP and can mainly help with this simulation. Run a scenario first, then ask about density, mobility, preference rules, assortative matching, search time, or citations.";
+          return "I can only help with this simulation right now. Run a scenario, then ask about density, mobility, preference rules, matching, search time, results, or citations.";
         }
 
-        return "I did not understand that request well enough to answer reliably. I use lightweight NLP, not a full LLM, so I stay focused on this simulation. I can help explain density, mobility, preference rules, pair counts, matching strength, search time, or citations from Smaldino & Schank (2012). Try one of the suggested questions below or ask about one of those topics directly.";
+        return "I am not sure I understood that. I can help with this run's density, mobility, preference rule, matching strength, search time, results, or citations. Try one of the suggested questions below.";
       }
 
       isCapabilityQuestion(text) {
@@ -650,9 +682,6 @@
       }
       return null;
     }
-
-    addChatMessage(author, text) {
-      if (!this.chatLog) return;
 
     buildChatReply(text) {
       const lower = text.toLowerCase().trim();
