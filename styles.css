@@ -303,6 +303,36 @@ select {
   cursor: not-allowed;
 }
 
+.run-summary {
+  margin-top: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid rgba(79, 57, 36, 0.12);
+  border-radius: var(--radius-md);
+  background: #fffdf9;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.summary-label {
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+}
+
+.summary-metric {
+  background: rgba(15, 118, 110, 0.08);
+  color: var(--accent);
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.92rem;
+}
+
 .simulation-grid {
   position: relative;
   z-index: 1;

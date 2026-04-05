@@ -32,6 +32,11 @@
       this.chatSimpleToggle = document.getElementById("chat-simple-toggle");
       this.downloadCsvButton = document.getElementById("download-csv");
       this.downloadPngButton = document.getElementById("download-png");
+      this.copyCitationButton = document.getElementById("copy-citation");
+      this.summaryPairs = document.getElementById("summary-pairs");
+      this.summaryStrength = document.getElementById("summary-strength");
+      this.summarySearch = document.getElementById("summary-search");
+      this.runSummary = document.getElementById("run-summary");
 
       this.state = {
         agents: [],
@@ -77,6 +82,9 @@
       }
       if (this.downloadPngButton) {
         this.downloadPngButton.addEventListener("click", () => this.downloadPng());
+      }
+      if (this.copyCitationButton) {
+        this.copyCitationButton.addEventListener("click", () => this.copyCitation());
       }
       this.bindLessonPresets();
     }
@@ -272,6 +280,8 @@
       this.updateStatus(true);
       this.updateTeachingExplanation();
       this.setExportEnabled(true);
+      this.updateSummaryBar();
+      this.scrollToTeaching();
       this.draw();
     }
 
@@ -786,6 +796,7 @@
     setExportEnabled(isEnabled) {
       if (this.downloadCsvButton) this.downloadCsvButton.disabled = !isEnabled;
       if (this.downloadPngButton) this.downloadPngButton.disabled = !isEnabled;
+      if (this.copyCitationButton) this.copyCitationButton.disabled = !isEnabled;
     }
 
     downloadCsv() {
@@ -848,6 +859,37 @@
       });
     }
 
+    updateSummaryBar() {
+      if (!this.state.lastRun || !this.summaryPairs) return;
+      const { metrics } = this.state.lastRun;
+      this.summaryPairs.textContent = metrics.pairCount + " pairs";
+      this.summaryStrength.textContent = "Strength " + metrics.matchingStrength.toFixed(2);
+      this.summarySearch.textContent = "Avg search " + metrics.averageSearchSteps.toFixed(1);
+      this.runSummary.classList.add("is-visible");
+    }
+
+    copyCitation() {
+      if (!this.lastCitation) {
+        this.addChatMessage("Assistant", "Run first, then copy the citation.");
+        return;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(this.lastCitation).then(
+          () => this.addChatMessage("Assistant", "Citation copied."),
+          () => this.addChatMessage("Assistant", "Clipboard blocked—copy manually from the chat.")
+        );
+      } else {
+        this.addChatMessage("Assistant", this.lastCitation);
+      }
+    }
+
+    scrollToTeaching() {
+      const teaching = document.querySelector(".panel-teaching");
+      if (teaching && teaching.scrollIntoView) {
+        teaching.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+
     applyPreset(preset) {
       const setSelect = (select, value) => {
         if (!select) return;
@@ -867,6 +909,9 @@
         setSelect(this.mobilitySelect, "High");
         setSelect(this.preferenceSelect, "Similarity-based");
       }
+
+      // retain last citation text
+      this.lastCitation = this.buildRunCitationMessage(metrics, mobilityLevel, densityLevel, preferenceRule);
     }
 
     shuffle(items) {
