@@ -27,6 +27,7 @@
       this.status = document.getElementById("simulation-status");
       this.teachingExplanation = document.getElementById("teaching-explanation");
       this.chatLog = document.getElementById("chat-log");
+      this.chatSuggestions = document.getElementById("chat-suggestions");
       this.chatForm = document.getElementById("chat-form");
       this.chatInput = document.getElementById("chat-input");
       this.chatSimpleToggle = document.getElementById("chat-simple-toggle");
@@ -48,8 +49,15 @@
 
       this.lastCitation = null;
       this.simpleMode = false; // Default to technical mode
-      this.conversationHistory = []; // Track recent questions for context
+      this.conversationHistory = []; // Track all questions/answers
       this.lastTopic = null; // Remember what user last asked about
+      this.lastQuestionType = null; // Track question intent (causal, clarifying, comparative)
+      this.topicDepth = 0; // How deep we are into a topic (for progressive explanations)
+        this.defaultInsightQuestions = [
+        "Why did density affect pairing?",
+        "I don't understand.",
+        "How does mobility vs. density differ?",
+      ];
 
       this.handleResize = this.handleResize.bind(this);
       this.handleRun = this.handleRun.bind(this);
@@ -153,11 +161,15 @@
       const text = (this.chatInput.value || "").trim();
       if (!text) return;
 
-      this.addChatMessage("You", text);
       this.chatInput.value = "";
+      this.submitChatQuestion(text);
+    }
 
+    submitChatQuestion(text) {
+      this.addChatMessage("You", text);
       const reply = this.buildChatReply(text);
       this.addChatMessage("Assistant", reply);
+        this.renderInsightQuestions();
     }
 
     createAgents(count) {
@@ -282,12 +294,14 @@
     finishRun() {
       this.state.isRunning = false;
       this.runButton.disabled = false;
+        this.lastTopic = null;
+        this.lastQuestionType = null;
+        this.topicDepth = 0;
       this.updateStatus(true);
       this.updateTeachingExplanation();
       this.setExportEnabled(true);
       this.updateSummaryBar();
       this.scrollToTeaching();
-      this.lastTopic = null; // Reset topic context for new run
       this.draw();
     }
 
@@ -412,6 +426,107 @@
         "Assistant",
         "I can compare each run to Smaldino & Schank (2012). After a run, ask follow-ups like “How did density influence assortative matching?”"
       );
+      this.renderInsightQuestions();
+    }
+
+      getScenarioLabel() {
+        if (!this.state.lastRun) return "";
+
+        return (
+          this.state.lastRun.densityLevel +
+          " density, " +
+          this.state.lastRun.mobilityLevel +
+          " mobility, " +
+          this.state.lastRun.preferenceRule.toLowerCase()
+        );
+      }
+
+      getInsightQuestionSet() {
+        if (!this.state.lastRun) {
+          return this.defaultInsightQuestions;
+        }
+
+        const { densityLevel, mobilityLevel, preferenceRule } = this.state.lastRun;
+        const alternatePreference =
+          preferenceRule === "Attractiveness-based"
+            ? "Similarity-based"
+            : "Attractiveness-based";
+
+        if (this.lastTopic === "density") {
+          return [
+            "Why did density affect pairing?",
+            "How did density change search time in this run?",
+            "What would likely change if density were " + (densityLevel === "Dense" ? "Sparse" : "Dense") + " instead?",
+            "Show the evidence from this scenario.",
+          ];
+        }
+
+        if (this.lastTopic === "mobility") {
+          return [
+            "How does mobility vs. density differ?",
+            "How did mobility affect search time in this run?",
+            "What would likely change if mobility were " + (mobilityLevel === "High" ? "Low" : "High") + " instead?",
+            "I don't understand.",
+          ];
+        }
+
+        if (this.lastTopic === "matching") {
+          return [
+            "What part of this run shows assortative matching?",
+            "Why are partners similar or different here?",
+            "How does mobility vs. density differ?",
+            "I don't understand.",
+          ];
+        }
+
+        if (this.lastTopic === "preference") {
+          return [
+            "How did the preference rule shape this scenario?",
+            "What would likely change under " + alternatePreference + "?",
+            "Why did this rule affect matching strength?",
+            "I don't understand.",
+          ];
+        }
+
+        return [
+          "Why did density affect pairing?",
+          "I don't understand.",
+          "How does mobility vs. density differ?",
+          "How did the " + preferenceRule.toLowerCase() + " rule shape this scenario?",
+          "What result best shows assortative matching here?",
+        ];
+      }
+
+    renderInsightQuestions() {
+      if (!this.chatSuggestions) return;
+
+      this.chatSuggestions.innerHTML = "";
+
+      const title = document.createElement("p");
+      title.className = "chat-suggestions-title";
+        if (!this.state.lastRun) {
+          title.textContent = "Run a scenario to unlock suggested insight questions";
+        } else if (this.lastTopic) {
+          title.textContent = "Suggested follow-ups for " + this.getScenarioLabel();
+        } else {
+          title.textContent = "Insight questions for " + this.getScenarioLabel();
+        }
+      this.chatSuggestions.appendChild(title);
+
+      const buttons = document.createElement("div");
+      buttons.className = "chat-suggestion-buttons";
+
+        this.getInsightQuestionSet().forEach((question) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "chat-suggestion-chip";
+        button.textContent = question;
+        button.disabled = !this.state.lastRun;
+        button.addEventListener("click", () => this.submitChatQuestion(question));
+        buttons.appendChild(button);
+      });
+
+      this.chatSuggestions.appendChild(buttons);
     }
 
     addChatMessage(author, text) {
@@ -423,6 +538,89 @@
       this.chatLog.scrollTop = this.chatLog.scrollHeight;
     }
 
+    // Enhanced NLP: Detect question intent
+    detectIntent(text) {
+      const lower = text.toLowerCase().trim();
+      if (lower.match(/why|cause|result|effect|explain|happen/)) return "causal";
+      if (lower.match(/don't|confused|unclear|simpler|easier|again|still/)) return "clarification";
+      if (lower.match(/compare|vs|versus|different|same as|like|similar/)) return "comparative";
+      if (lower.match(/can you|could you|how to|tell me|show|give|what is/)) return "explanatory";
+      if (lower.match(/how much|how many|what|which|where|when/)) return "factual";
+      return "general";
+    }
+
+    // Enhanced NLP: Detect what topic they're asking about
+    detectTopic(text) {
+      const lower = text.toLowerCase();
+      if (lower.match(/density|grid|population|sparse|dense|encounter/)) return "density";
+      if (lower.match(/mobility|move|movement|search|distance|step/)) return "mobility";
+      if (lower.match(/match|assortative|similar|similarity|preference|pair/)) return "matching";
+      if (lower.match(/attract|preference|choice|rule|criterion/)) return "preference";
+      return null;
+    }
+
+    // Enhanced NLP: Check for clarification signals
+    isClarificationRequest(text) {
+      return !!text.toLowerCase().match(/don't\s*(understand|get|follow)|confused|unclear|simpler|make it simple|explain again|still\s*(don't|confused)/);
+    }
+
+    // Progressive explanation: Get progressively deeper
+    getProgressiveExplanation(topic, depth, metrics, density, mobility, preference) {
+      if (depth === 1) {
+        // First mention: basics
+        if (topic === "density") {
+          return "Density affects how often agents meet. With " + density + " density, agents are " + 
+            (density === "Sparse" ? "spread out—fewer encounters, harder to find partners" : 
+             density === "Dense" ? "packed together—frequent encounters, easy pairing" : 
+             "moderately spaced—steady encounter rate") + ".";
+        }
+        if (topic === "mobility") {
+          return "Mobility is how far each agent can move per turn. With " + mobility + " mobility, agents can " +
+            (mobility === "Low" ? "barely move—stay local, meet same neighbors" :
+             mobility === "High" ? "move far—explore more, meet diverse partners" :
+             "move moderately—balance local and exploration") + ".";
+        }
+      }
+      if (depth === 2) {
+        // Second mention: connect to results
+        if (topic === "density") {
+          return "Your run shows this: " + density + " density → " + metrics.pairCount + " pairs, strength " + 
+            metrics.matchingStrength.toFixed(2) + ". Smaldino & Schank (2012, pp. 17–18) found that " +
+            (density === "Sparse" ? "sparse grids drastically reduce pairing" :
+             density === "Dense" ? "dense grids accelerate pairing" :
+             "intermediate density produces steady pairing") + ". Your results match exactly.";
+        }
+        if (topic === "mobility") {
+          return "Your run took avg " + metrics.averageSearchSteps.toFixed(1) + " steps to pair up. " +
+            (mobility === "Low" ? "Low mobility forces agents to search harder." :
+             mobility === "High" ? "High mobility lets agents find partners faster." :
+             "Medium mobility balances exploration and efficiency.") +
+            " Smaldino & Schank (2012, p. 16) show this effect—your data confirms it.";
+        }
+      }
+      if (depth >= 3) {
+        // Third+ mention: deep mechanistic understanding
+        if (topic === "density") {
+          return "Deep dive on density: With " + density + " density and " + mobility + " mobility, " +
+            "agents operate in local neighborhoods (pp. 11–13). The grid spacing directly limits who can meet. " +
+            "Your matching strength " + metrics.matchingStrength.toFixed(2) + " emerges from this constraint—it's not " +
+            "free choice but forced assortment by proximity. That's the core insight of Smaldino & Schank (2012).";
+        }
+        if (topic === "mobility") {
+          return "Deep dive on mobility: Each step, agents move a certain distance. " + 
+            (mobility === "Low" ? "Low mobility (movement ~6px) keeps agents in tight regions." :
+             mobility === "High" ? "High mobility (movement ~24px) lets agents traverse the whole grid." :
+             "Medium mobility (movement ~14px) provides balance.") +
+            " Your avg search " + metrics.averageSearchSteps.toFixed(1) + " reflects this—it's tied directly " +
+            "to how far agents can explore before encountering someone acceptable.";
+        }
+      }
+      return null;
+    }
+
+    addChatMessage(author, text) {
+      if (!this.chatLog) return;
+
     buildChatReply(text) {
       const lower = text.toLowerCase().trim();
       
@@ -432,9 +630,33 @@
       }
 
       const { metrics, mobilityLevel: mobility, densityLevel: density, preferenceRule: preference } = this.state.lastRun;
+      
+      // NLP: Detect intent and topic
+      const intent = this.detectIntent(text);
+      const detectedTopic = this.detectTopic(text);
+      const isClarifying = this.isClarificationRequest(text);
+      this.lastQuestionType = intent;
+      
+      // Update conversation tracking
+      if (detectedTopic) {
+        if (this.lastTopic === detectedTopic) {
+          this.topicDepth += 1; // Same topic asked again—go deeper
+        } else {
+          this.lastTopic = detectedTopic;
+          this.topicDepth = 1; // New topic—reset depth
+        }
+      }
+      
+      // Store conversation turn
+      this.conversationHistory.push({
+        userInput: text,
+        intent: intent,
+        topic: detectedTopic || this.lastTopic,
+        timestamp: Date.now()
+      });
 
-      // Handle clarification requests ("I don't understand", "explain more", etc.)
-      if (lower.match(/don't\s*(understand|get|follow)|confused|unclear|simpler|easier|plain/)) {
+      // Handle clarification with progressive depth
+      if (isClarifying) {
         // If they just asked about something specific, go deeper on that topic
         if (this.lastTopic === "density") {
           return (
@@ -587,6 +809,7 @@
         "Ready to discuss results. Run the simulation or ask how mobility, density, and preference rules connect to Smaldino & Schank (2012)."
       );
       this.setExportEnabled(false);
+      this.renderInsightQuestions();
     }
 
     updateTeachingExplanation() {
@@ -629,6 +852,11 @@
         densityLevel,
         preferenceRule,
       };
+      this.renderInsightQuestions();
+      this.addChatMessage(
+        "Assistant",
+        "Try one of the insight questions below for this scenario."
+      );
     }
 
     getSimulationMetrics() {
@@ -975,8 +1203,11 @@
       this.state.lastRun = null;
       this.lastCitation = null;
       this.lastTopic = null; // Reset conversation context
+      this.lastQuestionType = null;
+      this.topicDepth = 0;
       this.setExportEnabled(false);
       this.updateSummaryBarPlaceholder();
+      this.renderInsightQuestions();
     }
 
     updateSummaryBarPlaceholder() {

@@ -435,6 +435,48 @@ select {
   gap: 0.35rem;
 }
 
+.chat-suggestions {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.chat-suggestions-title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.chat-suggestion-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.chat-suggestion-chip {
+  padding: 0.65rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 118, 110, 0.2);
+  background: rgba(15, 118, 110, 0.08);
+  color: #0f4f4a;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.chat-suggestion-chip:hover:not(:disabled),
+.chat-suggestion-chip:focus-visible:not(:disabled) {
+  background: rgba(15, 118, 110, 0.14);
+  border-color: rgba(15, 118, 110, 0.32);
+  outline: none;
+}
+
+.chat-suggestion-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .chat-message {
   margin: 0;
   line-height: 1.5;

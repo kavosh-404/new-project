@@ -164,9 +164,9 @@
               <p class="lesson-subtitle">Load a preset, run, then compare with the citations.</p>
             </div>
             <div class="lesson-buttons">
-              <button class="secondary-button" data-preset="sparse-low-attractiveness">Sparse + Low mobility + Attractiveness</button>
-              <button class="secondary-button" data-preset="dense-high-attractiveness">Dense + High mobility + Attractiveness</button>
-              <button class="secondary-button" data-preset="normal-high-similarity">Normal + High mobility + Similarity</button>
+              <button class="secondary-button" type="button" data-preset="sparse-low-attractiveness">Sparse + Low mobility + Attractiveness</button>
+              <button class="secondary-button" type="button" data-preset="dense-high-attractiveness">Dense + High mobility + Attractiveness</button>
+              <button class="secondary-button" type="button" data-preset="normal-high-similarity">Normal + High mobility + Similarity</button>
             </div>
           </section>
           <section class="chat-assistant" aria-label="Research chat assistant">
@@ -181,6 +181,7 @@
               </div>
             </div>
             <div class="chat-log" id="chat-log" aria-live="polite"></div>
+            <div class="chat-suggestions" id="chat-suggestions" aria-label="Suggested insight questions"></div>
             <form class="chat-form" id="chat-form">
               <label class="chat-label" for="chat-input">Chain-of-thought prompt</label>
               <div class="chat-input-row">
