@@ -96,6 +96,9 @@
       this.recreatedFigure5Chart = document.getElementById("recreated-figure5-chart");
       this.recreatedFigure6Chart = document.getElementById("recreated-figure6-chart");
       this.recreatedFigure7Chart = document.getElementById("recreated-figure7-chart");
+      this.recreatedFigure5Insight = document.getElementById("recreated-figure5-insight");
+      this.recreatedFigure6Insight = document.getElementById("recreated-figure6-insight");
+      this.recreatedFigure7Insight = document.getElementById("recreated-figure7-insight");
       this.summaryPairs = document.getElementById("summary-pairs");
       this.summaryStrength = document.getElementById("summary-strength");
       this.summarySearch = document.getElementById("summary-search");
@@ -2064,6 +2067,108 @@
       this.drawRecreatedFigure5(analyticsRows);
       this.drawRecreatedFigure6(analyticsRows);
       this.drawRecreatedFigure7(analyticsRows);
+      this.updateRecreatedFigureInsights(analyticsRows);
+    }
+
+    updateRecreatedFigureInsights(rows) {
+      if (!rows || !rows.length) return;
+
+      const avg = (values) => values.reduce((sum, value) => sum + value, 0) / Math.max(1, values.length);
+      const labelFor = (row) => row.ruleShort + "-" + row.movement;
+      const signed = (value, digits = 2) => (value >= 0 ? "+" : "") + value.toFixed(digits);
+
+      if (this.recreatedFigure5Insight) {
+        const topCorrRow = rows.reduce((best, row) =>
+          row.interPairCorrelation > best.interPairCorrelation ? row : best
+        , rows[0]);
+        const meanNoReplCorr = avg(rows.map((row) => row.interPairCorrelation));
+        const meanReplCorr = avg(rows.map((row) => row.interPairCorrelationReplacement));
+        const gap = meanNoReplCorr - meanReplCorr;
+        const topGap = topCorrRow.interPairCorrelation - topCorrRow.interPairCorrelationReplacement;
+
+        this.recreatedFigure5Insight.textContent =
+          "Insight: Highest inter-pair correlation is " +
+          labelFor(topCorrRow) +
+          " at r=" +
+          topCorrRow.interPairCorrelation.toFixed(2) +
+          " (replacement=" +
+          topCorrRow.interPairCorrelationReplacement.toFixed(2) +
+          ", delta=" +
+          signed(topGap) +
+          "). Across all six conditions, mean r is " +
+          meanNoReplCorr.toFixed(2) +
+          " vs " +
+          meanReplCorr.toFixed(2) +
+          " with replacement (overall delta " +
+          signed(gap) +
+          ").";
+      }
+
+      if (this.recreatedFigure6Insight) {
+        const fastestRow = rows.reduce((best, row) =>
+          row.meanDateToMate < best.meanDateToMate ? row : best
+        , rows[0]);
+        const slowestRow = rows.reduce((best, row) =>
+          row.meanDateToMate > best.meanDateToMate ? row : best
+        , rows[0]);
+        const meanNoReplDate = avg(rows.map((row) => row.meanDateToMate));
+        const meanReplDate = avg(rows.map((row) => row.meanDateToMateReplacement));
+
+        this.recreatedFigure6Insight.textContent =
+          "Insight: Fastest matching is " +
+          labelFor(fastestRow) +
+          " at t_m=" +
+          fastestRow.meanDateToMate.toFixed(2) +
+          "; slowest is " +
+          labelFor(slowestRow) +
+          " at t_m=" +
+          slowestRow.meanDateToMate.toFixed(2) +
+          ". Mean t_m across all conditions is " +
+          meanNoReplDate.toFixed(2) +
+          " vs " +
+          meanReplDate.toFixed(2) +
+          " with replacement (delta " +
+          signed(meanNoReplDate - meanReplDate) +
+          "). Lower t_m indicates quicker pair formation.";
+      }
+
+      if (this.recreatedFigure7Insight) {
+        const maxStep = 15;
+        const hazardSummaries = rows.map((row) => {
+          const early = row.hazardSeries.slice(0, maxStep);
+          let peakIndex = 0;
+          for (let i = 1; i < early.length; i += 1) {
+            if (early[i] > early[peakIndex]) peakIndex = i;
+          }
+          const earlyMean = early.reduce((sum, value) => sum + value, 0) / Math.max(1, early.length);
+          return {
+            row,
+            peakHazard: early[peakIndex] || 0,
+            peakStep: peakIndex + 1,
+            earlyMean,
+          };
+        });
+
+        const topPeak = hazardSummaries.reduce((best, item) =>
+          item.peakHazard > best.peakHazard ? item : best
+        , hazardSummaries[0]);
+        const topEarlyMean = hazardSummaries.reduce((best, item) =>
+          item.earlyMean > best.earlyMean ? item : best
+        , hazardSummaries[0]);
+
+        this.recreatedFigure7Insight.textContent =
+          "Insight: The earliest hazard spike is highest for " +
+          labelFor(topPeak.row) +
+          " at h(" +
+          topPeak.peakStep +
+          ")=" +
+          topPeak.peakHazard.toFixed(3) +
+          ". Over steps 1-15, the highest average hazard is " +
+          labelFor(topEarlyMean.row) +
+          " at " +
+          topEarlyMean.earlyMean.toFixed(3) +
+          ", indicating the strongest early-phase matching pressure.";
+      }
     }
 
     computeRuleAnalyticsRows(settings, runCount) {
