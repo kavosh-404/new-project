@@ -169,7 +169,8 @@
       this.addChatMessage("You", text);
       const reply = this.buildChatReply(text);
       this.addChatMessage("Assistant", reply);
-        this.renderInsightQuestions();
+      this.renderInsightQuestions();
+      this.addChatMessage("Assistant", this.buildSuggestedQuestionsMessage());
     }
 
     createAgents(count) {
@@ -446,7 +447,10 @@
           return this.defaultInsightQuestions;
         }
 
-        const { densityLevel, mobilityLevel, preferenceRule } = this.state.lastRun;
+        const { metrics, densityLevel, mobilityLevel, preferenceRule } = this.state.lastRun;
+        const pairCount = metrics.pairCount;
+        const matchingStrength = metrics.matchingStrength.toFixed(2);
+        const averageSearchSteps = metrics.averageSearchSteps.toFixed(1);
         const alternatePreference =
           preferenceRule === "Attractiveness-based"
             ? "Similarity-based"
@@ -454,47 +458,76 @@
 
         if (this.lastTopic === "density") {
           return [
-            "Why did density affect pairing?",
-            "How did density change search time in this run?",
-            "What would likely change if density were " + (densityLevel === "Dense" ? "Sparse" : "Dense") + " instead?",
-            "Show the evidence from this scenario.",
+            "Why did " + densityLevel.toLowerCase() + " density lead to " + pairCount + " pairs?",
+            "How did " + densityLevel.toLowerCase() + " density relate to avg search time of " + averageSearchSteps + " steps?",
+            "What would likely change if density were " + (densityLevel === "Dense" ? "Sparse" : "Dense") + " instead of " + densityLevel + "?",
+            "What in this run is the best evidence that density mattered?",
           ];
         }
 
         if (this.lastTopic === "mobility") {
           return [
-            "How does mobility vs. density differ?",
-            "How did mobility affect search time in this run?",
-            "What would likely change if mobility were " + (mobilityLevel === "High" ? "Low" : "High") + " instead?",
+            "How does " + mobilityLevel.toLowerCase() + " mobility differ from " + densityLevel.toLowerCase() + " density in this run?",
+            "How did " + mobilityLevel.toLowerCase() + " mobility affect avg search time of " + averageSearchSteps + " steps?",
+            "What would likely change if mobility were " + (mobilityLevel === "High" ? "Low" : "High") + " instead of " + mobilityLevel + "?",
             "I don't understand.",
           ];
         }
 
         if (this.lastTopic === "matching") {
           return [
-            "What part of this run shows assortative matching?",
-            "Why are partners similar or different here?",
-            "How does mobility vs. density differ?",
+            "What part of this run shows assortative matching at strength " + matchingStrength + "?",
+            "Why did this scenario produce " + matchingStrength + " matching strength?",
+            "How does " + mobilityLevel.toLowerCase() + " mobility differ from " + densityLevel.toLowerCase() + " density here?",
             "I don't understand.",
           ];
         }
 
         if (this.lastTopic === "preference") {
           return [
-            "How did the preference rule shape this scenario?",
+            "How did the " + preferenceRule.toLowerCase() + " rule shape this scenario?",
             "What would likely change under " + alternatePreference + "?",
-            "Why did this rule affect matching strength?",
+            "Why did this rule produce matching strength " + matchingStrength + "?",
             "I don't understand.",
           ];
         }
 
         return [
-          "Why did density affect pairing?",
+          "Why did " + densityLevel.toLowerCase() + " density affect pairing in this run?",
           "I don't understand.",
-          "How does mobility vs. density differ?",
-          "How did the " + preferenceRule.toLowerCase() + " rule shape this scenario?",
-          "What result best shows assortative matching here?",
+          "How does " + mobilityLevel.toLowerCase() + " mobility vs. " + densityLevel.toLowerCase() + " density differ here?",
+          "How did the " + preferenceRule.toLowerCase() + " rule shape the " + pairCount + " pairs we observed?",
+          "What result best explains matching strength " + matchingStrength + "?",
         ];
+      }
+
+      buildSuggestedQuestionsMessage() {
+        if (!this.state.lastRun) {
+          return "What I can help with: run the simulation, then ask about density, mobility, preference rules, assortative matching, search time, results summaries, or citation-based explanations.";
+        }
+
+        const questions = this.getInsightQuestionSet();
+        return "Valid next questions:<br>" + questions.map((question, index) => (index + 1) + ". " + question).join("<br>");
+      }
+
+      buildCapabilityMessage() {
+        if (!this.state.lastRun) {
+          return "I use lightweight NLP and conversation state tracking, not a full LLM. I can help once you run the simulation by explaining density, mobility, preference rules, assortative matching, search time, and citation-based takeaways from Smaldino & Schank (2012). Start by running a scenario, then click one of the suggested questions or ask about a specific factor.";
+        }
+
+        return "I use lightweight NLP and conversation state tracking, not a full LLM. That means I am good at explaining this simulation's density, mobility, preference rules, pair counts, matching strength, search time, and citations, but I am limited to this model and its supported teaching questions. For this run, the best next step is to ask about density, mobility, the preference rule, assortative matching, or click one of the suggested questions below.";
+      }
+
+      buildOutOfScopeReply() {
+        if (!this.state.lastRun) {
+          return "I did not understand that request. I am not a full LLM chat assistant here; I use lightweight NLP and can mainly help with this simulation. Run a scenario first, then ask about density, mobility, preference rules, assortative matching, search time, or citations.";
+        }
+
+        return "I did not understand that request well enough to answer reliably. I use lightweight NLP, not a full LLM, so I stay focused on this simulation. I can help explain density, mobility, preference rules, pair counts, matching strength, search time, or citations from Smaldino & Schank (2012). Try one of the suggested questions below or ask about one of those topics directly.";
+      }
+
+      isCapabilityQuestion(text) {
+        return !!text.match(/\bnlp\b|\bllm\b|language model|what can you do|what can you help|how do you work|what do you understand|what can i ask|help with|scope|capabilit/);
       }
 
     renderInsightQuestions() {
@@ -623,10 +656,14 @@
 
     buildChatReply(text) {
       const lower = text.toLowerCase().trim();
+
+      if (this.isCapabilityQuestion(lower)) {
+        return this.buildCapabilityMessage();
+      }
       
       // If no run yet, prompt to run
       if (!this.state.lastRun) {
-        return "No simulation run yet. Hit Run Simulation or change a control to auto-run, then ask about the results.";
+        return "No simulation run yet. Hit Run Simulation or change a control to auto-run, then ask about the results. Once a run exists, I can explain density, mobility, preference rules, assortative matching, search time, and citation-based takeaways.";
       }
 
       const { metrics, mobilityLevel: mobility, densityLevel: density, preferenceRule: preference } = this.state.lastRun;
@@ -790,15 +827,7 @@
       }
 
       // Default fallback
-      return (
-        "Pick a focus—density, mobility, matching, or preference rule—and I'll dig deeper. Current run: " +
-        metrics.pairCount +
-        " pairs, strength " +
-        metrics.matchingStrength.toFixed(2) +
-        ", avg search " +
-        metrics.averageSearchSteps.toFixed(1) +
-        " (Smaldino & Schank 2012, pp. 11–18)."
-      );
+      return this.buildOutOfScopeReply();
     }
 
     resetTeachingExplanation() {
