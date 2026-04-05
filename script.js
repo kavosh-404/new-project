@@ -621,8 +621,18 @@
       this.updateTeachingExplanation();
       this.setExportEnabled(true);
       this.updateSummaryBar();
-      this.scrollToTeaching();
+      this.autoOpenPreviewReport();
       this.draw();
+    }
+
+    autoOpenPreviewReport() {
+      const csv = this.buildRunCsvText();
+      if (!csv) return;
+      this.showCsvPreview(csv);
+
+      if (this.csvPreview && this.csvPreview.scrollIntoView) {
+        this.csvPreview.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     }
 
     updateStatus(isComplete = false) {
