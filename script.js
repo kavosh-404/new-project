@@ -2,6 +2,7 @@
   const STEP_COUNT = 50;
   const ENCOUNTER_DISTANCE = 28;
   const AGENT_RADIUS = 6;
+  const RULE_ANALYTICS_RUNS = 20;
 
   const densityMultipliers = {
     Sparse: 0.8,
@@ -1971,7 +1972,7 @@
         patienceLevel: reportData.patienceLevel,
       };
 
-      const analyticsRows = this.computeRuleAnalyticsRows(settings, 10);
+      const analyticsRows = this.computeRuleAnalyticsRows(settings, RULE_ANALYTICS_RUNS);
 
       this.renderRuleAnalyticsTable(analyticsRows);
       this.drawRuleHazardChart(analyticsRows);
@@ -2011,11 +2012,21 @@
           });
         }
 
+        const corrStats = this.computeBatchStats(pairCorrValues);
+        const dateStats = this.computeBatchStats(meanDateValues);
+        const hazardStats = this.computeBatchStats(meanHazardValues);
+
         return {
           ...combo,
-          interPairCorrelation: this.computeBatchStats(pairCorrValues).mean,
-          meanDateToMate: this.computeBatchStats(meanDateValues).mean,
-          meanHazard: this.computeBatchStats(meanHazardValues).mean,
+          interPairCorrelation: corrStats.mean,
+          interPairCorrelationCiLow: corrStats.ciLow,
+          interPairCorrelationCiHigh: corrStats.ciHigh,
+          meanDateToMate: dateStats.mean,
+          meanDateToMateCiLow: dateStats.ciLow,
+          meanDateToMateCiHigh: dateStats.ciHigh,
+          meanHazard: hazardStats.mean,
+          meanHazardCiLow: hazardStats.ciLow,
+          meanHazardCiHigh: hazardStats.ciHigh,
           hazardSeries: hazardSum.map((value) => value / runCount),
         };
       });
@@ -2185,10 +2196,25 @@
             row.movement +
             "</td><td>" +
             row.interPairCorrelation.toFixed(3) +
+            " [" +
+            row.interPairCorrelationCiLow.toFixed(3) +
+            ", " +
+            row.interPairCorrelationCiHigh.toFixed(3) +
+            "]" +
             "</td><td>" +
             row.meanDateToMate.toFixed(2) +
+            " [" +
+            row.meanDateToMateCiLow.toFixed(2) +
+            ", " +
+            row.meanDateToMateCiHigh.toFixed(2) +
+            "]" +
             "</td><td>" +
             row.meanHazard.toFixed(3) +
+            " [" +
+            row.meanHazardCiLow.toFixed(3) +
+            ", " +
+            row.meanHazardCiHigh.toFixed(3) +
+            "]" +
             "</td></tr>"
           );
         })
@@ -2196,7 +2222,9 @@
 
       if (this.ruleAnalyticsDefinitions) {
         this.ruleAnalyticsDefinitions.textContent =
-          "Definitions: inter-pair correlation r is Pearson correlation between attractiveness values of matched partners; mean date to mate is the average step where a matched agent formed a pair; mating hazard at step t is h(t)=matches(t)/atRisk(t). Rule 1 uses Attractiveness-based choice, Rule 2 uses Similarity-based choice. Movement labels: NS=local neighborhood search, ZZ=balanced zig-zag search, BR=broad random search.";
+          "Definitions: inter-pair correlation r is Pearson correlation between attractiveness values of matched partners; mean date to mate is the average step where a matched agent formed a pair; mating hazard at step t is h(t)=matches(t)/atRisk(t). Rule 1 uses Attractiveness-based choice, Rule 2 uses Similarity-based choice. Movement labels: NS=local neighborhood search, ZZ=balanced zig-zag search, BR=broad random search. Each row reports mean with 95% CI from n=" +
+          RULE_ANALYTICS_RUNS +
+          " synthetic runs.";
       }
     }
 
