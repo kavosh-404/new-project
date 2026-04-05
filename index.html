@@ -142,18 +142,6 @@
               </label>
             </form>
 
-            <section class="control-guide" aria-label="Simulation control guide">
-              <h3>What These Controls Mean</h3>
-              <ul class="control-guide-list">
-                <li><strong>Preference Rule:</strong> Chooses how acceptance decisions are made. Attractiveness-based favors higher-attractiveness partners; similarity-based favors partners with similar attractiveness.</li>
-                <li><strong>Mobility Level:</strong> Controls how far unmatched agents can move each step. Higher mobility increases exploration and encounter opportunities.</li>
-                <li><strong>Density Level:</strong> Controls how many agents are placed on the grid. Dense settings increase encounter rates; sparse settings reduce them.</li>
-                <li><strong>Selectivity:</strong> Controls baseline strictness in acceptance. High selectivity lowers acceptance probability; low selectivity raises it.</li>
-                <li><strong>Patience:</strong> Controls how quickly acceptance relaxes as search continues. Fast patience increases willingness sooner; slow patience keeps standards tighter longer.</li>
-                <li><strong>Exploration Bias:</strong> Scales movement range. Local keeps agents near neighborhoods; wide increases roaming across the grid.</li>
-              </ul>
-            </section>
-
             <button class="run-button" id="run-simulation" type="button">
               Run Simulation
             </button>
@@ -181,6 +169,18 @@
               <button class="secondary-button" id="run-batch" type="button">Run batch experiment</button>
             </div>
             <div class="batch-summary" id="batch-summary" aria-live="polite"></div>
+
+            <details class="control-guide-details" aria-label="Simulation control guide">
+              <summary>What do these controls mean?</summary>
+              <ul class="control-guide-list">
+                <li><strong>Preference Rule:</strong> Attractiveness-based prefers higher-attractiveness partners; similarity-based prefers partners with similar attractiveness.</li>
+                <li><strong>Mobility Level:</strong> Higher mobility increases movement distance and encounter opportunities.</li>
+                <li><strong>Density Level:</strong> Dense settings place more agents on the grid and increase encounter rates.</li>
+                <li><strong>Selectivity:</strong> High selectivity lowers baseline acceptance; low selectivity raises it.</li>
+                <li><strong>Patience:</strong> Controls how quickly acceptance relaxes with continued searching.</li>
+                <li><strong>Exploration Bias:</strong> Local keeps movement neighborhood-based; wide increases roaming range.</li>
+              </ul>
+            </details>
 
             <section class="simulation-grid" aria-labelledby="simulation-grid-title">
               <div class="simulation-grid-header">
