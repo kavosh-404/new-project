@@ -85,7 +85,6 @@
         this.chatCapabilitiesButton.addEventListener("click", () => {
           this.addChatMessage("Assistant", this.buildCapabilityMessage());
           this.renderInsightQuestions();
-          this.addChatMessage("Assistant", this.buildSuggestedQuestionsMessage());
         });
       }
       if (this.chatResetButton) {
@@ -182,7 +181,6 @@
       const reply = this.buildChatReply(text);
       this.addChatMessage("Assistant", reply);
       this.renderInsightQuestions();
-      this.addChatMessage("Assistant", this.buildSuggestedQuestionsMessage());
     }
 
     resetChatSession() {
@@ -202,7 +200,6 @@
           : "Chat reset. Run a scenario, then ask about density, mobility, preference rules, matching, or citations."
       );
       this.renderInsightQuestions();
-      this.addChatMessage("Assistant", this.buildSuggestedQuestionsMessage());
     }
 
     createAgents(count) {
@@ -533,21 +530,12 @@
         ];
       }
 
-      buildSuggestedQuestionsMessage() {
-        if (!this.state.lastRun) {
-          return "What I can help with: run the simulation, then ask about density, mobility, preference rules, assortative matching, search time, results summaries, or citation-based explanations.";
-        }
-
-        const questions = this.getInsightQuestionSet();
-        return "Valid next questions:<br>" + questions.map((question, index) => (index + 1) + ". " + question).join("<br>");
-      }
-
       buildCapabilityMessage() {
         if (!this.state.lastRun) {
-          return "I use lightweight NLP and conversation state tracking, not a full LLM. I can help with this simulation once you run it: density, mobility, preference rules, assortative matching, search time, results, and citations. Run a scenario, then ask a focused question or use the suggested prompts.";
+          return "This website is built with HTML, CSS, and vanilla JavaScript. The simulation runs fully in the browser on a 2D canvas, with no backend model or API. The chat assistant uses lightweight NLP and conversation-state tracking, not a full LLM, so it is designed to explain this specific simulation: density, mobility, preference rules, matching strength, search time, results, and citations from Smaldino & Schank (2012). Run a scenario, then use the insight questions below or ask about one of those topics.";
         }
 
-        return "I use lightweight NLP and conversation state tracking, not a full LLM. I am good at explaining this simulation's density, mobility, preference rules, pair counts, matching strength, search time, and citations. For this run, ask about one of those topics or use the suggested questions below.";
+        return "This website is built with HTML, CSS, and vanilla JavaScript. The system runs a browser-based agent simulation on a 2D canvas: agents move, encounter nearby neighbors, decide whether to match using the active preference rule, and then the page computes pair count, matching strength, and average search time from that run. The assistant is a lightweight NLP layer on top of those results, so it can explain this simulation and its citations, but it is not a full LLM. For this scenario, use the insight questions below or ask about density, mobility, the preference rule, matching strength, search time, or citations.";
       }
 
       buildOutOfScopeReply() {
@@ -910,6 +898,7 @@
         densityLevel,
         preferenceRule,
       };
+      this.lastCitation = this.buildRunCitationMessage(metrics, mobilityLevel, densityLevel, preferenceRule);
       this.renderInsightQuestions();
       this.addChatMessage(
         "Assistant",
