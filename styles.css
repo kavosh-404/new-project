@@ -541,6 +541,7 @@ select {
   background: rgba(255, 255, 255, 0.66);
   display: grid;
   gap: 0.4rem;
+  position: relative;
 }
 
 .preview-chart-card figcaption {
@@ -642,6 +643,30 @@ select {
 #rule-hazard-chart,
 #rule-hazard-zoom-chart {
   height: 280px;
+}
+
+.chart-hover-tip {
+  position: absolute;
+  min-width: 150px;
+  max-width: 230px;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(79, 57, 36, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 253, 249, 0.96);
+  color: #1f2d2b;
+  font-size: 0.74rem;
+  line-height: 1.4;
+  box-shadow: 0 8px 24px rgba(31, 26, 23, 0.12);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  z-index: 3;
+}
+
+.chart-hover-tip.is-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .preview-raw-csv {

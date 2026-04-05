@@ -293,6 +293,7 @@
                 <figure class="preview-chart-card rule-hazard-card">
                   <figcaption>Mating Hazard Comparison (Rule 1/2 × NS/ZZ/BR)</figcaption>
                   <canvas id="rule-hazard-chart" width="640" height="260" aria-label="Hazard comparison across rules and movement modes"></canvas>
+                  <div class="chart-hover-tip" id="rule-hazard-tooltip" aria-hidden="true"></div>
                   <p class="preview-chart-insight" id="rule-hazard-insight">
                     Insight: Hazard at step t is matches at t divided by agents still unmatched at the start of t.
                   </p>
@@ -300,6 +301,7 @@
                 <figure class="preview-chart-card rule-hazard-card">
                   <figcaption>Mating Hazard Early-Phase Zoom (steps 1-15)</figcaption>
                   <canvas id="rule-hazard-zoom-chart" width="640" height="260" aria-label="Early-phase hazard zoom"></canvas>
+                  <div class="chart-hover-tip" id="rule-hazard-zoom-tooltip" aria-hidden="true"></div>
                 </figure>
               </section>
 
@@ -383,6 +385,6 @@
         </section>
       </main>
     </div>
-    <script src="script.js?v=20260410"></script>
+    <script src="script.js?v=20260411"></script>
   </body>
 </html>

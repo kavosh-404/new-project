@@ -79,6 +79,8 @@
       this.ruleHazardChart = document.getElementById("rule-hazard-chart");
       this.ruleHazardZoomChart = document.getElementById("rule-hazard-zoom-chart");
       this.ruleHazardInsight = document.getElementById("rule-hazard-insight");
+      this.ruleHazardTooltip = document.getElementById("rule-hazard-tooltip");
+      this.ruleHazardZoomTooltip = document.getElementById("rule-hazard-zoom-tooltip");
       this.recreatedFigure5Chart = document.getElementById("recreated-figure5-chart");
       this.recreatedFigure6Chart = document.getElementById("recreated-figure6-chart");
       this.recreatedFigure7Chart = document.getElementById("recreated-figure7-chart");
@@ -116,6 +118,8 @@
       this.handleControlHelpDocumentClick = this.handleControlHelpDocumentClick.bind(this);
       this.handleControlHelpKeydown = this.handleControlHelpKeydown.bind(this);
       this.debounceTimer = null;
+      this.ruleHazardHoverData = null;
+      this.ruleHazardZoomHoverData = null;
 
       this.bindEvents();
       this.handleResize();
@@ -142,6 +146,7 @@
       if (this.runBatchButton) {
         this.runBatchButton.addEventListener("click", this.handleBatchRun);
       }
+      this.bindHazardTooltipEvents();
       this.bindControlHelpTooltips();
       this.chatForm.addEventListener("submit", this.handleChatSubmit);
       if (this.chatCapabilitiesButton) {
@@ -2305,6 +2310,22 @@
         ctx.fillText(row.ruleShort + "-" + row.movement, right - 146, legendY - 4);
       });
 
+      this.drawStepMarkers(ctx, left, top, bottom, chartWidth, STEP_COUNT, [5, 10, 15]);
+
+      this.ruleHazardHoverData = {
+        left,
+        right,
+        top,
+        bottom,
+        chartWidth,
+        maxStep: STEP_COUNT,
+        series: rows.map((row, index) => ({
+          label: row.ruleShort + "-" + row.movement,
+          color: colors[index % colors.length],
+          values: row.hazardSeries,
+        })),
+      };
+
       let peakRow = rows[0];
       rows.forEach((row) => {
         if (Math.max(...row.hazardSeries) > Math.max(...peakRow.hazardSeries)) {
@@ -2368,6 +2389,98 @@
           else ctx.lineTo(x, y);
         });
         ctx.stroke();
+      });
+
+      this.drawStepMarkers(ctx, left, top, bottom, chartWidth, maxStep, [5, 10, 15]);
+
+      this.ruleHazardZoomHoverData = {
+        left,
+        right,
+        top,
+        bottom,
+        chartWidth,
+        maxStep,
+        series: rows.map((row, index) => ({
+          label: row.ruleShort + "-" + row.movement,
+          color: colors[index % colors.length],
+          values: row.hazardSeries.slice(0, maxStep),
+        })),
+      };
+    }
+
+    bindHazardTooltipEvents() {
+      if (this.ruleHazardChart && this.ruleHazardTooltip) {
+        this.ruleHazardChart.addEventListener("mousemove", (event) =>
+          this.handleHazardTooltipMove(event, this.ruleHazardChart, this.ruleHazardTooltip, () => this.ruleHazardHoverData)
+        );
+        this.ruleHazardChart.addEventListener("mouseleave", () => this.hideHazardTooltip(this.ruleHazardTooltip));
+      }
+
+      if (this.ruleHazardZoomChart && this.ruleHazardZoomTooltip) {
+        this.ruleHazardZoomChart.addEventListener("mousemove", (event) =>
+          this.handleHazardTooltipMove(event, this.ruleHazardZoomChart, this.ruleHazardZoomTooltip, () => this.ruleHazardZoomHoverData)
+        );
+        this.ruleHazardZoomChart.addEventListener("mouseleave", () => this.hideHazardTooltip(this.ruleHazardZoomTooltip));
+      }
+    }
+
+    handleHazardTooltipMove(event, canvas, tooltip, hoverDataGetter) {
+      const hoverData = hoverDataGetter();
+      if (!hoverData) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const localX = event.clientX - rect.left;
+      const clampedX = this.clamp(localX, hoverData.left, hoverData.right);
+      const relative = (clampedX - hoverData.left) / Math.max(1, hoverData.chartWidth);
+      const stepIndex = this.clamp(Math.round(relative * (hoverData.maxStep - 1)), 0, hoverData.maxStep - 1);
+
+      const lines = ["Step " + (stepIndex + 1)];
+      hoverData.series.forEach((series) => {
+        const value = series.values[stepIndex] || 0;
+        lines.push(
+          '<span style="color:' +
+            series.color +
+            ';font-weight:700;">' +
+            series.label +
+            "</span>: " +
+            value.toFixed(3)
+        );
+      });
+      tooltip.innerHTML = lines.join("<br>");
+
+      const parentRect = canvas.parentElement ? canvas.parentElement.getBoundingClientRect() : rect;
+      const tooltipX = event.clientX - parentRect.left + 12;
+      const tooltipY = event.clientY - parentRect.top - 8;
+      tooltip.style.left = Math.min(tooltipX, parentRect.width - 240) + "px";
+      tooltip.style.top = Math.max(tooltipY, 24) + "px";
+      tooltip.classList.add("is-visible");
+    }
+
+    hideHazardTooltip(tooltip) {
+      if (!tooltip) return;
+      tooltip.classList.remove("is-visible");
+    }
+
+    drawStepMarkers(ctx, left, top, bottom, chartWidth, maxStep, markerSteps) {
+      markerSteps.forEach((markerStep) => {
+        if (markerStep < 1 || markerStep > maxStep) return;
+        const index = markerStep - 1;
+        const x = left + (index / Math.max(1, maxStep - 1)) * chartWidth;
+
+        ctx.save();
+        ctx.strokeStyle = "rgba(185, 130, 54, 0.36)";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(x, top);
+        ctx.lineTo(x, bottom);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = "#7a5a3a";
+        ctx.font = "10px Instrument Sans, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("s" + markerStep, x, top - 4);
+        ctx.restore();
       });
     }
 
@@ -2618,6 +2731,10 @@
           zoomCtx.clearRect(0, 0, chartSize.width, chartSize.height);
         }
       }
+      this.ruleHazardHoverData = null;
+      this.ruleHazardZoomHoverData = null;
+      this.hideHazardTooltip(this.ruleHazardTooltip);
+      this.hideHazardTooltip(this.ruleHazardZoomTooltip);
       [this.recreatedFigure5Chart, this.recreatedFigure6Chart, this.recreatedFigure7Chart].forEach((canvas) => {
         if (!canvas) return;
         const ctx = canvas.getContext("2d");
