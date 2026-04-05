@@ -274,9 +274,9 @@ body::before {
 }
 
 .control-help::before {
-  content: "i";
+  content: "?";
   color: #0f4f4a;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 700;
   line-height: 1;
 }
