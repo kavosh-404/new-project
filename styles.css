@@ -248,6 +248,55 @@ body::before {
   font-size: 0.95rem;
 }
 
+.control-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.control-help {
+  position: relative;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  border: 1px solid rgba(15, 118, 110, 0.28);
+  background: rgba(15, 118, 110, 0.08);
+  color: #0f4f4a;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.1rem;
+  text-align: center;
+  cursor: help;
+}
+
+.control-tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.45rem);
+  transform: translateX(-50%);
+  width: min(270px, 70vw);
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(79, 57, 36, 0.14);
+  border-radius: 10px;
+  background: #fffdf9;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.35;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  z-index: 3;
+}
+
+.control-help:hover .control-tooltip,
+.control-help:focus .control-tooltip,
+.control-help:focus-visible .control-tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
 .control-guide-details {
   position: relative;
   z-index: 1;
