@@ -87,6 +87,7 @@
       this.hazardSelectAllButton = document.getElementById("hazard-select-all");
       this.hazardClearAllButton = document.getElementById("hazard-clear-all");
       this.hazardAutoTop2 = document.getElementById("hazard-auto-top2");
+      this.hazardAutoTopN = document.getElementById("hazard-auto-topn");
       this.hazardDynamicExplainer = document.getElementById("hazard-dynamic-explainer");
       this.recreatedFigure5Chart = document.getElementById("recreated-figure5-chart");
       this.recreatedFigure6Chart = document.getElementById("recreated-figure6-chart");
@@ -2481,6 +2482,12 @@
           this.redrawHazardExplorer();
         });
       }
+      if (this.hazardAutoTopN) {
+        this.hazardAutoTopN.addEventListener("change", () => {
+          if (!this.autoHighlightTop2Enabled) return;
+          this.redrawHazardExplorer();
+        });
+      }
     }
 
     redrawHazardExplorer() {
@@ -2547,7 +2554,8 @@
     }
 
     applyAutoHighlightTop2(rows) {
-      const top2 = this.getMostDivergentPairLabels(rows, this.getHazardChartMode(), 15);
+      const selectedCount = this.getAutoHighlightCount();
+      const top2 = this.getMostDivergentLabels(rows, this.getHazardChartMode(), 15, selectedCount);
       this.lastRuleAnalyticsRows.forEach((row) => {
         const label = row.ruleShort + "-" + row.movement;
         this.hazardSeriesSelection[label] = top2.includes(label);
@@ -2555,30 +2563,33 @@
       this.autoHighlightedSeriesLabels = [...top2];
     }
 
-    getMostDivergentPairLabels(rows, mode, maxStep) {
-      if (rows.length <= 2) {
+    getMostDivergentLabels(rows, mode, maxStep, topN) {
+      if (rows.length <= topN) {
         return rows.map((row) => row.ruleShort + "-" + row.movement);
       }
 
-      let bestScore = -1;
-      let bestPair = [rows[0], rows[1]];
-
-      for (let i = 0; i < rows.length; i += 1) {
-        for (let j = i + 1; j < rows.length; j += 1) {
-          const a = this.getHazardDisplayValues(rows[i].hazardSeries, mode).slice(0, maxStep);
+      const distanceTotals = rows.map((row, index) => {
+        let total = 0;
+        const a = this.getHazardDisplayValues(row.hazardSeries, mode).slice(0, maxStep);
+        for (let j = 0; j < rows.length; j += 1) {
+          if (j === index) continue;
           const b = this.getHazardDisplayValues(rows[j].hazardSeries, mode).slice(0, maxStep);
-          let score = 0;
           for (let k = 0; k < Math.min(a.length, b.length); k += 1) {
-            score += Math.abs(a[k] - b[k]);
-          }
-          if (score > bestScore) {
-            bestScore = score;
-            bestPair = [rows[i], rows[j]];
+            total += Math.abs(a[k] - b[k]);
           }
         }
-      }
+        return { label: row.ruleShort + "-" + row.movement, total };
+      });
 
-      return bestPair.map((row) => row.ruleShort + "-" + row.movement);
+      return distanceTotals
+        .sort((a, b) => b.total - a.total)
+        .slice(0, Math.max(2, topN))
+        .map((item) => item.label);
+    }
+
+    getAutoHighlightCount() {
+      const parsed = parseInt(this.hazardAutoTopN ? this.hazardAutoTopN.value : "2", 10);
+      return this.clamp(parsed || 2, 2, 4);
     }
 
     getVisibleHazardRows(rows) {
@@ -2622,7 +2633,7 @@
 
       const labels = visibleRows.map((row) => row.ruleShort + "-" + row.movement).join(", ");
       const autoNote = this.autoHighlightTop2Enabled
-        ? " Auto-highlight is ON: these are the two most divergent series in early steps."
+        ? " Auto-highlight is ON: showing top " + this.getAutoHighlightCount() + " most divergent series in early steps."
         : "";
       this.hazardDynamicExplainer.textContent =
         "Dynamic explainer: currently displaying " +

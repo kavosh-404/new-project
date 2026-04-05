@@ -691,6 +691,25 @@ select {
   margin: 0;
 }
 
+.hazard-topn-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.34rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(79, 57, 36, 0.14);
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 0.76rem;
+  color: #3e352d;
+}
+
+.hazard-topn-control select {
+  padding: 0.2rem 0.35rem;
+  border: 1px solid rgba(79, 57, 36, 0.18);
+  border-radius: 6px;
+  background: #fff;
+}
+
 .hazard-series-toggles {
   display: flex;
   gap: 0.35rem;

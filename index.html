@@ -309,7 +309,15 @@
                       <button class="secondary-button" id="hazard-clear-all" type="button">Clear all</button>
                       <label class="hazard-auto-top2-toggle" for="hazard-auto-top2">
                         <input id="hazard-auto-top2" type="checkbox" />
-                        Auto-highlight top 2 most different
+                        Auto-highlight top divergent
+                      </label>
+                      <label class="hazard-topn-control" for="hazard-auto-topn">
+                        Count
+                        <select id="hazard-auto-topn">
+                          <option selected>2</option>
+                          <option>3</option>
+                          <option>4</option>
+                        </select>
                       </label>
                     </div>
                     <div class="hazard-series-toggles" id="hazard-series-toggles"></div>
@@ -410,6 +418,6 @@
         </section>
       </main>
     </div>
-    <script src="script.js?v=20260413"></script>
+    <script src="script.js?v=20260414"></script>
   </body>
 </html>
