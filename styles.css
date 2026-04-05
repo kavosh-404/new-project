@@ -194,6 +194,20 @@ body::before {
   letter-spacing: -0.03em;
 }
 
+.teaching-toggle-label {
+  margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.teaching-toggle-label input {
+  cursor: pointer;
+}
+
 .panel-overview {
   flex: 0 0 360px;
   display: grid;

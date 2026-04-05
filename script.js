@@ -48,6 +48,7 @@
       this.runButton = document.getElementById("run-simulation");
       this.status = document.getElementById("simulation-status");
       this.teachingExplanation = document.getElementById("teaching-explanation");
+      this.teachingSimpleToggle = document.getElementById("teaching-simple-toggle");
       this.chatLog = document.getElementById("chat-log");
       this.chatSuggestions = document.getElementById("chat-suggestions");
       this.chatForm = document.getElementById("chat-form");
@@ -136,6 +137,7 @@
       this.bindEvents();
       this.handleResize();
       this.seedPreview();
+      this.setSimpleMode(this.simpleMode, { refreshTeachingPanel: false });
       this.resetTeachingExplanation();
       this.initChat();
     }
@@ -173,13 +175,18 @@
       }
       if (this.chatSimpleToggle) {
         this.chatSimpleToggle.addEventListener("change", () => {
-          this.simpleMode = this.chatSimpleToggle.checked;
-          this.addChatMessage(
-            "Assistant",
-            this.simpleMode
-              ? "Simple mode on: I’ll explain runs in everyday language before citing the paper."
-              : "Simple mode off: I’ll give fuller technical references."
-          );
+          this.setSimpleMode(this.chatSimpleToggle.checked, {
+            announceInChat: true,
+            refreshTeachingPanel: true,
+          });
+        });
+      }
+      if (this.teachingSimpleToggle) {
+        this.teachingSimpleToggle.addEventListener("change", () => {
+          this.setSimpleMode(this.teachingSimpleToggle.checked, {
+            announceInChat: false,
+            refreshTeachingPanel: true,
+          });
         });
       }
       if (this.downloadCsvButton) {
@@ -1312,8 +1319,7 @@
     }
 
     resetTeachingExplanation() {
-      this.teachingExplanation.textContent =
-        "Run the simulation to generate a teaching explanation about how mobility, density, and preference rules shape assortative matching in this model.";
+      this.teachingExplanation.textContent = this.getTeachingPlaceholderText();
       this.addChatMessage(
         "Assistant",
         "Ready to discuss results. Run the simulation or ask how mobility, density, and preference rules connect to Smaldino & Schank (2012)."
@@ -1322,14 +1328,75 @@
       this.renderInsightQuestions();
     }
 
-    updateTeachingExplanation() {
-      const metrics = this.getSimulationMetrics();
-      const preferenceRule = this.preferenceSelect.value;
-      const mobilityLevel = this.mobilitySelect.value;
-      const densityLevel = this.densitySelect.value;
-      const selectivityLevel = this.selectivitySelect ? this.selectivitySelect.value : "Medium";
-      const patienceLevel = this.patienceSelect ? this.patienceSelect.value : "Normal";
-      const explorationLevel = this.explorationSelect ? this.explorationSelect.value : "Balanced";
+    setSimpleMode(enabled, options = {}) {
+      const { announceInChat = false, refreshTeachingPanel = false } = options;
+      this.simpleMode = !!enabled;
+
+      if (this.chatSimpleToggle && this.chatSimpleToggle.checked !== this.simpleMode) {
+        this.chatSimpleToggle.checked = this.simpleMode;
+      }
+      if (this.teachingSimpleToggle && this.teachingSimpleToggle.checked !== this.simpleMode) {
+        this.teachingSimpleToggle.checked = this.simpleMode;
+      }
+
+      if (refreshTeachingPanel) {
+        this.refreshTeachingPanelNarrative();
+      }
+
+      if (announceInChat) {
+        this.addChatMessage(
+          "Assistant",
+          this.simpleMode
+            ? "Simple mode on: I’ll explain runs in everyday language before citing the paper."
+            : "Simple mode off: I’ll give fuller technical references."
+        );
+      }
+    }
+
+    getTeachingPlaceholderText() {
+      return this.simpleMode
+        ? "Run the simulation, and this panel will explain the result in plain language using everyday terms."
+        : "Run the simulation to generate a teaching explanation about how mobility, density, and preference rules shape assortative matching in this model.";
+    }
+
+    buildTeachingPanelNarrative(
+      metrics,
+      mobilityLevel,
+      densityLevel,
+      preferenceRule,
+      selectivityLevel,
+      patienceLevel,
+      explorationLevel
+    ) {
+      if (this.simpleMode) {
+        const strengthLabel =
+          metrics.matchingStrength < 0.15
+            ? "very low"
+            : metrics.matchingStrength > 0.3
+            ? "high"
+            : "moderate";
+
+        return [
+          "Plain-language summary: " +
+            "In this run, movement was " +
+            mobilityLevel.toLowerCase() +
+            ", the crowd was " +
+            densityLevel.toLowerCase() +
+            ", and the decision rule was " +
+            preferenceRule.toLowerCase() +
+            ".",
+          "The simulation formed " +
+            metrics.pairCount +
+            " pairs. The similarity score was " +
+            metrics.matchingStrength.toFixed(2) +
+            " (" +
+            strengthLabel +
+            " similarity), and people needed about " +
+            metrics.averageSearchSteps.toFixed(1) +
+            " steps on average to find a partner.",
+          "How to read this: density and mobility decide who meets whom first, and the rule decides who says yes once two people meet.",
+        ].join(" ");
+      }
 
       const sentences = [
         "This run used " +
@@ -1357,7 +1424,46 @@
         this.getSearchCommentary(metrics.averageSearchSteps),
       ];
 
-      this.teachingExplanation.textContent = sentences.join(" ");
+      return sentences.join(" ");
+    }
+
+    refreshTeachingPanelNarrative() {
+      if (!this.teachingExplanation) return;
+      const lastRun = this.state && this.state.lastRun;
+      if (!lastRun) {
+        this.teachingExplanation.textContent = this.getTeachingPlaceholderText();
+        return;
+      }
+
+      this.teachingExplanation.textContent = this.buildTeachingPanelNarrative(
+        lastRun.metrics,
+        lastRun.mobilityLevel,
+        lastRun.densityLevel,
+        lastRun.preferenceRule,
+        lastRun.selectivityLevel,
+        lastRun.patienceLevel,
+        lastRun.explorationLevel
+      );
+    }
+
+    updateTeachingExplanation() {
+      const metrics = this.getSimulationMetrics();
+      const preferenceRule = this.preferenceSelect.value;
+      const mobilityLevel = this.mobilitySelect.value;
+      const densityLevel = this.densitySelect.value;
+      const selectivityLevel = this.selectivitySelect ? this.selectivitySelect.value : "Medium";
+      const patienceLevel = this.patienceSelect ? this.patienceSelect.value : "Normal";
+      const explorationLevel = this.explorationSelect ? this.explorationSelect.value : "Balanced";
+
+      this.teachingExplanation.textContent = this.buildTeachingPanelNarrative(
+        metrics,
+        mobilityLevel,
+        densityLevel,
+        preferenceRule,
+        selectivityLevel,
+        patienceLevel,
+        explorationLevel
+      );
       this.appendRunSummary(metrics, mobilityLevel, densityLevel, preferenceRule);
       
       // Use simple mode or technical citation based on user preference
