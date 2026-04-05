@@ -1799,17 +1799,40 @@
       }
 
       if (this.previewConclusionText) {
-        const takeaway =
+        const searchEfficiency =
           metrics.averageSearchSteps > 20
-            ? "Search was costly, so encounter constraints likely limited efficient matching."
-            : "Search was relatively efficient, suggesting encounters were available enough for timely pairing.";
+            ? "search was slow"
+            : metrics.averageSearchSteps > 12
+            ? "search was moderate"
+            : "search was fast";
+
+        const pairingResult =
+          metrics.pairCount === 0
+            ? "no stable pairs formed"
+            : metrics.pairCount < Math.max(3, Math.floor(reportData.maxPairs * 0.35))
+            ? "pair formation remained limited"
+            : "pair formation was substantial";
 
         this.previewConclusionText.textContent =
-          "Conclusion: In this parameter setting, outcomes were " +
+          "Conclusion: Under " +
+          reportData.densityLevel.toLowerCase() +
+          " density, " +
+          reportData.mobilityLevel.toLowerCase() +
+          " mobility, and the " +
+          reportData.preferenceRule.toLowerCase() +
+          " rule, this run produced " +
+          metrics.pairCount +
+          " pairs with matching strength " +
+          metrics.matchingStrength.toFixed(2) +
+          ". Overall, the system was " +
           structureLabel +
+          ": " +
+          pairingResult +
           " and " +
-          takeaway +
-          " Use the two charts above to compare overall outcome levels and the distribution of pair differences.";
+          searchEfficiency +
+          " (avg search " +
+          metrics.averageSearchSteps.toFixed(1) +
+          " steps). Use the hazard explorer to see which rule/movement combinations accelerate early matching, and use the pair-difference distribution to judge whether similarity came from strong preference filtering or local encounter constraints.";
       }
     }
 
