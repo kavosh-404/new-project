@@ -60,6 +60,8 @@
       this.batchRunCountSelect = document.getElementById("batch-run-count");
       this.runBatchButton = document.getElementById("run-batch");
       this.batchSummary = document.getElementById("batch-summary");
+      this.csvPreview = document.getElementById("csv-preview");
+      this.csvPreviewContent = document.getElementById("csv-preview-content");
       this.summaryPairs = document.getElementById("summary-pairs");
       this.summaryStrength = document.getElementById("summary-strength");
       this.summarySearch = document.getElementById("summary-search");
@@ -222,6 +224,12 @@
       if (this.batchSummary) {
         this.batchSummary.classList.remove("is-visible");
         this.batchSummary.textContent = "";
+      }
+      if (this.csvPreview) {
+        this.csvPreview.classList.remove("is-visible");
+      }
+      if (this.csvPreviewContent) {
+        this.csvPreviewContent.textContent = "";
       }
 
       this.state = {
@@ -1619,9 +1627,16 @@
       ];
 
       const csv = rows.map((r) => r.join(",")).join("\n");
+      this.showCsvPreview(csv);
       const blob = new Blob([csv], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
       this.triggerDownload(url, "simulation-summary.csv");
+    }
+
+    showCsvPreview(csvText) {
+      if (!this.csvPreview || !this.csvPreviewContent) return;
+      this.csvPreviewContent.textContent = csvText;
+      this.csvPreview.classList.add("is-visible");
     }
 
     downloadPng() {
@@ -1747,6 +1762,12 @@
       if (this.batchSummary) {
         this.batchSummary.textContent = "";
         this.batchSummary.classList.remove("is-visible");
+      }
+      if (this.csvPreview) {
+        this.csvPreview.classList.remove("is-visible");
+      }
+      if (this.csvPreviewContent) {
+        this.csvPreviewContent.textContent = "";
       }
     }
 

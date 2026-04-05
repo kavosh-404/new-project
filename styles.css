@@ -452,6 +452,47 @@ select {
   display: block;
 }
 
+.csv-preview {
+  margin-top: 0.6rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(79, 57, 36, 0.12);
+  border-radius: var(--radius-md);
+  background: #fffdf9;
+  display: none;
+  gap: 0.5rem;
+}
+
+.csv-preview.is-visible {
+  display: grid;
+}
+
+.csv-preview-header h3 {
+  margin: 0;
+  font-size: 0.98rem;
+  letter-spacing: -0.01em;
+}
+
+.csv-preview-header p {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.csv-preview pre {
+  margin: 0;
+  max-height: 13rem;
+  overflow: auto;
+  padding: 0.6rem;
+  border-radius: 10px;
+  border: 1px dashed rgba(15, 118, 110, 0.2);
+  background: rgba(15, 118, 110, 0.03);
+  color: #1f2d2b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre;
+}
+
 .simulation-grid {
   position: relative;
   z-index: 1;

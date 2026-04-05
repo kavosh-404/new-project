@@ -193,6 +193,13 @@
               <button class="secondary-button" id="run-batch" type="button">Run batch experiment</button>
             </div>
             <div class="batch-summary" id="batch-summary" aria-live="polite"></div>
+            <section class="csv-preview" id="csv-preview" aria-label="Run summary CSV preview">
+              <div class="csv-preview-header">
+                <h3>Run Summary (CSV Preview)</h3>
+                <p>This preview is the same content downloaded in simulation-summary.csv.</p>
+              </div>
+              <pre id="csv-preview-content"></pre>
+            </section>
 
             <section class="simulation-grid" aria-labelledby="simulation-grid-title">
               <div class="simulation-grid-header">
