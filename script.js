@@ -39,6 +39,9 @@
     constructor() {
       this.canvas = document.getElementById("simulation-canvas");
       this.context = this.canvas.getContext("2d");
+      this.simulationGridSection = this.canvas
+        ? this.canvas.closest(".simulation-grid") || this.canvas
+        : null;
       this.preferenceSelect = document.getElementById("preference-rule");
       this.mobilitySelect = document.getElementById("mobility-level");
       this.densitySelect = document.getElementById("density-level");
@@ -268,6 +271,8 @@
       if (this.state.isRunning) {
         return;
       }
+
+      this.scrollToSimulationGrid();
 
       if (this.batchSummary) {
         this.batchSummary.classList.remove("is-visible");
@@ -639,6 +644,12 @@
 
       if (this.csvPreview && this.csvPreview.scrollIntoView) {
         this.csvPreview.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+
+    scrollToSimulationGrid() {
+      if (this.simulationGridSection && this.simulationGridSection.scrollIntoView) {
+        this.simulationGridSection.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     }
 
