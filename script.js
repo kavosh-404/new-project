@@ -16,6 +16,24 @@
     High: 24,
   };
 
+  const selectivityMultipliers = {
+    Low: 1.15,
+    Medium: 1,
+    High: 0.85,
+  };
+
+  const patienceRates = {
+    Fast: 0.02,
+    Normal: 0.01,
+    Slow: 0.004,
+  };
+
+  const explorationMultipliers = {
+    Local: 0.75,
+    Balanced: 1,
+    Wide: 1.35,
+  };
+
   class MateChoiceSimulation {
     constructor() {
       this.canvas = document.getElementById("simulation-canvas");
@@ -23,6 +41,9 @@
       this.preferenceSelect = document.getElementById("preference-rule");
       this.mobilitySelect = document.getElementById("mobility-level");
       this.densitySelect = document.getElementById("density-level");
+      this.selectivitySelect = document.getElementById("selectivity-level");
+      this.patienceSelect = document.getElementById("patience-level");
+      this.explorationSelect = document.getElementById("exploration-level");
       this.runButton = document.getElementById("run-simulation");
       this.status = document.getElementById("simulation-status");
       this.teachingExplanation = document.getElementById("teaching-explanation");
@@ -80,6 +101,15 @@
       this.preferenceSelect.addEventListener("change", this.handleControlChange);
       this.mobilitySelect.addEventListener("change", this.handleControlChange);
       this.densitySelect.addEventListener("change", this.handleControlChange);
+      if (this.selectivitySelect) {
+        this.selectivitySelect.addEventListener("change", this.handleControlChange);
+      }
+      if (this.patienceSelect) {
+        this.patienceSelect.addEventListener("change", this.handleControlChange);
+      }
+      if (this.explorationSelect) {
+        this.explorationSelect.addEventListener("change", this.handleControlChange);
+      }
       this.chatForm.addEventListener("submit", this.handleChatSubmit);
       if (this.chatCapabilitiesButton) {
         this.chatCapabilitiesButton.addEventListener("click", () => {
@@ -253,6 +283,8 @@
 
     moveAgents() {
       const movement = mobilitySizes[this.mobilitySelect.value];
+      const exploration = explorationMultipliers[this.explorationSelect ? this.explorationSelect.value : "Balanced"] || 1;
+      const movementRange = movement * exploration;
       const size = this.getCanvasSize();
       const padding = AGENT_RADIUS + 2;
 
@@ -261,8 +293,8 @@
           return;
         }
 
-        agent.x = this.clamp(agent.x + this.randomFloat(-movement, movement), padding, size - padding);
-        agent.y = this.clamp(agent.y + this.randomFloat(-movement, movement), padding, size - padding);
+        agent.x = this.clamp(agent.x + this.randomFloat(-movementRange, movementRange), padding, size - padding);
+        agent.y = this.clamp(agent.y + this.randomFloat(-movementRange, movementRange), padding, size - padding);
       });
     }
 
@@ -304,12 +336,16 @@
     }
 
     getAcceptanceScore(agent, candidate, preferenceRule) {
+      const selectivity = selectivityMultipliers[this.selectivitySelect ? this.selectivitySelect.value : "Medium"] || 1;
+      const patienceRate = patienceRates[this.patienceSelect ? this.patienceSelect.value : "Normal"] || 0.01;
+      const patienceBoost = agent.searchSteps * patienceRate;
+
       if (preferenceRule === "Similarity-based") {
         const difference = Math.abs(agent.attractiveness - candidate.attractiveness);
-        return this.clamp(1 - difference / 9, 0.1, 1);
+        return this.clamp((1 - difference / 9) * selectivity + patienceBoost, 0.1, 1);
       }
 
-      return this.clamp(candidate.attractiveness / 10, 0.1, 1);
+      return this.clamp((candidate.attractiveness / 10) * selectivity + patienceBoost, 0.1, 1);
     }
 
     matchAgents(agent, candidate) {
@@ -528,10 +564,10 @@
 
       buildCapabilityMessage() {
         if (!this.state.lastRun) {
-          return "This website is built with HTML, CSS, and vanilla JavaScript. The simulation runs fully in the browser on a 2D canvas, with no backend model or API. The chat assistant uses lightweight NLP and conversation-state tracking, not a full LLM, so it is designed to explain this specific simulation: density, mobility, preference rules, matching strength, search time, results, and citations from Smaldino & Schank (2012). Run a scenario, then use the insight questions below or ask about one of those topics.";
+          return "This website is built with HTML, CSS, and vanilla JavaScript. The simulation runs fully in the browser on a 2D canvas, with no backend model or API. The chat assistant uses lightweight NLP and conversation-state tracking, not a full LLM, so it is designed to explain this specific simulation: density, mobility, preference rules, selectivity, patience, exploration, matching strength, search time, results, and citations from Smaldino & Schank (2012). Run a scenario, then use the insight questions below or ask about one of those topics.";
         }
 
-        return "This website is built with HTML, CSS, and vanilla JavaScript. The system runs a browser-based agent simulation on a 2D canvas: agents move, encounter nearby neighbors, decide whether to match using the active preference rule, and then the page computes pair count, matching strength, and average search time from that run. The assistant is a lightweight NLP layer on top of those results, so it can explain this simulation and its citations, but it is not a full LLM. For this scenario, use the insight questions below or ask about density, mobility, the preference rule, matching strength, search time, or citations.";
+        return "This website is built with HTML, CSS, and vanilla JavaScript. The system runs a browser-based agent simulation on a 2D canvas: agents move, encounter nearby neighbors, decide whether to match using the active preference rule, and then the page computes pair count, matching strength, and average search time from that run. This model also includes configurable selectivity, patience relaxation, and exploration bias. The assistant is a lightweight NLP layer on top of those results, so it can explain this simulation and its citations, but it is not a full LLM. For this scenario, use the insight questions below or ask about density, mobility, preference rule, selectivity, patience, exploration, matching strength, search time, or citations.";
       }
 
       buildOutOfScopeReply() {
@@ -683,6 +719,9 @@
       const lower = text.toLowerCase();
       if (lower.match(/density|grid|population|sparse|dense|encounter/)) return "density";
       if (lower.match(/mobility|move|movement|search|distance|step/)) return "mobility";
+      if (lower.match(/selectivity|picky|choosy|strict|acceptance threshold/)) return "selectivity";
+      if (lower.match(/patience|relax|waiting|flexibility over time/)) return "patience";
+      if (lower.match(/exploration|explore|local|wide|roam/)) return "exploration";
       if (lower.match(/match|assortative|similar|similarity|preference|pair/)) return "matching";
       if (lower.match(/attract|preference|choice|rule|criterion/)) return "preference";
       return null;
@@ -890,6 +929,58 @@
         );
       }
 
+      if (lower.includes("selectivity") || lower.includes("picky") || lower.includes("choosy")) {
+        this.lastTopic = "selectivity";
+        const setting = this.state.lastRun.selectivityLevel || "Medium";
+        return (
+          "Selectivity note: This run used " +
+          setting +
+          " selectivity. " +
+          (setting === "High"
+            ? "High selectivity lowers acceptance probability, usually increasing search time and reducing pair formation."
+            : setting === "Low"
+            ? "Low selectivity raises acceptance probability, usually reducing search time and increasing pair formation."
+            : "Medium selectivity keeps acceptance near baseline behavior.") +
+          " In this run, we observed " +
+          metrics.pairCount +
+          " pairs with average search " +
+          metrics.averageSearchSteps.toFixed(1) +
+          "."
+        );
+      }
+
+      if (lower.includes("patience") || lower.includes("relax") || lower.includes("waiting")) {
+        this.lastTopic = "patience";
+        const setting = this.state.lastRun.patienceLevel || "Normal";
+        return (
+          "Patience note: This run used " +
+          setting +
+          " patience relaxation. " +
+          (setting === "Fast"
+            ? "Fast relaxation increases acceptance quickly as unsuccessful search steps accumulate."
+            : setting === "Slow"
+            ? "Slow relaxation keeps standards tight for longer, delaying acceptance."
+            : "Normal relaxation gradually widens acceptance over search time.") +
+          " This setting influences how quickly unmatched agents become willing to accept available partners."
+        );
+      }
+
+      if (lower.includes("exploration") || lower.includes("explore") || lower.includes("roam")) {
+        this.lastTopic = "exploration";
+        const setting = this.state.lastRun.explorationLevel || "Balanced";
+        return (
+          "Exploration note: This run used " +
+          setting +
+          " exploration. " +
+          (setting === "Wide"
+            ? "Wide exploration increases movement range per step, producing broader contact opportunities."
+            : setting === "Local"
+            ? "Local exploration reduces movement range per step, concentrating encounters in nearby neighborhoods."
+            : "Balanced exploration keeps movement near baseline.") +
+          " Through encounter rates, this affects search time and eventual pair formation."
+        );
+      }
+
       if (lower.includes("matching") || lower.includes("similar") || lower.includes("assort")) {
         this.lastTopic = "matching";
         return (
@@ -920,7 +1011,15 @@
 
       if (lower.includes("citation")) {
         this.lastTopic = "citation";
-        return this.buildRunCitationMessage(metrics, mobility, density, preference);
+        return this.buildRunCitationMessage(
+          metrics,
+          mobility,
+          density,
+          preference,
+          this.state.lastRun.selectivityLevel,
+          this.state.lastRun.patienceLevel,
+          this.state.lastRun.explorationLevel
+        );
       }
 
       if (lower.includes("detail") || lower.includes("quote") || lower.includes("map")) {
@@ -964,13 +1063,22 @@
       const preferenceRule = this.preferenceSelect.value;
       const mobilityLevel = this.mobilitySelect.value;
       const densityLevel = this.densitySelect.value;
+      const selectivityLevel = this.selectivitySelect ? this.selectivitySelect.value : "Medium";
+      const patienceLevel = this.patienceSelect ? this.patienceSelect.value : "Normal";
+      const explorationLevel = this.explorationSelect ? this.explorationSelect.value : "Balanced";
 
       const sentences = [
         "This run used " +
           mobilityLevel.toLowerCase() +
           " mobility, " +
           densityLevel.toLowerCase() +
-          " density, and a " +
+          " density, " +
+          selectivityLevel.toLowerCase() +
+          " selectivity, " +
+          patienceLevel.toLowerCase() +
+          " patience, " +
+          explorationLevel.toLowerCase() +
+          " exploration, and a " +
           preferenceRule.toLowerCase() +
           " rule, producing " +
           metrics.pairCount +
@@ -980,6 +1088,7 @@
         this.getMobilityCommentary(mobilityLevel),
         this.getDensityCommentary(densityLevel),
         this.getPreferenceCommentary(preferenceRule),
+        this.getBehaviorCommentary(selectivityLevel, patienceLevel, explorationLevel),
         this.getStrengthCommentary(metrics.matchingStrength),
         this.getSearchCommentary(metrics.averageSearchSteps),
       ];
@@ -990,7 +1099,15 @@
       // Use simple mode or technical citation based on user preference
       const chatMessage = this.simpleMode
         ? this.buildExplainMessage(metrics, mobilityLevel, densityLevel, preferenceRule)
-        : this.buildRunCitationMessage(metrics, mobilityLevel, densityLevel, preferenceRule);
+        : this.buildRunCitationMessage(
+            metrics,
+            mobilityLevel,
+            densityLevel,
+            preferenceRule,
+            selectivityLevel,
+            patienceLevel,
+            explorationLevel
+          );
       
       this.addChatMessage("Assistant", chatMessage);
       this.state.lastRun = {
@@ -998,8 +1115,19 @@
         mobilityLevel,
         densityLevel,
         preferenceRule,
+        selectivityLevel,
+        patienceLevel,
+        explorationLevel,
       };
-      this.lastCitation = this.buildRunCitationMessage(metrics, mobilityLevel, densityLevel, preferenceRule);
+      this.lastCitation = this.buildRunCitationMessage(
+        metrics,
+        mobilityLevel,
+        densityLevel,
+        preferenceRule,
+        selectivityLevel,
+        patienceLevel,
+        explorationLevel
+      );
       this.renderInsightQuestions();
       this.addChatMessage(
         "Assistant",
@@ -1056,7 +1184,7 @@
       this.teachingExplanation.textContent += summary;
     }
 
-    buildRunCitationMessage(metrics, mobilityLevel, densityLevel, preferenceRule) {
+    buildRunCitationMessage(metrics, mobilityLevel, densityLevel, preferenceRule, selectivityLevel, patienceLevel, explorationLevel) {
       const assort =
         metrics.matchingStrength < 0.15
           ? "weak assortative pattern"
@@ -1083,6 +1211,15 @@
           ? "The observed longer wait times for high-attractiveness agents are consistent with the paper's discussion of attractiveness-prioritized matching (p. 16)."
           : "The results reflect similarity-based matching, which depends more on local availability than global sorting (pp. 11–13).";
 
+      const behaviorDesc =
+        "Behavior settings were selectivity=" +
+        (selectivityLevel || "Medium") +
+        ", patience=" +
+        (patienceLevel || "Normal") +
+        ", exploration=" +
+        (explorationLevel || "Balanced") +
+        ", which modulate acceptance strictness, relaxation over search time, and movement range.";
+
       return (
         "Run result: " +
         metrics.pairCount +
@@ -1097,7 +1234,9 @@
         ", and " +
         densityDesc.toLowerCase() +
         ". " +
-        prefDesc
+        prefDesc +
+        " " +
+        behaviorDesc
       );
     }
 
@@ -1177,6 +1316,31 @@
       return "Under similarity-based choice, pairing tends to happen faster because agents can accept locally similar partners, so outcomes depend strongly on who is actually available in each neighborhood (Smaldino & Schank 2012, pp. 11–13).";
     }
 
+    getBehaviorCommentary(selectivityLevel, patienceLevel, explorationLevel) {
+      const selectivityText =
+        selectivityLevel === "High"
+          ? "High selectivity lowers acceptance probability and usually raises search difficulty."
+          : selectivityLevel === "Low"
+          ? "Low selectivity raises acceptance probability and usually speeds up matching."
+          : "Medium selectivity keeps acceptance criteria near baseline.";
+
+      const patienceText =
+        patienceLevel === "Fast"
+          ? "Fast patience relaxation increases acceptance quickly as search continues."
+          : patienceLevel === "Slow"
+          ? "Slow patience relaxation keeps standards tighter for longer."
+          : "Normal patience relaxation gradually broadens acceptance over search time.";
+
+      const explorationText =
+        explorationLevel === "Wide"
+          ? "Wide exploration expands per-step movement, increasing contact opportunities."
+          : explorationLevel === "Local"
+          ? "Local exploration limits per-step movement and concentrates encounters nearby."
+          : "Balanced exploration keeps movement near the default range.";
+
+      return selectivityText + " " + patienceText + " " + explorationText;
+    }
+
     getStrengthCommentary(matchingStrength) {
       if (matchingStrength < 0.15) {
         return "Because matching strength is below 0.15, this run shows weak assortative mating, meaning the final pairs are only weakly sorted by attractiveness (Smaldino & Schank 2012, pp. 11–13).";
@@ -1211,7 +1375,10 @@
           this.state.lastRun.metrics,
           this.state.lastRun.mobilityLevel,
           this.state.lastRun.densityLevel,
-          this.state.lastRun.preferenceRule
+          this.state.lastRun.preferenceRule,
+          this.state.lastRun.selectivityLevel,
+          this.state.lastRun.patienceLevel,
+          this.state.lastRun.explorationLevel
         );
       } else if (!isEnabled) {
         this.lastCitation = null;
@@ -1230,6 +1397,9 @@
         ["mobility", mobilityLevel],
         ["density", densityLevel],
         ["preferenceRule", preferenceRule],
+        ["selectivity", this.state.lastRun.selectivityLevel || "Medium"],
+        ["patience", this.state.lastRun.patienceLevel || "Normal"],
+        ["exploration", this.state.lastRun.explorationLevel || "Balanced"],
         ["pairs", metrics.pairCount],
         ["matchingStrength", metrics.matchingStrength.toFixed(3)],
         ["averageSearchSteps", metrics.averageSearchSteps.toFixed(2)],
@@ -1295,7 +1465,10 @@
             this.state.lastRun.metrics,
             this.state.lastRun.mobilityLevel,
             this.state.lastRun.densityLevel,
-            this.state.lastRun.preferenceRule
+            this.state.lastRun.preferenceRule,
+            this.state.lastRun.selectivityLevel,
+            this.state.lastRun.patienceLevel,
+            this.state.lastRun.explorationLevel
           );
         } else {
           this.addChatMessage("Assistant", "Run first, then copy the citation.");
@@ -1348,6 +1521,9 @@
         setSelect(this.mobilitySelect, "High");
         setSelect(this.preferenceSelect, "Similarity-based");
       }
+      setSelect(this.selectivitySelect, "Medium");
+      setSelect(this.patienceSelect, "Normal");
+      setSelect(this.explorationSelect, "Balanced");
       this.state.lastRun = null;
       this.lastCitation = null;
       this.lastTopic = null; // Reset conversation context
