@@ -54,6 +54,7 @@
       this.chatSimpleToggle = document.getElementById("chat-simple-toggle");
       this.chatCapabilitiesButton = document.getElementById("chat-capabilities");
       this.chatResetButton = document.getElementById("chat-reset");
+      this.previewCsvButton = document.getElementById("preview-csv");
       this.downloadCsvButton = document.getElementById("download-csv");
       this.downloadPngButton = document.getElementById("download-png");
       this.copyCitationButton = document.getElementById("copy-citation");
@@ -146,6 +147,9 @@
       }
       if (this.downloadCsvButton) {
         this.downloadCsvButton.addEventListener("click", () => this.downloadCsv());
+      }
+      if (this.previewCsvButton) {
+        this.previewCsvButton.addEventListener("click", () => this.previewCsv());
       }
       if (this.downloadPngButton) {
         this.downloadPngButton.addEventListener("click", () => this.downloadPng());
@@ -1578,6 +1582,7 @@
     }
 
     setExportEnabled(isEnabled) {
+      if (this.previewCsvButton) this.previewCsvButton.disabled = !isEnabled;
       if (this.downloadCsvButton) this.downloadCsvButton.disabled = !isEnabled;
       if (this.downloadPngButton) this.downloadPngButton.disabled = !isEnabled;
       if (this.copyCitationButton) this.copyCitationButton.disabled = !isEnabled;
@@ -1597,10 +1602,9 @@
       }
     }
 
-    downloadCsv() {
+    buildRunCsvText() {
       if (!this.state.lastRun) {
-        this.addChatMessage("Assistant", "Run first, then download the summary.");
-        return;
+        return null;
       }
 
       const { metrics, mobilityLevel, densityLevel, preferenceRule } = this.state.lastRun;
@@ -1626,8 +1630,24 @@
         }),
       ];
 
-      const csv = rows.map((r) => r.join(",")).join("\n");
+      return rows.map((r) => r.join(",")).join("\n");
+    }
+
+    previewCsv() {
+      const csv = this.buildRunCsvText();
+      if (!csv) {
+        this.addChatMessage("Assistant", "Run first, then preview the summary.");
+        return;
+      }
       this.showCsvPreview(csv);
+    }
+
+    downloadCsv() {
+      const csv = this.buildRunCsvText();
+      if (!csv) {
+        this.addChatMessage("Assistant", "Run first, then download the summary.");
+        return;
+      }
       const blob = new Blob([csv], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
       this.triggerDownload(url, "simulation-summary.csv");
