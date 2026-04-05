@@ -46,6 +46,8 @@
         lastRun: null,
       };
 
+      this.lastCitation = null;
+
       this.handleResize = this.handleResize.bind(this);
       this.handleRun = this.handleRun.bind(this);
       this.handleControlChange = this.handleControlChange.bind(this);
@@ -797,6 +799,17 @@
       if (this.downloadCsvButton) this.downloadCsvButton.disabled = !isEnabled;
       if (this.downloadPngButton) this.downloadPngButton.disabled = !isEnabled;
       if (this.copyCitationButton) this.copyCitationButton.disabled = !isEnabled;
+      
+      if (isEnabled && this.state.lastRun) {
+        this.lastCitation = this.buildRunCitationMessage(
+          this.state.lastRun.metrics,
+          this.state.lastRun.mobilityLevel,
+          this.state.lastRun.densityLevel,
+          this.state.lastRun.preferenceRule
+        );
+      } else if (!isEnabled) {
+        this.lastCitation = null;
+      }
     }
 
     downloadCsv() {
@@ -855,6 +868,7 @@
           const preset = button.getAttribute("data-preset");
           this.applyPreset(preset);
           this.handleRun();
+          button.blur();
         });
       });
     }
@@ -870,14 +884,33 @@
 
     copyCitation() {
       if (!this.lastCitation) {
-        this.addChatMessage("Assistant", "Run first, then copy the citation.");
+        if (this.state.lastRun) {
+          this.lastCitation = this.buildRunCitationMessage(
+            this.state.lastRun.metrics,
+            this.state.lastRun.mobilityLevel,
+            this.state.lastRun.densityLevel,
+            this.state.lastRun.preferenceRule
+          );
+        } else {
+          this.addChatMessage("Assistant", "Run first, then copy the citation.");
+          return;
+        }
+      }
+      
+      if (!this.lastCitation) {
+        this.addChatMessage("Assistant", "Could not generate citation.");
         return;
       }
+      
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(this.lastCitation).then(
-          () => this.addChatMessage("Assistant", "Citation copied."),
-          () => this.addChatMessage("Assistant", "Clipboard blocked—copy manually from the chat.")
-        );
+        navigator.clipboard.writeText(this.lastCitation)
+          .then(() => {
+            this.addChatMessage("Assistant", "Citation copied.");
+          })
+          .catch((err) => {
+            console.error("Clipboard error:", err);
+            this.addChatMessage("Assistant", "Clipboard blocked—copy manually from the chat.");
+          });
       } else {
         this.addChatMessage("Assistant", this.lastCitation);
       }
@@ -909,9 +942,18 @@
         setSelect(this.mobilitySelect, "High");
         setSelect(this.preferenceSelect, "Similarity-based");
       }
+      this.state.lastRun = null;
+      this.lastCitation = null;
+      this.setExportEnabled(false);
+      this.updateSummaryBarPlaceholder();
+    }
 
-      // retain last citation text
-      this.lastCitation = this.buildRunCitationMessage(metrics, mobilityLevel, densityLevel, preferenceRule);
+    updateSummaryBarPlaceholder() {
+      if (!this.summaryPairs) return;
+      this.summaryPairs.textContent = "— pairs";
+      this.summaryStrength.textContent = "Strength —";
+      this.summarySearch.textContent = "Avg search —";
+      if (this.runSummary) this.runSummary.classList.remove("is-visible");
     }
 
     shuffle(items) {
