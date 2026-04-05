@@ -272,6 +272,9 @@
                 <p id="rule-analytics-definitions">
                   Definitions: Rule 1 maps to Attractiveness-based choice and Rule 2 maps to Similarity-based choice. Movement labels in this simulation are NS = local neighborhood search, ZZ = balanced zig-zag search, and BR = broad random search.
                 </p>
+                <p id="rule-code-explainer" class="preview-chart-insight">
+                  Code guide: R1-NS means Rule 1 with local neighborhood search; R2-BR means Rule 2 with broad random search.
+                </p>
                 <div class="rule-analytics-table-wrap">
                   <table class="rule-analytics-table" aria-label="Rule analytics comparison">
                     <thead>
@@ -292,10 +295,28 @@
                 </div>
                 <figure class="preview-chart-card rule-hazard-card">
                   <figcaption>Mating Hazard Comparison (Rule 1/2 × NS/ZZ/BR)</figcaption>
+                  <div class="hazard-explorer-controls" aria-label="Hazard chart controls">
+                    <label class="hazard-control-field" for="hazard-chart-mode">
+                      Chart mode
+                      <select id="hazard-chart-mode">
+                        <option value="line" selected>Line</option>
+                        <option value="step">Step</option>
+                        <option value="cumulative">Cumulative</option>
+                      </select>
+                    </label>
+                    <div class="hazard-toggle-actions">
+                      <button class="secondary-button" id="hazard-select-all" type="button">Show all</button>
+                      <button class="secondary-button" id="hazard-clear-all" type="button">Clear all</button>
+                    </div>
+                    <div class="hazard-series-toggles" id="hazard-series-toggles"></div>
+                  </div>
                   <canvas id="rule-hazard-chart" width="640" height="260" aria-label="Hazard comparison across rules and movement modes"></canvas>
                   <div class="chart-hover-tip" id="rule-hazard-tooltip" aria-hidden="true"></div>
                   <p class="preview-chart-insight" id="rule-hazard-insight">
                     Insight: Hazard at step t is matches at t divided by agents still unmatched at the start of t.
+                  </p>
+                  <p class="preview-chart-insight" id="hazard-dynamic-explainer">
+                    Dynamic explainer: select rule codes to compare fewer lines for clearer interpretation.
                   </p>
                 </figure>
                 <figure class="preview-chart-card rule-hazard-card">
@@ -385,6 +406,6 @@
         </section>
       </main>
     </div>
-    <script src="script.js?v=20260411"></script>
+    <script src="script.js?v=20260412"></script>
   </body>
 </html>

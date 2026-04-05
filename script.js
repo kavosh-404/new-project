@@ -75,12 +75,18 @@
       this.previewMetricsInsight = document.getElementById("preview-metrics-insight");
       this.previewDifferenceInsight = document.getElementById("preview-difference-insight");
       this.ruleAnalyticsDefinitions = document.getElementById("rule-analytics-definitions");
+      this.ruleCodeExplainer = document.getElementById("rule-code-explainer");
       this.ruleAnalyticsBody = document.getElementById("rule-analytics-body");
       this.ruleHazardChart = document.getElementById("rule-hazard-chart");
       this.ruleHazardZoomChart = document.getElementById("rule-hazard-zoom-chart");
       this.ruleHazardInsight = document.getElementById("rule-hazard-insight");
       this.ruleHazardTooltip = document.getElementById("rule-hazard-tooltip");
       this.ruleHazardZoomTooltip = document.getElementById("rule-hazard-zoom-tooltip");
+      this.hazardChartMode = document.getElementById("hazard-chart-mode");
+      this.hazardSeriesToggles = document.getElementById("hazard-series-toggles");
+      this.hazardSelectAllButton = document.getElementById("hazard-select-all");
+      this.hazardClearAllButton = document.getElementById("hazard-clear-all");
+      this.hazardDynamicExplainer = document.getElementById("hazard-dynamic-explainer");
       this.recreatedFigure5Chart = document.getElementById("recreated-figure5-chart");
       this.recreatedFigure6Chart = document.getElementById("recreated-figure6-chart");
       this.recreatedFigure7Chart = document.getElementById("recreated-figure7-chart");
@@ -120,6 +126,8 @@
       this.debounceTimer = null;
       this.ruleHazardHoverData = null;
       this.ruleHazardZoomHoverData = null;
+      this.lastRuleAnalyticsRows = null;
+      this.hazardSeriesSelection = {};
 
       this.bindEvents();
       this.handleResize();
@@ -147,6 +155,7 @@
         this.runBatchButton.addEventListener("click", this.handleBatchRun);
       }
       this.bindHazardTooltipEvents();
+      this.bindHazardExplorerEvents();
       this.bindControlHelpTooltips();
       this.chatForm.addEventListener("submit", this.handleChatSubmit);
       if (this.chatCapabilitiesButton) {
@@ -1891,6 +1900,9 @@
       };
 
       const analyticsRows = this.computeRuleAnalyticsRows(settings, RULE_ANALYTICS_RUNS);
+      this.lastRuleAnalyticsRows = analyticsRows;
+      this.renderHazardSeriesToggles(analyticsRows);
+      this.updateRuleCodeExplainer(analyticsRows);
 
       this.renderRuleAnalyticsTable(analyticsRows);
       this.drawRuleHazardChart(analyticsRows);
@@ -2256,6 +2268,15 @@
       const ctx = this.ruleHazardChart.getContext("2d");
       if (!ctx) return;
 
+      const visibleRows = this.getVisibleHazardRows(rows);
+      if (!visibleRows.length) {
+        this.drawNoHazardSeriesMessage(this.ruleHazardChart, "No series selected. Use toggles to add rules.");
+        this.ruleHazardHoverData = null;
+        this.updateHazardDynamicExplainer([], this.getHazardChartMode());
+        return;
+      }
+      const mode = this.getHazardChartMode();
+
       const chartSize = this.prepareHiDPICanvas(this.ruleHazardChart, 260);
       const width = chartSize.width;
       const height = chartSize.height;
@@ -2273,7 +2294,7 @@
 
       const maxHazard = Math.max(
         0.01,
-        ...rows.map((row) => Math.max(...row.hazardSeries))
+        ...visibleRows.map((row) => Math.max(...this.getHazardDisplayValues(row.hazardSeries, mode)))
       );
 
       ctx.strokeStyle = "rgba(79, 57, 36, 0.25)";
@@ -2285,19 +2306,22 @@
       ctx.stroke();
 
       const colors = ["#0f766e", "#1d4ed8", "#7c3aed", "#b45309", "#dc2626", "#475569"];
-      rows.forEach((row, index) => {
+      visibleRows.forEach((row, index) => {
+        const displaySeries = this.getHazardDisplayValues(row.hazardSeries, mode);
         ctx.beginPath();
         ctx.strokeStyle = colors[index % colors.length];
         ctx.lineWidth = 2.6;
 
-        row.hazardSeries.forEach((hazard, stepIndex) => {
+        displaySeries.forEach((hazard, stepIndex) => {
           const x = left + (stepIndex / (STEP_COUNT - 1)) * chartWidth;
           const y = bottom - (hazard / maxHazard) * chartHeight;
-          if (stepIndex === 0) {
-            ctx.moveTo(x, y);
-          } else {
+          if (stepIndex === 0) ctx.moveTo(x, y);
+          else if (mode === "step") {
+            const prevX = left + ((stepIndex - 1) / (STEP_COUNT - 1)) * chartWidth;
+            const prevY = bottom - (displaySeries[stepIndex - 1] / maxHazard) * chartHeight;
+            ctx.lineTo(x, prevY);
             ctx.lineTo(x, y);
-          }
+          } else ctx.lineTo(x, y);
         });
         ctx.stroke();
 
@@ -2319,15 +2343,15 @@
         bottom,
         chartWidth,
         maxStep: STEP_COUNT,
-        series: rows.map((row, index) => ({
+        series: visibleRows.map((row, index) => ({
           label: row.ruleShort + "-" + row.movement,
           color: colors[index % colors.length],
-          values: row.hazardSeries,
+          values: this.getHazardDisplayValues(row.hazardSeries, mode),
         })),
       };
 
       let peakRow = rows[0];
-      rows.forEach((row) => {
+      visibleRows.forEach((row) => {
         if (Math.max(...row.hazardSeries) > Math.max(...peakRow.hazardSeries)) {
           peakRow = row;
         }
@@ -2341,12 +2365,21 @@
           peakRow.movement +
           ", meaning that combination yields the fastest early conversion from unmatched to matched states. See the zoom chart for readable early-step separation.";
       }
+      this.updateHazardDynamicExplainer(visibleRows, mode);
     }
 
     drawRuleHazardZoomChart(rows, maxStep) {
       if (!this.ruleHazardZoomChart) return;
       const ctx = this.ruleHazardZoomChart.getContext("2d");
       if (!ctx) return;
+
+      const visibleRows = this.getVisibleHazardRows(rows);
+      if (!visibleRows.length) {
+        this.drawNoHazardSeriesMessage(this.ruleHazardZoomChart, "No series selected. Use toggles to add rules.");
+        this.ruleHazardZoomHoverData = null;
+        return;
+      }
+      const mode = this.getHazardChartMode();
 
       const chartSize = this.prepareHiDPICanvas(this.ruleHazardZoomChart, 260);
       const width = chartSize.width;
@@ -2366,7 +2399,7 @@
 
       const maxHazard = Math.max(
         0.01,
-        ...rows.map((row) => Math.max(...row.hazardSeries.slice(0, maxStep)))
+        ...visibleRows.map((row) => Math.max(...this.getHazardDisplayValues(row.hazardSeries, mode).slice(0, maxStep)))
       );
 
       ctx.strokeStyle = "rgba(79, 57, 36, 0.25)";
@@ -2377,16 +2410,21 @@
       ctx.lineTo(right, bottom);
       ctx.stroke();
 
-      rows.forEach((row, index) => {
+      visibleRows.forEach((row, index) => {
+        const displaySeries = this.getHazardDisplayValues(row.hazardSeries, mode);
         ctx.beginPath();
         ctx.strokeStyle = colors[index % colors.length];
         ctx.lineWidth = 2.8;
 
-        row.hazardSeries.slice(0, maxStep).forEach((hazard, stepIndex) => {
+        displaySeries.slice(0, maxStep).forEach((hazard, stepIndex) => {
           const x = left + (stepIndex / Math.max(1, maxStep - 1)) * chartWidth;
           const y = bottom - (hazard / maxHazard) * chartHeight;
           if (stepIndex === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
+          else if (mode === "step") {
+            const prevY = bottom - (displaySeries[stepIndex - 1] / maxHazard) * chartHeight;
+            ctx.lineTo(x, prevY);
+            ctx.lineTo(x, y);
+          } else ctx.lineTo(x, y);
         });
         ctx.stroke();
       });
@@ -2400,12 +2438,141 @@
         bottom,
         chartWidth,
         maxStep,
-        series: rows.map((row, index) => ({
+        series: visibleRows.map((row, index) => ({
           label: row.ruleShort + "-" + row.movement,
           color: colors[index % colors.length],
-          values: row.hazardSeries.slice(0, maxStep),
+          values: this.getHazardDisplayValues(row.hazardSeries, mode).slice(0, maxStep),
         })),
       };
+    }
+
+    bindHazardExplorerEvents() {
+      if (this.hazardChartMode) {
+        this.hazardChartMode.addEventListener("change", () => this.redrawHazardExplorer());
+      }
+      if (this.hazardSelectAllButton) {
+        this.hazardSelectAllButton.addEventListener("click", () => {
+          if (!this.lastRuleAnalyticsRows) return;
+          this.lastRuleAnalyticsRows.forEach((row) => {
+            this.hazardSeriesSelection[row.ruleShort + "-" + row.movement] = true;
+          });
+          this.renderHazardSeriesToggles(this.lastRuleAnalyticsRows);
+          this.redrawHazardExplorer();
+        });
+      }
+      if (this.hazardClearAllButton) {
+        this.hazardClearAllButton.addEventListener("click", () => {
+          if (!this.lastRuleAnalyticsRows) return;
+          this.lastRuleAnalyticsRows.forEach((row) => {
+            this.hazardSeriesSelection[row.ruleShort + "-" + row.movement] = false;
+          });
+          this.renderHazardSeriesToggles(this.lastRuleAnalyticsRows);
+          this.redrawHazardExplorer();
+        });
+      }
+    }
+
+    redrawHazardExplorer() {
+      if (!this.lastRuleAnalyticsRows) return;
+      this.updateRuleCodeExplainer(this.lastRuleAnalyticsRows);
+      this.drawRuleHazardChart(this.lastRuleAnalyticsRows);
+      this.drawRuleHazardZoomChart(this.lastRuleAnalyticsRows, 15);
+    }
+
+    renderHazardSeriesToggles(rows) {
+      if (!this.hazardSeriesToggles) return;
+
+      const labels = rows.map((row) => row.ruleShort + "-" + row.movement);
+      const noExisting = Object.keys(this.hazardSeriesSelection).length === 0;
+      if (noExisting) {
+        labels.forEach((label) => {
+          this.hazardSeriesSelection[label] = true;
+        });
+      }
+
+      this.hazardSeriesToggles.innerHTML = labels
+        .map((label) => {
+          const checked = this.hazardSeriesSelection[label] ? "checked" : "";
+          return (
+            "<label class=\"hazard-series-chip\">" +
+            "<input type=\"checkbox\" data-series-label=\"" +
+            label +
+            "\" " +
+            checked +
+            " />" +
+            label +
+            "</label>"
+          );
+        })
+        .join("");
+
+      Array.from(this.hazardSeriesToggles.querySelectorAll("input[data-series-label]")).forEach((input) => {
+        input.addEventListener("change", () => {
+          const label = input.getAttribute("data-series-label");
+          this.hazardSeriesSelection[label] = input.checked;
+          this.redrawHazardExplorer();
+        });
+      });
+    }
+
+    getVisibleHazardRows(rows) {
+      const visible = rows.filter((row) => {
+        const label = row.ruleShort + "-" + row.movement;
+        return !!this.hazardSeriesSelection[label];
+      });
+      return visible;
+    }
+
+    getHazardChartMode() {
+      return this.hazardChartMode ? this.hazardChartMode.value : "line";
+    }
+
+    getHazardDisplayValues(series, mode) {
+      if (mode !== "cumulative") {
+        return series;
+      }
+      let running = 0;
+      return series.map((value) => {
+        running += value;
+        return running;
+      });
+    }
+
+    updateHazardDynamicExplainer(visibleRows, mode) {
+      if (!this.hazardDynamicExplainer) return;
+      const modeText =
+        mode === "line"
+          ? "Line mode shows step-by-step hazard trajectories."
+          : mode === "step"
+          ? "Step mode emphasizes changes at each discrete simulation step."
+          : "Cumulative mode shows cumulative conversion pressure over time.";
+
+      if (!visibleRows.length) {
+        this.hazardDynamicExplainer.textContent =
+          "Dynamic explainer: no series are selected. Use the rule toggles to add lines back for comparison. " +
+          modeText;
+        return;
+      }
+
+      const labels = visibleRows.map((row) => row.ruleShort + "-" + row.movement).join(", ");
+      this.hazardDynamicExplainer.textContent =
+        "Dynamic explainer: currently displaying " +
+        visibleRows.length +
+        " series (" +
+        labels +
+        "). " +
+        modeText +
+        " Use toggles to add/remove rule lines for clarity.";
+    }
+
+    updateRuleCodeExplainer(rows) {
+      if (!this.ruleCodeExplainer) return;
+      const selected = this.getVisibleHazardRows(rows).map((row) => row.ruleShort + "-" + row.movement);
+      const selectedText = selected.length ? selected.join(", ") : "none selected";
+      this.ruleCodeExplainer.textContent =
+        "Code guide: R1 = Rule 1 (Attractiveness-based), R2 = Rule 2 (Similarity-based), NS = local neighborhood search, ZZ = balanced zig-zag search, BR = broad random search. Selected now: " +
+        selectedText +
+        ".";
     }
 
     bindHazardTooltipEvents() {
@@ -2482,6 +2649,24 @@
         ctx.fillText("s" + markerStep, x, top - 4);
         ctx.restore();
       });
+    }
+
+    drawNoHazardSeriesMessage(canvas, message) {
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      const chartSize = this.prepareHiDPICanvas(canvas, 260);
+      ctx.clearRect(0, 0, chartSize.width, chartSize.height);
+      ctx.fillStyle = "#fdfaf5";
+      ctx.fillRect(0, 0, chartSize.width, chartSize.height);
+      ctx.strokeStyle = "rgba(15, 118, 110, 0.2)";
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(12, 12, chartSize.width - 24, chartSize.height - 24);
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#355c57";
+      ctx.font = "13px Instrument Sans, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(message, chartSize.width / 2, chartSize.height / 2);
     }
 
     drawRecreatedFigure5(rows) {

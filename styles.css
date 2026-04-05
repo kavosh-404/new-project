@@ -640,6 +640,63 @@ select {
   margin-top: 0.7rem;
 }
 
+.hazard-explorer-controls {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(79, 57, 36, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.hazard-control-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #0f4f4a;
+}
+
+.hazard-control-field select {
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(79, 57, 36, 0.18);
+}
+
+.hazard-toggle-actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.hazard-toggle-actions .secondary-button {
+  padding: 0.45rem 0.7rem;
+  font-size: 0.78rem;
+}
+
+.hazard-series-toggles {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.hazard-series-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.5rem;
+  border: 1px solid rgba(79, 57, 36, 0.16);
+  border-radius: 999px;
+  font-size: 0.74rem;
+  color: #3e352d;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.hazard-series-chip input {
+  margin: 0;
+}
+
 #rule-hazard-chart,
 #rule-hazard-zoom-chart {
   height: 280px;
