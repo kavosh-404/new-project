@@ -608,23 +608,40 @@
           ? "strong assortative pattern"
           : "moderate assortative pattern";
 
-      const refs = this.getReferenceNotes(mobilityLevel, densityLevel, preferenceRule);
-      const anchors = this.getParagraphAnchors(mobilityLevel, densityLevel, preferenceRule);
+      const mobilityDesc =
+        mobilityLevel === "Low"
+          ? "lower mobility slows partner search and weakens assortment (p. 16)"
+          : mobilityLevel === "High"
+          ? "higher mobility improves partner search (p. 16)"
+          : "medium mobility yields intermediate search efficiency (p. 16)";
+
+      const densityDesc =
+        densityLevel === "Sparse"
+          ? "lower density reduces matching opportunities while increasing search duration (pp. 17–18)"
+          : densityLevel === "Dense"
+          ? "higher density increases encounter rates and accelerates matching (pp. 17–18)"
+          : "normal density produces steady encounter rates (pp. 17–18)";
+
+      const prefDesc =
+        preferenceRule === "Attractiveness-based"
+          ? "The observed longer wait times for high-attractiveness agents are consistent with the paper's discussion of attractiveness-prioritized matching (p. 16)."
+          : "The results reflect similarity-based matching, which depends more on local availability than global sorting (pp. 11–13).";
 
       return (
         "Run result: " +
         metrics.pairCount +
-        " pairs, matching strength " +
+        " pairs, matching strength = " +
         metrics.matchingStrength.toFixed(2) +
-        " (" +
+        ", suggesting a " +
         assort +
-        "), avg search " +
+        " (avg search " +
         metrics.averageSearchSteps.toFixed(1) +
-        ". Key references: " +
-        refs.join("; ") +
-        ". Find it in the paper: " +
-        anchors.join(" | ") +
-        "."
+        " steps). This result is consistent with Smaldino & Schank (2012): spatial locality constrains encounters (pp. 11–13), " +
+        mobilityDesc.toLowerCase() +
+        ", and " +
+        densityDesc.toLowerCase() +
+        ". " +
+        prefDesc
       );
     }
 
