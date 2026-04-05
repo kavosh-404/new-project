@@ -64,6 +64,7 @@
       this.summaryStrength = document.getElementById("summary-strength");
       this.summarySearch = document.getElementById("summary-search");
       this.runSummary = document.getElementById("run-summary");
+      this.controlHelpButtons = Array.from(document.querySelectorAll(".control-help"));
 
       this.state = {
         agents: [],
@@ -90,6 +91,8 @@
       this.handleBatchRun = this.handleBatchRun.bind(this);
       this.handleControlChange = this.handleControlChange.bind(this);
       this.handleChatSubmit = this.handleChatSubmit.bind(this);
+      this.handleControlHelpDocumentClick = this.handleControlHelpDocumentClick.bind(this);
+      this.handleControlHelpKeydown = this.handleControlHelpKeydown.bind(this);
       this.debounceTimer = null;
 
       this.bindEvents();
@@ -117,6 +120,7 @@
       if (this.runBatchButton) {
         this.runBatchButton.addEventListener("click", this.handleBatchRun);
       }
+      this.bindControlHelpTooltips();
       this.chatForm.addEventListener("submit", this.handleChatSubmit);
       if (this.chatCapabilitiesButton) {
         this.chatCapabilitiesButton.addEventListener("click", () => {
@@ -148,6 +152,44 @@
         this.copyCitationButton.addEventListener("click", () => this.copyCitation());
       }
       this.bindLessonPresets();
+    }
+
+    bindControlHelpTooltips() {
+      if (!this.controlHelpButtons.length) return;
+
+      this.controlHelpButtons.forEach((button) => {
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const willOpen = !button.classList.contains("is-open");
+          this.closeControlHelpTooltips();
+          if (willOpen) {
+            button.classList.add("is-open");
+            button.setAttribute("aria-expanded", "true");
+          }
+        });
+      });
+
+      document.addEventListener("click", this.handleControlHelpDocumentClick);
+      document.addEventListener("keydown", this.handleControlHelpKeydown);
+    }
+
+    closeControlHelpTooltips() {
+      this.controlHelpButtons.forEach((button) => {
+        button.classList.remove("is-open");
+        button.setAttribute("aria-expanded", "false");
+      });
+    }
+
+    handleControlHelpDocumentClick(event) {
+      if (!event.target.closest(".control-help")) {
+        this.closeControlHelpTooltips();
+      }
+    }
+
+    handleControlHelpKeydown(event) {
+      if (event.key === "Escape") {
+        this.closeControlHelpTooltips();
+      }
     }
 
     handleResize() {

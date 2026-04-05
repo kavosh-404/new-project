@@ -256,17 +256,29 @@ body::before {
 
 .control-help {
   position: relative;
-  width: 1.1rem;
-  height: 1.1rem;
+  width: 1.25rem;
+  height: 1.25rem;
   border-radius: 50%;
   border: 1px solid rgba(15, 118, 110, 0.28);
   background: rgba(15, 118, 110, 0.08);
-  color: #0f4f4a;
-  font-size: 0.75rem;
-  font-weight: 700;
-  line-height: 1.1rem;
+  color: transparent;
+  font-size: 0;
+  line-height: 1;
   text-align: center;
   cursor: help;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.control-help::before {
+  content: "i";
+  color: #0f4f4a;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .control-tooltip {
@@ -292,9 +304,25 @@ body::before {
 
 .control-help:hover .control-tooltip,
 .control-help:focus .control-tooltip,
-.control-help:focus-visible .control-tooltip {
+.control-help:focus-visible .control-tooltip,
+.control-help.is-open .control-tooltip {
   visibility: visible;
   opacity: 1;
+}
+
+.control-help:focus-visible,
+.control-help.is-open {
+  outline: none;
+  border-color: rgba(15, 118, 110, 0.45);
+  background: rgba(15, 118, 110, 0.16);
+}
+
+@media (max-width: 640px) {
+  .control-tooltip {
+    left: 0;
+    transform: none;
+    width: min(280px, 82vw);
+  }
 }
 
 .control-guide-details {
