@@ -132,9 +132,6 @@
           { id: "paper-figure-page-18", page: 18 },
         ];
 
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-
         function paintFallback(canvas, message) {
           const ctx = canvas.getContext("2d");
           if (!ctx) return;
@@ -157,7 +154,10 @@
         }
 
         window.pdfjsLib
-          .getDocument("smaldino-schank-2012.pdf")
+          .getDocument({
+            url: "smaldino-schank-2012.pdf",
+            disableWorker: true,
+          })
           .promise.then(function (pdfDoc) {
             return Promise.all(
               targets.map(function (target) {
@@ -184,10 +184,11 @@
               })
             );
           })
-          .catch(function () {
+          .catch(function (error) {
+            var reason = error && error.message ? error.message : "render failed";
             targets.forEach(function (target) {
               const canvas = document.getElementById(target.id);
-              if (canvas) paintFallback(canvas, "Could not render this page");
+              if (canvas) paintFallback(canvas, "Could not render: " + reason);
             });
           });
       })();
