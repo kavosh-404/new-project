@@ -248,6 +248,38 @@ body::before {
   font-size: 0.95rem;
 }
 
+.control-guide {
+  position: relative;
+  z-index: 1;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(79, 57, 36, 0.12);
+  border-radius: var(--radius-md);
+  background: #fffdf9;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.control-guide h3 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.control-guide-list {
+  margin: 0;
+  padding-left: 1.05rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.control-guide-list li + li {
+  margin-top: 0.35rem;
+}
+
+.control-guide-list strong {
+  color: var(--text);
+}
+
 select {
   width: 100%;
   padding: 0.95rem 1rem;
