@@ -452,10 +452,6 @@
     }
 
     initChat() {
-      this.addChatMessage(
-        "Assistant",
-        "I can compare each run to Smaldino & Schank (2012). After a run, ask follow-ups like “How did density influence assortative matching?”"
-      );
       this.renderInsightQuestions();
     }
 
@@ -544,6 +540,82 @@
         }
 
         return "I am not sure I understood that. I can help with this run's density, mobility, preference rule, matching strength, search time, results, or citations. Try one of the suggested questions below.";
+      }
+
+      buildDensityCausalReply(metrics, density, mobility) {
+        return (
+          density +
+          " density led to " +
+          metrics.pairCount +
+          " pairs because encounter opportunities were constrained by space. " +
+          (density === "Sparse"
+            ? "Agents were spread out, so they met fewer possible partners and needed more time to find acceptable matches."
+            : density === "Dense"
+            ? "Agents encountered many more neighbors, so pairs formed faster and sorting improved."
+            : "Agents had a moderate encounter rate, so pairing stayed in the middle range.") +
+          " In this run, average search time was " +
+          metrics.averageSearchSteps.toFixed(1) +
+          " steps, which fits Smaldino & Schank's density result (pp. 17–18)."
+        );
+      }
+
+      buildDensitySearchReply(metrics, density) {
+        return (
+          density +
+          " density is directly tied to the average search time of " +
+          metrics.averageSearchSteps.toFixed(1) +
+          " steps. " +
+          (density === "Sparse"
+            ? "Because agents were farther apart, unmatched agents spent more turns moving before they even found someone to evaluate."
+            : density === "Dense"
+            ? "Because agents encountered neighbors frequently, they needed fewer turns on average to find a match."
+            : "Because encounter rates were moderate, search time stayed between the sparse and dense extremes.") +
+          " That search friction is one of the clearest ways density shapes outcomes in this model."
+        );
+      }
+
+      buildDensityCounterfactualReply(metrics, density) {
+        return (
+          "If density were " +
+          (density === "Dense" ? "Sparse" : "Dense") +
+          " instead of " +
+          density +
+          ", the encounter rate would change first. " +
+          (density === "Sparse"
+            ? "With Dense conditions, agents would meet more often, average search time would likely drop below " + metrics.averageSearchSteps.toFixed(1) + ", and pair formation would usually increase."
+            : "With Sparse conditions, agents would meet less often, average search time would likely rise above " + metrics.averageSearchSteps.toFixed(1) + ", and pair formation would usually fall.") +
+          " So the main difference would be how quickly agents can convert movement into actual matching opportunities."
+        );
+      }
+
+      buildDensityEvidenceReply(metrics, density) {
+        return (
+          "The best evidence that density mattered is the combination of pair count and search time in the same run: " +
+          metrics.pairCount +
+          " pairs with an average search of " +
+          metrics.averageSearchSteps.toFixed(1) +
+          " steps. Under " +
+          density +
+          " density, those two numbers move together because encounter frequency changes who gets seen at all. Matching strength " +
+          metrics.matchingStrength.toFixed(2) +
+          " then shows the downstream effect on sorting quality."
+        );
+      }
+
+      buildMobilityDensityComparisonReply(metrics, density, mobility) {
+        return (
+          "Density and mobility affect different parts of the process. Density changes how many possible encounters exist in the local area, while mobility changes how quickly agents can move between areas. In this run, " +
+          density.toLowerCase() +
+          " density limited the pool of available encounters, and " +
+          mobility.toLowerCase() +
+          " mobility shaped how long agents searched through that pool. That is why you see " +
+          metrics.pairCount +
+          " pairs with average search time " +
+          metrics.averageSearchSteps.toFixed(1) +
+          " and matching strength " +
+          metrics.matchingStrength.toFixed(2) +
+          "."
+        );
       }
 
       isCapabilityQuestion(text) {
@@ -759,6 +831,31 @@
           mobility +
           " mobility, agents mostly encountered neighbors, which shaped who paired with whom. Ask me about a specific aspect: density, mobility, or matching?"
         );
+      }
+
+      if (lower.includes("mobility") && lower.includes("density")) {
+        this.lastTopic = "mobility";
+        return this.buildMobilityDensityComparisonReply(metrics, density, mobility);
+      }
+
+      if (lower.includes("density") && (lower.includes("search time") || lower.includes("avg search"))) {
+        this.lastTopic = "density";
+        return this.buildDensitySearchReply(metrics, density);
+      }
+
+      if (lower.includes("density") && (lower.includes("instead of") || lower.includes("would likely change"))) {
+        this.lastTopic = "density";
+        return this.buildDensityCounterfactualReply(metrics, density);
+      }
+
+      if (lower.includes("density") && lower.includes("evidence")) {
+        this.lastTopic = "density";
+        return this.buildDensityEvidenceReply(metrics, density);
+      }
+
+      if (lower.includes("density") && (lower.includes("lead to") || lower.includes("affect pairing"))) {
+        this.lastTopic = "density";
+        return this.buildDensityCausalReply(metrics, density, mobility);
       }
 
       // Detect topic from user input and track it
