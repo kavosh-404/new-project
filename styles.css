@@ -549,6 +549,15 @@ select {
   color: #0f4f4a;
 }
 
+.preview-chart-insight {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted);
+  border-top: 1px solid rgba(79, 57, 36, 0.08);
+  padding-top: 0.4rem;
+}
+
 .preview-chart-card canvas {
   display: block;
   width: 100%;

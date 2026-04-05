@@ -71,6 +71,8 @@
       this.previewKpiSearch = document.getElementById("preview-kpi-search");
       this.previewMetricsChart = document.getElementById("preview-metrics-chart");
       this.previewDifferenceChart = document.getElementById("preview-difference-chart");
+      this.previewMetricsInsight = document.getElementById("preview-metrics-insight");
+      this.previewDifferenceInsight = document.getElementById("preview-difference-insight");
       this.summaryPairs = document.getElementById("summary-pairs");
       this.summaryStrength = document.getElementById("summary-strength");
       this.summarySearch = document.getElementById("summary-search");
@@ -1672,6 +1674,7 @@
       this.populatePreviewNarrative(reportData);
       this.drawMetricsChart(reportData);
       this.drawDifferenceChart(reportData);
+      this.populateChartInsights(reportData);
     }
 
     buildPreviewReportData() {
@@ -1816,6 +1819,49 @@
       this.drawBarChart(ctx, chartSize.width, chartSize.height, values, labels, colors);
     }
 
+    populateChartInsights(reportData) {
+      const { metrics, maxPairs, pairDifferenceBins, structureLabel } = reportData;
+      const pairRate = maxPairs > 0 ? (metrics.pairCount / maxPairs) * 100 : 0;
+      const searchPercent = (Math.min(STEP_COUNT, metrics.averageSearchSteps) / STEP_COUNT) * 100;
+
+      if (this.previewMetricsInsight) {
+        this.previewMetricsInsight.textContent =
+          "Insight: Pairs reached " +
+          pairRate.toFixed(0) +
+          "% of the maximum possible count, matching strength is " +
+          metrics.matchingStrength.toFixed(2) +
+          " (" +
+          structureLabel +
+          "), and average search used " +
+          searchPercent.toFixed(0) +
+          "% of the run horizon. Higher search with lower pair/strength bars usually indicates tighter encounter constraints.";
+      }
+
+      if (this.previewDifferenceInsight) {
+        if (metrics.pairCount === 0) {
+          this.previewDifferenceInsight.textContent =
+            "Insight: No pairs formed in this run, so the distribution has no partner-difference data yet.";
+          return;
+        }
+
+        const lowDifferenceCount = pairDifferenceBins[0] + pairDifferenceBins[1] + pairDifferenceBins[2];
+        const lowDifferenceShare = (lowDifferenceCount / metrics.pairCount) * 100;
+        let peakBin = 0;
+        for (let i = 1; i < pairDifferenceBins.length; i += 1) {
+          if (pairDifferenceBins[i] > pairDifferenceBins[peakBin]) {
+            peakBin = i;
+          }
+        }
+
+        this.previewDifferenceInsight.textContent =
+          "Insight: " +
+          lowDifferenceShare.toFixed(0) +
+          "% of pairs are in low-difference bins (0-2), and the peak bin is difference " +
+          peakBin +
+          ". More mass in lower bins means partners were more similar; heavier right-side bins indicate weaker assortment.";
+      }
+    }
+
     prepareHiDPICanvas(canvas, height) {
       const parentWidth = canvas.parentElement ? canvas.parentElement.clientWidth : 0;
       const width = Math.max(260, Math.floor(parentWidth || canvas.clientWidth || 440));
@@ -1890,6 +1936,14 @@
       if (this.previewKpiPairs) this.previewKpiPairs.textContent = "-";
       if (this.previewKpiStrength) this.previewKpiStrength.textContent = "-";
       if (this.previewKpiSearch) this.previewKpiSearch.textContent = "-";
+      if (this.previewMetricsInsight) {
+        this.previewMetricsInsight.textContent =
+          "Insight: This chart compares run-level outcomes where taller bars indicate stronger values.";
+      }
+      if (this.previewDifferenceInsight) {
+        this.previewDifferenceInsight.textContent =
+          "Insight: This chart shows how similar partners were, with lower difference bins indicating stronger assortative matching.";
+      }
 
       if (this.previewMetricsChart) {
         const metricsCtx = this.previewMetricsChart.getContext("2d");
