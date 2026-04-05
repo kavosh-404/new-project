@@ -196,10 +196,61 @@
             <div class="batch-summary" id="batch-summary" aria-live="polite"></div>
             <section class="csv-preview" id="csv-preview" aria-label="Run summary CSV preview">
               <div class="csv-preview-header">
-                <h3>Run Summary (CSV Preview)</h3>
-                <p>This preview is the same content downloaded in simulation-summary.csv.</p>
+                <h3>Run Summary Report</h3>
+                <p>Polished interpretation of the latest simulation run with visual diagnostics.</p>
               </div>
-              <pre id="csv-preview-content"></pre>
+
+              <article class="report-section" aria-labelledby="preview-introduction-title">
+                <h4 id="preview-introduction-title">Introduction</h4>
+                <p id="preview-intro-text">
+                  Run a simulation, then use Preview run summary (CSV) to generate an interpreted report.
+                </p>
+              </article>
+
+              <div class="preview-kpis" aria-label="Run highlights">
+                <div class="preview-kpi-card">
+                  <span class="preview-kpi-label">Pairs</span>
+                  <strong id="preview-kpi-pairs">-</strong>
+                </div>
+                <div class="preview-kpi-card">
+                  <span class="preview-kpi-label">Matching Strength</span>
+                  <strong id="preview-kpi-strength">-</strong>
+                </div>
+                <div class="preview-kpi-card">
+                  <span class="preview-kpi-label">Avg Search Steps</span>
+                  <strong id="preview-kpi-search">-</strong>
+                </div>
+              </div>
+
+              <article class="report-section" aria-labelledby="preview-body-title">
+                <h4 id="preview-body-title">Body</h4>
+                <p id="preview-body-text">
+                  This section summarizes how your control settings interacted with observed outcomes.
+                </p>
+              </article>
+
+              <div class="preview-chart-grid">
+                <figure class="preview-chart-card">
+                  <figcaption>Run Metrics Overview</figcaption>
+                  <canvas id="preview-metrics-chart" width="440" height="240" aria-label="Chart of pairs, matching strength, and average search"></canvas>
+                </figure>
+                <figure class="preview-chart-card">
+                  <figcaption>Pair Difference Distribution</figcaption>
+                  <canvas id="preview-difference-chart" width="440" height="240" aria-label="Chart of attractiveness differences across formed pairs"></canvas>
+                </figure>
+              </div>
+
+              <article class="report-section" aria-labelledby="preview-conclusion-title">
+                <h4 id="preview-conclusion-title">Conclusion</h4>
+                <p id="preview-conclusion-text">
+                  The conclusion synthesizes what this run suggests about encounter constraints and matching patterns.
+                </p>
+              </article>
+
+              <details class="preview-raw-csv">
+                <summary>View raw CSV</summary>
+                <pre id="csv-preview-content"></pre>
+              </details>
             </section>
 
             <section class="simulation-grid" aria-labelledby="simulation-grid-title">

@@ -63,6 +63,14 @@
       this.batchSummary = document.getElementById("batch-summary");
       this.csvPreview = document.getElementById("csv-preview");
       this.csvPreviewContent = document.getElementById("csv-preview-content");
+      this.previewIntroText = document.getElementById("preview-intro-text");
+      this.previewBodyText = document.getElementById("preview-body-text");
+      this.previewConclusionText = document.getElementById("preview-conclusion-text");
+      this.previewKpiPairs = document.getElementById("preview-kpi-pairs");
+      this.previewKpiStrength = document.getElementById("preview-kpi-strength");
+      this.previewKpiSearch = document.getElementById("preview-kpi-search");
+      this.previewMetricsChart = document.getElementById("preview-metrics-chart");
+      this.previewDifferenceChart = document.getElementById("preview-difference-chart");
       this.summaryPairs = document.getElementById("summary-pairs");
       this.summaryStrength = document.getElementById("summary-strength");
       this.summarySearch = document.getElementById("summary-search");
@@ -232,9 +240,7 @@
       if (this.csvPreview) {
         this.csvPreview.classList.remove("is-visible");
       }
-      if (this.csvPreviewContent) {
-        this.csvPreviewContent.textContent = "";
-      }
+      this.resetPreviewContent();
 
       this.state = {
         agents: this.createAgents(this.getDensityCount(this.densitySelect.value)),
@@ -1655,8 +1661,251 @@
 
     showCsvPreview(csvText) {
       if (!this.csvPreview || !this.csvPreviewContent) return;
+      const reportData = this.buildPreviewReportData();
+      if (!reportData) {
+        this.addChatMessage("Assistant", "Run first, then preview the summary.");
+        return;
+      }
+
       this.csvPreviewContent.textContent = csvText;
       this.csvPreview.classList.add("is-visible");
+      this.populatePreviewNarrative(reportData);
+      this.drawMetricsChart(reportData);
+      this.drawDifferenceChart(reportData);
+    }
+
+    buildPreviewReportData() {
+      if (!this.state.lastRun) return null;
+
+      const { metrics, mobilityLevel, densityLevel, preferenceRule, selectivityLevel, patienceLevel, explorationLevel } = this.state.lastRun;
+      const totalAgents = this.state.agents.length || 0;
+      const maxPairs = Math.max(1, Math.floor(totalAgents / 2));
+
+      const pairDifferenceBins = new Array(10).fill(0);
+      this.state.pairs.forEach((pair) => {
+        const first = this.state.agents[pair.agent1];
+        const second = this.state.agents[pair.agent2];
+        if (!first || !second) return;
+        const diff = Math.abs(first.attractiveness - second.attractiveness);
+        pairDifferenceBins[diff] += 1;
+      });
+
+      const structureLabel =
+        metrics.matchingStrength >= 0.35
+          ? "highly sorted"
+          : metrics.matchingStrength >= 0.2
+          ? "moderately sorted"
+          : "weakly sorted";
+
+      return {
+        metrics,
+        mobilityLevel,
+        densityLevel,
+        preferenceRule,
+        selectivityLevel: selectivityLevel || "Medium",
+        patienceLevel: patienceLevel || "Normal",
+        explorationLevel: explorationLevel || "Balanced",
+        totalAgents,
+        maxPairs,
+        pairDifferenceBins,
+        structureLabel,
+      };
+    }
+
+    populatePreviewNarrative(reportData) {
+      const {
+        metrics,
+        mobilityLevel,
+        densityLevel,
+        preferenceRule,
+        selectivityLevel,
+        patienceLevel,
+        explorationLevel,
+        structureLabel,
+      } = reportData;
+
+      if (this.previewKpiPairs) {
+        this.previewKpiPairs.textContent = String(metrics.pairCount);
+      }
+      if (this.previewKpiStrength) {
+        this.previewKpiStrength.textContent = metrics.matchingStrength.toFixed(2);
+      }
+      if (this.previewKpiSearch) {
+        this.previewKpiSearch.textContent = metrics.averageSearchSteps.toFixed(1);
+      }
+
+      if (this.previewIntroText) {
+        this.previewIntroText.textContent =
+          "This run evaluated " +
+          preferenceRule.toLowerCase() +
+          " matching under " +
+          densityLevel.toLowerCase() +
+          " density and " +
+          mobilityLevel.toLowerCase() +
+          " mobility, with selectivity " +
+          selectivityLevel.toLowerCase() +
+          ", patience " +
+          patienceLevel.toLowerCase() +
+          ", and exploration " +
+          explorationLevel.toLowerCase() +
+          ".";
+      }
+
+      if (this.previewBodyText) {
+        this.previewBodyText.textContent =
+          "The simulation produced " +
+          metrics.pairCount +
+          " pairs and a matching strength of " +
+          metrics.matchingStrength.toFixed(2) +
+          ", indicating a " +
+          structureLabel +
+          " pairing pattern. Average search steps reached " +
+          metrics.averageSearchSteps.toFixed(1) +
+          ", which reflects how quickly agents found acceptable partners under these constraints.";
+      }
+
+      if (this.previewConclusionText) {
+        const takeaway =
+          metrics.averageSearchSteps > 20
+            ? "Search was costly, so encounter constraints likely limited efficient matching."
+            : "Search was relatively efficient, suggesting encounters were available enough for timely pairing.";
+
+        this.previewConclusionText.textContent =
+          "Conclusion: In this parameter setting, outcomes were " +
+          structureLabel +
+          " and " +
+          takeaway +
+          " Use the two charts above to compare overall outcome levels and the distribution of pair differences.";
+      }
+    }
+
+    drawMetricsChart(reportData) {
+      if (!this.previewMetricsChart) return;
+
+      const canvas = this.previewMetricsChart;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const chartSize = this.prepareHiDPICanvas(canvas, 190);
+
+      const values = [
+        reportData.metrics.pairCount / reportData.maxPairs,
+        reportData.metrics.matchingStrength,
+        Math.min(1, reportData.metrics.averageSearchSteps / STEP_COUNT),
+      ];
+      const labels = ["Pairs", "Strength", "Search"];
+      const colors = ["#0f766e", "#b98236", "#3b6ea8"];
+
+      this.drawBarChart(ctx, chartSize.width, chartSize.height, values, labels, colors);
+    }
+
+    drawDifferenceChart(reportData) {
+      if (!this.previewDifferenceChart) return;
+
+      const canvas = this.previewDifferenceChart;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const chartSize = this.prepareHiDPICanvas(canvas, 190);
+
+      const maxCount = Math.max(1, ...reportData.pairDifferenceBins);
+      const values = reportData.pairDifferenceBins.map((count) => count / maxCount);
+      const labels = reportData.pairDifferenceBins.map((_, index) => String(index));
+      const colors = labels.map((_, index) => (index <= 2 ? "#0f766e" : "#6c7a89"));
+
+      this.drawBarChart(ctx, chartSize.width, chartSize.height, values, labels, colors);
+    }
+
+    prepareHiDPICanvas(canvas, height) {
+      const parentWidth = canvas.parentElement ? canvas.parentElement.clientWidth : 0;
+      const width = Math.max(260, Math.floor(parentWidth || canvas.clientWidth || 440));
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(width * ratio);
+      canvas.height = Math.floor(height * ratio);
+      canvas.style.width = "100%";
+      canvas.style.height = height + "px";
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        return { width, height };
+      }
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(ratio, ratio);
+      return { width, height };
+    }
+
+    drawBarChart(ctx, width, height, values, labels, colors) {
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#fdfaf5";
+      ctx.fillRect(0, 0, width, height);
+
+      const left = 38;
+      const right = width - 16;
+      const top = 16;
+      const bottom = height - 34;
+      const chartWidth = right - left;
+      const chartHeight = bottom - top;
+      const barGap = 8;
+      const barWidth = (chartWidth - barGap * (values.length - 1)) / values.length;
+
+      ctx.strokeStyle = "rgba(79, 57, 36, 0.25)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(left, top);
+      ctx.lineTo(left, bottom);
+      ctx.lineTo(right, bottom);
+      ctx.stroke();
+
+      for (let i = 0; i < values.length; i += 1) {
+        const value = this.clamp(values[i], 0, 1);
+        const barHeight = value * chartHeight;
+        const x = left + i * (barWidth + barGap);
+        const y = bottom - barHeight;
+
+        ctx.fillStyle = colors[i] || "#0f766e";
+        ctx.fillRect(x, y, barWidth, barHeight);
+
+        ctx.fillStyle = "#3e352d";
+        ctx.font = "11px Instrument Sans, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(labels[i], x + barWidth / 2, bottom + 15);
+      }
+    }
+
+    resetPreviewContent() {
+      if (this.csvPreviewContent) {
+        this.csvPreviewContent.textContent = "";
+      }
+      if (this.previewIntroText) {
+        this.previewIntroText.textContent =
+          "Run a simulation, then use Preview run summary (CSV) to generate an interpreted report.";
+      }
+      if (this.previewBodyText) {
+        this.previewBodyText.textContent =
+          "This section summarizes how your control settings interacted with observed outcomes.";
+      }
+      if (this.previewConclusionText) {
+        this.previewConclusionText.textContent =
+          "The conclusion synthesizes what this run suggests about encounter constraints and matching patterns.";
+      }
+      if (this.previewKpiPairs) this.previewKpiPairs.textContent = "-";
+      if (this.previewKpiStrength) this.previewKpiStrength.textContent = "-";
+      if (this.previewKpiSearch) this.previewKpiSearch.textContent = "-";
+
+      if (this.previewMetricsChart) {
+        const metricsCtx = this.previewMetricsChart.getContext("2d");
+        if (metricsCtx) {
+          const chartSize = this.prepareHiDPICanvas(this.previewMetricsChart, 190);
+          metricsCtx.clearRect(0, 0, chartSize.width, chartSize.height);
+        }
+      }
+
+      if (this.previewDifferenceChart) {
+        const diffCtx = this.previewDifferenceChart.getContext("2d");
+        if (diffCtx) {
+          const chartSize = this.prepareHiDPICanvas(this.previewDifferenceChart, 190);
+          diffCtx.clearRect(0, 0, chartSize.width, chartSize.height);
+        }
+      }
     }
 
     downloadPng() {
@@ -1786,9 +2035,7 @@
       if (this.csvPreview) {
         this.csvPreview.classList.remove("is-visible");
       }
-      if (this.csvPreviewContent) {
-        this.csvPreviewContent.textContent = "";
-      }
+      this.resetPreviewContent();
     }
 
     shuffle(items) {
