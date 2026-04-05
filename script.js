@@ -2237,9 +2237,9 @@
 
       if (this.ruleAnalyticsDefinitions) {
         this.ruleAnalyticsDefinitions.textContent =
-          "Definitions: inter-pair correlation r is Pearson correlation between attractiveness values of matched partners; mean date to mate is the average step where a matched agent formed a pair; mating hazard at step t is h(t)=matches(t)/atRisk(t). Rule 1 uses Attractiveness-based choice, Rule 2 uses Similarity-based choice. Movement labels: NS=local neighborhood search, ZZ=balanced zig-zag search, BR=broad random search. Each row reports mean with 95% CI from n=" +
+          "Statistics: each row reports mean with 95% CI from n=" +
           RULE_ANALYTICS_RUNS +
-          " synthetic runs. CI colors: green=tight uncertainty, amber=medium, rose=wide.";
+          " synthetic runs. CI colors: green=tight, amber=medium, rose=wide.";
       }
     }
 
@@ -2651,7 +2651,7 @@
       const selected = this.getVisibleHazardRows(rows).map((row) => row.ruleShort + "-" + row.movement);
       const selectedText = selected.length ? selected.join(", ") : "none selected";
       this.ruleCodeExplainer.textContent =
-        "Code guide: R1 = Rule 1 (Attractiveness-based), R2 = Rule 2 (Similarity-based), NS = local neighborhood search, ZZ = balanced zig-zag search, BR = broad random search. Selected now: " +
+        "Selected now: " +
         selectedText +
         ".";
     }
@@ -2974,7 +2974,12 @@
       }
       if (this.ruleAnalyticsDefinitions) {
         this.ruleAnalyticsDefinitions.textContent =
-          "Definitions: Rule 1 maps to Attractiveness-based choice and Rule 2 maps to Similarity-based choice. Movement labels in this simulation are NS = local neighborhood search, ZZ = balanced zig-zag search, and BR = broad random search.";
+          "Statistics: each row reports mean with 95% CI from n=" +
+          RULE_ANALYTICS_RUNS +
+          " synthetic runs. CI colors: green=tight, amber=medium, rose=wide.";
+      }
+      if (this.ruleCodeExplainer) {
+        this.ruleCodeExplainer.textContent = "Selected now: none selected.";
       }
       if (this.ruleAnalyticsBody) {
         this.ruleAnalyticsBody.innerHTML = "<tr><td colspan=\"5\">Run preview to compute analytics.</td></tr>";

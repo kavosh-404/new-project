@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=20260408" />
+    <link rel="stylesheet" href="styles.css?v=20260409" />
   </head>
   <body>
     <div class="site-shell">
@@ -269,12 +269,30 @@
 
               <section class="report-section" aria-labelledby="rule-analytics-title">
                 <h4 id="rule-analytics-title">Paper-Aligned Rule Analytics</h4>
-                <p id="rule-analytics-definitions">
-                  Definitions: Rule 1 maps to Attractiveness-based choice and Rule 2 maps to Similarity-based choice. Movement labels in this simulation are NS = local neighborhood search, ZZ = balanced zig-zag search, and BR = broad random search.
-                </p>
-                <p id="rule-code-explainer" class="preview-chart-insight">
-                  Code guide: R1-NS means Rule 1 with local neighborhood search; R2-BR means Rule 2 with broad random search.
-                </p>
+                <div class="rule-copy-layout">
+                  <section class="rule-copy-block" aria-label="Metric definitions">
+                    <h5>Metric definitions</h5>
+                    <ul class="rule-copy-list">
+                      <li>Inter-pair correlation r: Pearson correlation between attractiveness values of matched partners.</li>
+                      <li>Mean date to mate: Average step where matched agents formed pairs.</li>
+                      <li>Mating hazard at step t: h(t) = matches(t) / atRisk(t).</li>
+                    </ul>
+                    <p id="rule-analytics-definitions" class="rule-copy-meta">
+                      Statistics: each row reports mean with 95% CI from n=20 synthetic runs. CI colors: green=tight, amber=medium, rose=wide.
+                    </p>
+                  </section>
+                  <section class="rule-copy-block" aria-label="Code guide">
+                    <h5>Code guide</h5>
+                    <ul class="rule-copy-list">
+                      <li>R1 = Rule 1 (Attractiveness-based)</li>
+                      <li>R2 = Rule 2 (Similarity-based)</li>
+                      <li>NS = local neighborhood search, ZZ = balanced zig-zag search, BR = broad random search</li>
+                    </ul>
+                    <p id="rule-code-explainer" class="rule-copy-meta">
+                      Selected now: all six codes.
+                    </p>
+                  </section>
+                </div>
                 <div class="rule-analytics-table-wrap">
                   <table class="rule-analytics-table" aria-label="Rule analytics comparison">
                     <thead>
@@ -418,6 +436,6 @@
         </section>
       </main>
     </div>
-    <script src="script.js?v=20260414"></script>
+    <script src="script.js?v=20260415"></script>
   </body>
 </html>

@@ -605,6 +605,44 @@ select {
   overflow-x: auto;
 }
 
+.rule-copy-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.6rem;
+}
+
+.rule-copy-block {
+  border: 1px solid rgba(79, 57, 36, 0.1);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.rule-copy-block h5 {
+  margin: 0;
+  color: #0f4f4a;
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.rule-copy-list {
+  margin: 0.45rem 0 0.4rem;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.22rem;
+  color: #3e352d;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.rule-copy-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.79rem;
+  line-height: 1.4;
+}
+
 .rule-analytics-table {
   width: 100%;
   border-collapse: collapse;
