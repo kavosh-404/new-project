@@ -675,6 +675,22 @@ select {
   font-size: 0.78rem;
 }
 
+.hazard-auto-top2-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.38rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(79, 57, 36, 0.14);
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 0.76rem;
+  color: #3e352d;
+}
+
+.hazard-auto-top2-toggle input {
+  margin: 0;
+}
+
 .hazard-series-toggles {
   display: flex;
   gap: 0.35rem;
@@ -695,6 +711,11 @@ select {
 
 .hazard-series-chip input {
   margin: 0;
+}
+
+.hazard-series-chip.is-auto-highlight {
+  border-color: rgba(15, 118, 110, 0.5);
+  background: rgba(15, 118, 110, 0.12);
 }
 
 #rule-hazard-chart,

@@ -86,6 +86,7 @@
       this.hazardSeriesToggles = document.getElementById("hazard-series-toggles");
       this.hazardSelectAllButton = document.getElementById("hazard-select-all");
       this.hazardClearAllButton = document.getElementById("hazard-clear-all");
+      this.hazardAutoTop2 = document.getElementById("hazard-auto-top2");
       this.hazardDynamicExplainer = document.getElementById("hazard-dynamic-explainer");
       this.recreatedFigure5Chart = document.getElementById("recreated-figure5-chart");
       this.recreatedFigure6Chart = document.getElementById("recreated-figure6-chart");
@@ -128,6 +129,8 @@
       this.ruleHazardZoomHoverData = null;
       this.lastRuleAnalyticsRows = null;
       this.hazardSeriesSelection = {};
+      this.autoHighlightedSeriesLabels = [];
+      this.autoHighlightTop2Enabled = false;
 
       this.bindEvents();
       this.handleResize();
@@ -2453,6 +2456,7 @@
       if (this.hazardSelectAllButton) {
         this.hazardSelectAllButton.addEventListener("click", () => {
           if (!this.lastRuleAnalyticsRows) return;
+          this.disableAutoTop2IfNeeded();
           this.lastRuleAnalyticsRows.forEach((row) => {
             this.hazardSeriesSelection[row.ruleShort + "-" + row.movement] = true;
           });
@@ -2463,6 +2467,7 @@
       if (this.hazardClearAllButton) {
         this.hazardClearAllButton.addEventListener("click", () => {
           if (!this.lastRuleAnalyticsRows) return;
+          this.disableAutoTop2IfNeeded();
           this.lastRuleAnalyticsRows.forEach((row) => {
             this.hazardSeriesSelection[row.ruleShort + "-" + row.movement] = false;
           });
@@ -2470,10 +2475,22 @@
           this.redrawHazardExplorer();
         });
       }
+      if (this.hazardAutoTop2) {
+        this.hazardAutoTop2.addEventListener("change", () => {
+          this.autoHighlightTop2Enabled = !!this.hazardAutoTop2.checked;
+          this.redrawHazardExplorer();
+        });
+      }
     }
 
     redrawHazardExplorer() {
       if (!this.lastRuleAnalyticsRows) return;
+      if (this.autoHighlightTop2Enabled) {
+        this.applyAutoHighlightTop2(this.lastRuleAnalyticsRows);
+      } else {
+        this.autoHighlightedSeriesLabels = [];
+      }
+      this.renderHazardSeriesToggles(this.lastRuleAnalyticsRows);
       this.updateRuleCodeExplainer(this.lastRuleAnalyticsRows);
       this.drawRuleHazardChart(this.lastRuleAnalyticsRows);
       this.drawRuleHazardZoomChart(this.lastRuleAnalyticsRows, 15);
@@ -2493,8 +2510,13 @@
       this.hazardSeriesToggles.innerHTML = labels
         .map((label) => {
           const checked = this.hazardSeriesSelection[label] ? "checked" : "";
+          const autoClass = this.autoHighlightedSeriesLabels.includes(label)
+            ? " hazard-series-chip is-auto-highlight"
+            : " hazard-series-chip";
           return (
-            "<label class=\"hazard-series-chip\">" +
+            "<label class=\"" +
+            autoClass.trim() +
+            "\">" +
             "<input type=\"checkbox\" data-series-label=\"" +
             label +
             "\" " +
@@ -2508,11 +2530,55 @@
 
       Array.from(this.hazardSeriesToggles.querySelectorAll("input[data-series-label]")).forEach((input) => {
         input.addEventListener("change", () => {
+          this.disableAutoTop2IfNeeded();
           const label = input.getAttribute("data-series-label");
           this.hazardSeriesSelection[label] = input.checked;
           this.redrawHazardExplorer();
         });
       });
+    }
+
+    disableAutoTop2IfNeeded() {
+      if (!this.autoHighlightTop2Enabled) return;
+      this.autoHighlightTop2Enabled = false;
+      if (this.hazardAutoTop2) {
+        this.hazardAutoTop2.checked = false;
+      }
+    }
+
+    applyAutoHighlightTop2(rows) {
+      const top2 = this.getMostDivergentPairLabels(rows, this.getHazardChartMode(), 15);
+      this.lastRuleAnalyticsRows.forEach((row) => {
+        const label = row.ruleShort + "-" + row.movement;
+        this.hazardSeriesSelection[label] = top2.includes(label);
+      });
+      this.autoHighlightedSeriesLabels = [...top2];
+    }
+
+    getMostDivergentPairLabels(rows, mode, maxStep) {
+      if (rows.length <= 2) {
+        return rows.map((row) => row.ruleShort + "-" + row.movement);
+      }
+
+      let bestScore = -1;
+      let bestPair = [rows[0], rows[1]];
+
+      for (let i = 0; i < rows.length; i += 1) {
+        for (let j = i + 1; j < rows.length; j += 1) {
+          const a = this.getHazardDisplayValues(rows[i].hazardSeries, mode).slice(0, maxStep);
+          const b = this.getHazardDisplayValues(rows[j].hazardSeries, mode).slice(0, maxStep);
+          let score = 0;
+          for (let k = 0; k < Math.min(a.length, b.length); k += 1) {
+            score += Math.abs(a[k] - b[k]);
+          }
+          if (score > bestScore) {
+            bestScore = score;
+            bestPair = [rows[i], rows[j]];
+          }
+        }
+      }
+
+      return bestPair.map((row) => row.ruleShort + "-" + row.movement);
     }
 
     getVisibleHazardRows(rows) {
@@ -2555,6 +2621,9 @@
       }
 
       const labels = visibleRows.map((row) => row.ruleShort + "-" + row.movement).join(", ");
+      const autoNote = this.autoHighlightTop2Enabled
+        ? " Auto-highlight is ON: these are the two most divergent series in early steps."
+        : "";
       this.hazardDynamicExplainer.textContent =
         "Dynamic explainer: currently displaying " +
         visibleRows.length +
@@ -2562,7 +2631,8 @@
         labels +
         "). " +
         modeText +
-        " Use toggles to add/remove rule lines for clarity.";
+        " Use toggles to add/remove rule lines for clarity." +
+        autoNote;
     }
 
     updateRuleCodeExplainer(rows) {
