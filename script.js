@@ -2189,26 +2189,36 @@
       if (!this.ruleAnalyticsBody) return;
       this.ruleAnalyticsBody.innerHTML = rows
         .map((row) => {
+          const corrCiClass = this.getCiClass("correlation", row.interPairCorrelationCiLow, row.interPairCorrelationCiHigh);
+          const dateCiClass = this.getCiClass("date", row.meanDateToMateCiLow, row.meanDateToMateCiHigh);
+          const hazardCiClass = this.getCiClass("hazard", row.meanHazardCiLow, row.meanHazardCiHigh);
+
           return (
             "<tr><td>" +
             row.ruleLabel +
             "</td><td>" +
             row.movement +
-            "</td><td>" +
+            "</td><td class=\"" +
+            corrCiClass +
+            "\">" +
             row.interPairCorrelation.toFixed(3) +
             " [" +
             row.interPairCorrelationCiLow.toFixed(3) +
             ", " +
             row.interPairCorrelationCiHigh.toFixed(3) +
             "]" +
-            "</td><td>" +
+            "</td><td class=\"" +
+            dateCiClass +
+            "\">" +
             row.meanDateToMate.toFixed(2) +
             " [" +
             row.meanDateToMateCiLow.toFixed(2) +
             ", " +
             row.meanDateToMateCiHigh.toFixed(2) +
             "]" +
-            "</td><td>" +
+            "</td><td class=\"" +
+            hazardCiClass +
+            "\">" +
             row.meanHazard.toFixed(3) +
             " [" +
             row.meanHazardCiLow.toFixed(3) +
@@ -2224,8 +2234,32 @@
         this.ruleAnalyticsDefinitions.textContent =
           "Definitions: inter-pair correlation r is Pearson correlation between attractiveness values of matched partners; mean date to mate is the average step where a matched agent formed a pair; mating hazard at step t is h(t)=matches(t)/atRisk(t). Rule 1 uses Attractiveness-based choice, Rule 2 uses Similarity-based choice. Movement labels: NS=local neighborhood search, ZZ=balanced zig-zag search, BR=broad random search. Each row reports mean with 95% CI from n=" +
           RULE_ANALYTICS_RUNS +
-          " synthetic runs.";
+          " synthetic runs. CI colors: green=tight uncertainty, amber=medium, rose=wide.";
       }
+    }
+
+    getCiClass(metricType, ciLow, ciHigh) {
+      const width = Math.max(0, ciHigh - ciLow);
+
+      if (metricType === "correlation") {
+        if (width <= 0.10) return "ci-tight";
+        if (width <= 0.20) return "ci-medium";
+        return "ci-wide";
+      }
+
+      if (metricType === "date") {
+        if (width <= 6) return "ci-tight";
+        if (width <= 12) return "ci-medium";
+        return "ci-wide";
+      }
+
+      if (metricType === "hazard") {
+        if (width <= 0.05) return "ci-tight";
+        if (width <= 0.12) return "ci-medium";
+        return "ci-wide";
+      }
+
+      return "";
     }
 
     drawRuleHazardChart(rows) {

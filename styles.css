@@ -630,6 +630,18 @@ select {
   color: #0f4f4a;
 }
 
+.rule-analytics-table td.ci-tight {
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.rule-analytics-table td.ci-medium {
+  background: rgba(245, 158, 11, 0.16);
+}
+
+.rule-analytics-table td.ci-wide {
+  background: rgba(244, 63, 94, 0.14);
+}
+
 .rule-hazard-card {
   margin-top: 0.7rem;
 }
