@@ -75,6 +75,13 @@ class MateChoiceSimulation {
       this.summaryStrength = document.getElementById("summary-strength");
       this.summarySearch = document.getElementById("summary-search");
       this.runSummary = document.getElementById("run-summary");
+      this.runInterpretationPanel = document.getElementById("run-interpretation-panel");
+      this.runBadgeSearch = document.getElementById("run-badge-search");
+      this.runBadgeAssortment = document.getElementById("run-badge-assortment");
+      this.runBadgePairRate = document.getElementById("run-badge-pair-rate");
+      this.runInterpretationWhat = document.getElementById("run-interpretation-what");
+      this.runInterpretationWhy = document.getElementById("run-interpretation-why");
+      this.runInterpretationNext = document.getElementById("run-interpretation-next");
       this.runComparisonPanel = document.getElementById("run-comparison-panel");
       this.runComparisonBody = document.getElementById("run-comparison-body");
       this.runComparisonSummary = document.getElementById("run-comparison-summary");
@@ -128,6 +135,7 @@ class MateChoiceSimulation {
       this.resetTeachingExplanation();
       this.initChat();
       this.renderRunComparison();
+      this.updateRunInterpretation(null);
     }
 
     bindEvents() {
@@ -339,6 +347,7 @@ class MateChoiceSimulation {
       );
 
       this.updateSummaryBar();
+      this.updateRunInterpretation(this.buildPreviewReportData());
       this.setExportEnabled(true);
       this.renderInsightQuestions();
       this.draw();
@@ -622,6 +631,7 @@ class MateChoiceSimulation {
       this.recordRunForComparison("Single");
       this.setExportEnabled(true);
       this.updateSummaryBar();
+      this.updateRunInterpretation(this.buildPreviewReportData());
       this.autoOpenPreviewReport();
       this.draw();
     }
@@ -2767,6 +2777,132 @@ class MateChoiceSimulation {
           bestStrength.strength.toFixed(2) +
           ").";
       }
+    }
+
+    updateRunInterpretation(reportData) {
+      if (!this.runInterpretationWhat || !this.runInterpretationWhy || !this.runInterpretationNext) {
+        return;
+      }
+
+      const setBadge = (element, text, tone) => {
+        if (!element) return;
+        element.textContent = text;
+        element.classList.remove("is-good", "is-warning", "is-risk");
+        if (tone) {
+          element.classList.add(tone);
+        }
+      };
+
+      if (!reportData) {
+        this.runInterpretationWhat.textContent =
+          "What happened: run a simulation to generate a guided interpretation.";
+        this.runInterpretationWhy.textContent =
+          "Why it likely happened: this section links your settings to observed outcomes.";
+        this.runInterpretationNext.textContent =
+          "What to try next: after a run, you will get a concrete next scenario to test.";
+        setBadge(this.runBadgeSearch, "Search: pending", null);
+        setBadge(this.runBadgeAssortment, "Assortment: pending", null);
+        setBadge(this.runBadgePairRate, "Pair rate: pending", null);
+        return;
+      }
+
+      const {
+        metrics,
+        densityLevel,
+        mobilityLevel,
+        preferenceRule,
+        selectivityLevel,
+        patienceLevel,
+        maxPairs,
+      } = reportData;
+      const pairRate = maxPairs > 0 ? (metrics.pairCount / maxPairs) * 100 : 0;
+      const searchTone = metrics.averageSearchSteps <= 12 ? "is-good" : metrics.averageSearchSteps <= 16 ? "is-warning" : "is-risk";
+      const assortmentTone = metrics.matchingStrength >= 0.35 ? "is-good" : metrics.matchingStrength >= 0.2 ? "is-warning" : "is-risk";
+      const pairTone = pairRate >= 65 ? "is-good" : pairRate >= 40 ? "is-warning" : "is-risk";
+      const searchLabel = metrics.averageSearchSteps <= 12 ? "fast" : metrics.averageSearchSteps <= 16 ? "moderate" : "slow";
+      const assortmentLabel = metrics.matchingStrength >= 0.35 ? "high" : metrics.matchingStrength >= 0.2 ? "medium" : "low";
+
+      setBadge(this.runBadgeSearch, "Search: " + searchLabel, searchTone);
+      setBadge(this.runBadgeAssortment, "Assortment: " + assortmentLabel, assortmentTone);
+      setBadge(this.runBadgePairRate, "Pair rate: " + pairRate.toFixed(0) + "%", pairTone);
+
+      const denseOrMobile = densityLevel === "Dense" || mobilityLevel === "High";
+      const constrained = densityLevel === "Sparse" || mobilityLevel === "Low";
+      const sortedLanguage =
+        metrics.matchingStrength >= 0.35
+          ? "partners ended up strongly sorted by the preference rule"
+          : metrics.matchingStrength >= 0.2
+          ? "partners showed moderate sorting"
+          : "pairing was only weakly sorted";
+
+      this.runInterpretationWhat.textContent =
+        "What happened: " +
+        metrics.pairCount +
+        " pairs formed with matching strength " +
+        metrics.matchingStrength.toFixed(2) +
+        " and average search " +
+        metrics.averageSearchSteps.toFixed(1) +
+        "; " +
+        sortedLanguage +
+        ".";
+
+      this.runInterpretationWhy.textContent =
+        "Why it likely happened: " +
+        densityLevel.toLowerCase() +
+        " density and " +
+        mobilityLevel.toLowerCase() +
+        " mobility made encounters " +
+        (denseOrMobile ? "easier to find" : constrained ? "harder to find" : "moderately available") +
+        ", while " +
+        preferenceRule.toLowerCase() +
+        " preferences shaped who accepted whom once they met.";
+
+      let nextDensity = densityLevel;
+      let nextMobility = mobilityLevel;
+      let nextSelectivity = selectivityLevel || "Medium";
+      let nextPatience = patienceLevel || "Normal";
+      let recommendationReason = "to see whether pair count and sorting move together or trade off";
+
+      if (metrics.averageSearchSteps > 16) {
+        nextMobility = mobilityLevel === "Low" ? "High" : mobilityLevel === "Medium" ? "High" : mobilityLevel;
+        nextDensity = densityLevel === "Sparse" ? "Normal" : densityLevel === "Normal" ? "Dense" : densityLevel;
+        if (nextSelectivity === "High") {
+          nextSelectivity = "Medium";
+        }
+        if (nextPatience === "Low") {
+          nextPatience = "Normal";
+        }
+        recommendationReason = "to reduce search frictions and test whether missed matches mainly came from encounter scarcity";
+      } else if (metrics.matchingStrength < 0.2) {
+        nextMobility = mobilityLevel === "High" ? "Medium" : mobilityLevel;
+        nextSelectivity = nextSelectivity === "Low" ? "Medium" : nextSelectivity;
+        nextPatience = nextPatience === "High" ? "Normal" : nextPatience;
+        recommendationReason = "to test whether weaker sorting came from overly easy matching rather than from the preference rule itself";
+      } else if (pairRate < 40) {
+        nextPatience = nextPatience === "Low" ? "Normal" : "High";
+        nextSelectivity = nextSelectivity === "High" ? "Medium" : nextSelectivity;
+        recommendationReason = "to see whether more waiting time raises completed pairs without collapsing assortment";
+      } else {
+        nextDensity = densityLevel === "Normal" ? "Dense" : "Normal";
+        nextMobility = mobilityLevel === "Low" ? "Medium" : mobilityLevel;
+        nextSelectivity = nextSelectivity === "Medium" ? "High" : nextSelectivity;
+        recommendationReason = "to stress-test whether the current pattern stays stable under slightly tighter acceptance rules";
+      }
+
+      this.runInterpretationNext.textContent =
+        "What to try next: keep " +
+        preferenceRule.toLowerCase() +
+        " preferences, then test " +
+        nextDensity.toLowerCase() +
+        " density, " +
+        nextMobility.toLowerCase() +
+        " mobility, " +
+        nextSelectivity.toLowerCase() +
+        " selectivity, and " +
+        nextPatience.toLowerCase() +
+        " patience " +
+        recommendationReason +
+        ".";
     }
 
     updateSummaryBar() {

@@ -424,6 +424,98 @@ select {
   font-size: 0.92rem;
 }
 
+.run-interpretation {
+  margin-top: 0.7rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(79, 57, 36, 0.12);
+  border-radius: var(--radius-md);
+  background: #fffdf9;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.run-interpretation h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #0f4f4a;
+}
+
+.run-interpretation-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.run-badge {
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(79, 57, 36, 0.12);
+  background: rgba(79, 57, 36, 0.05);
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  position: relative;
+  cursor: help;
+}
+
+.run-badge[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.45rem);
+  transform: translateX(-50%) translateY(0.2rem);
+  width: min(240px, 65vw);
+  padding: 0.5rem 0.6rem;
+  border-radius: 10px;
+  background: rgba(31, 26, 23, 0.94);
+  color: #fffdf9;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  text-transform: none;
+  letter-spacing: normal;
+  box-shadow: 0 14px 28px rgba(31, 26, 23, 0.18);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease, transform 140ms ease;
+  z-index: 3;
+}
+
+.run-badge[data-tip]:hover::after,
+.run-badge[data-tip]:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.run-badge:focus-visible {
+  outline: 2px solid rgba(15, 118, 110, 0.35);
+  outline-offset: 2px;
+}
+
+.run-badge.is-good {
+  background: rgba(15, 118, 110, 0.12);
+  border-color: rgba(15, 118, 110, 0.2);
+  color: #0f4f4a;
+}
+
+.run-badge.is-warning {
+  background: rgba(185, 130, 54, 0.14);
+  border-color: rgba(185, 130, 54, 0.22);
+  color: #8a5a10;
+}
+
+.run-badge.is-risk {
+  background: rgba(194, 65, 12, 0.12);
+  border-color: rgba(194, 65, 12, 0.2);
+  color: #9a3412;
+}
+
+.run-interpretation-line {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.89rem;
+  line-height: 1.5;
+}
+
 .run-comparison {
   margin-top: 0.7rem;
   padding: 0.75rem 0.85rem;
