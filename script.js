@@ -983,7 +983,10 @@
       if (!this.chatLog) return;
       const p = document.createElement("p");
       p.className = "chat-message";
-      p.innerHTML = "<strong>" + author + ":</strong> " + text;
+      const strong = document.createElement("strong");
+      strong.textContent = author + ":";
+      p.appendChild(strong);
+      p.appendChild(document.createTextNode(" " + text));
       this.chatLog.appendChild(p);
       this.chatLog.scrollTop = this.chatLog.scrollHeight;
     }
