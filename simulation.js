@@ -5,8 +5,32 @@
  */
 
 class SimulationEngine {
-  constructor(canvasSize = 500) {
+  constructor(canvasSize = 500, seed = null) {
     this.canvasSize = canvasSize;
+    this.seed = seed;
+    this.rng = this.createSeededRng(seed);
+  }
+
+  /**
+   * Create a seeded random number generator (linear congruential generator)
+   */
+  createSeededRng(seed) {
+    if (!seed) {
+      return () => Math.random();
+    }
+    let state = Math.abs(seed);
+    return () => {
+      state = (state * 1103515245 + 12345) & 0x7fffffff;
+      return state / 0x7fffffff;
+    };
+  }
+
+  /**
+   * Set seed for reproducible runs
+   */
+  setSeed(seed) {
+    this.seed = seed;
+    this.rng = this.createSeededRng(seed);
   }
 
   /**
@@ -420,11 +444,11 @@ class SimulationEngine {
   }
 
   randomInt(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+    return Math.floor(this.rng() * (max - min + 1)) + min;
   }
 
   randomFloat(min, max) {
-    return Math.random() * (max - min) + min;
+    return this.rng() * (max - min) + min;
   }
 
   clamp(value, min, max) {
