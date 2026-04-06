@@ -2857,50 +2857,111 @@ class MateChoiceSimulation {
         preferenceRule.toLowerCase() +
         " preferences shaped who accepted whom once they met.";
 
-      let nextDensity = densityLevel;
-      let nextMobility = mobilityLevel;
-      let nextSelectivity = selectivityLevel || "Medium";
-      let nextPatience = patienceLevel || "Normal";
+      const currentSettings = {
+        density: densityLevel,
+        mobility: mobilityLevel,
+        selectivity: selectivityLevel || "Medium",
+        patience: patienceLevel || "Normal",
+      };
+      const proposedSettings = { ...currentSettings };
       let recommendationReason = "to see whether pair count and sorting move together or trade off";
 
       if (metrics.averageSearchSteps > 16) {
-        nextMobility = mobilityLevel === "Low" ? "High" : mobilityLevel === "Medium" ? "High" : mobilityLevel;
-        nextDensity = densityLevel === "Sparse" ? "Normal" : densityLevel === "Normal" ? "Dense" : densityLevel;
-        if (nextSelectivity === "High") {
-          nextSelectivity = "Medium";
+        proposedSettings.mobility =
+          currentSettings.mobility === "Low"
+            ? "High"
+            : currentSettings.mobility === "Medium"
+            ? "High"
+            : currentSettings.mobility;
+        proposedSettings.density =
+          currentSettings.density === "Sparse"
+            ? "Normal"
+            : currentSettings.density === "Normal"
+            ? "Dense"
+            : currentSettings.density;
+        if (proposedSettings.selectivity === "High") {
+          proposedSettings.selectivity = "Medium";
         }
-        if (nextPatience === "Low") {
-          nextPatience = "Normal";
+        if (proposedSettings.patience === "Low") {
+          proposedSettings.patience = "Normal";
         }
-        recommendationReason = "to reduce search frictions and test whether missed matches mainly came from encounter scarcity";
+        recommendationReason = "average search is slow, so the next test should reduce encounter frictions and check whether missed matches mainly came from scarcity";
       } else if (metrics.matchingStrength < 0.2) {
-        nextMobility = mobilityLevel === "High" ? "Medium" : mobilityLevel;
-        nextSelectivity = nextSelectivity === "Low" ? "Medium" : nextSelectivity;
-        nextPatience = nextPatience === "High" ? "Normal" : nextPatience;
-        recommendationReason = "to test whether weaker sorting came from overly easy matching rather than from the preference rule itself";
+        if (currentSettings.mobility === "High") {
+          proposedSettings.mobility = "Medium";
+        }
+        if (proposedSettings.selectivity === "Low") {
+          proposedSettings.selectivity = "Medium";
+        }
+        if (proposedSettings.patience === "High") {
+          proposedSettings.patience = "Normal";
+        }
+        recommendationReason = "assortment is weak, so the next test should make acceptance slightly stricter and reduce overly easy matching";
       } else if (pairRate < 40) {
-        nextPatience = nextPatience === "Low" ? "Normal" : "High";
-        nextSelectivity = nextSelectivity === "High" ? "Medium" : nextSelectivity;
-        recommendationReason = "to see whether more waiting time raises completed pairs without collapsing assortment";
+        proposedSettings.patience = currentSettings.patience === "Low" ? "Normal" : "High";
+        if (proposedSettings.selectivity === "High") {
+          proposedSettings.selectivity = "Medium";
+        }
+        recommendationReason = "pair rate is low, so the next test should give agents more time and slightly relax refusal pressure";
       } else {
-        nextDensity = densityLevel === "Normal" ? "Dense" : "Normal";
-        nextMobility = mobilityLevel === "Low" ? "Medium" : mobilityLevel;
-        nextSelectivity = nextSelectivity === "Medium" ? "High" : nextSelectivity;
-        recommendationReason = "to stress-test whether the current pattern stays stable under slightly tighter acceptance rules";
+        proposedSettings.density = currentSettings.density === "Normal" ? "Dense" : "Normal";
+        if (currentSettings.mobility === "Low") {
+          proposedSettings.mobility = "Medium";
+        }
+        if (proposedSettings.selectivity === "Medium") {
+          proposedSettings.selectivity = "High";
+        }
+        recommendationReason = "this run already looks healthy, so the next test should stress the pattern with a slightly tighter acceptance rule";
       }
 
+      const prioritizedChanges = [];
+      ["density", "mobility", "selectivity", "patience"].forEach((key) => {
+        if (currentSettings[key] !== proposedSettings[key]) {
+          prioritizedChanges.push({
+            key,
+            from: currentSettings[key],
+            to: proposedSettings[key],
+          });
+        }
+      });
+
+      const keptControls = ["density", "mobility", "selectivity", "patience"]
+        .filter((key) => currentSettings[key] === proposedSettings[key])
+        .map((key) => key);
+
+      const changeLabels = {
+        density: "density",
+        mobility: "mobility",
+        selectivity: "selectivity",
+        patience: "patience",
+      };
+
+      const explicitChanges = prioritizedChanges.slice(0, 2).map((change) => {
+        return (
+          "change " +
+          changeLabels[change.key] +
+          " from " +
+          change.from.toLowerCase() +
+          " to " +
+          change.to.toLowerCase()
+        );
+      });
+
+      const keepText = keptControls.length
+        ? " Keep " + keptControls.join(", ") + " unchanged."
+        : "";
+
+      const changeText = explicitChanges.length
+        ? explicitChanges.join(" and ")
+        : "repeat the same settings once more";
+
       this.runInterpretationNext.textContent =
-        "What to try next: keep " +
-        preferenceRule.toLowerCase() +
-        " preferences, then test " +
-        nextDensity.toLowerCase() +
-        " density, " +
-        nextMobility.toLowerCase() +
-        " mobility, " +
-        nextSelectivity.toLowerCase() +
-        " selectivity, and " +
-        nextPatience.toLowerCase() +
-        " patience " +
+        "What to try next: " +
+        changeText.charAt(0).toUpperCase() +
+        changeText.slice(1) +
+        "." +
+        keepText +
+        " Reason: " +
         recommendationReason +
         ".";
     }
