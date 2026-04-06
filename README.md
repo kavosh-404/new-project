@@ -104,16 +104,28 @@ After a run completes:
 ```
 .
 ├── index.html              # Main UI and simulation panel
-├── script.js               # All logic (simulation, analytics, chat, UI)
+├── app-main.js             # Main application orchestrator class
+├── script.js               # Tiny bootstrap entrypoint
 ├── styles.css              # Layout and component styling
 ├── paper.html              # Embedded reference PDF viewer
 ├── smaldino-schank-2012.pdf # Research paper
-├── package-lock.json       # NPM metadata (minimal)
+├── constants.js            # Shared configuration constants
+├── simulation.js           # Simulation engine
+├── render.js               # Canvas rendering helpers
+├── analytics.js            # Batch analytics and metrics
+├── teaching-content.js     # Teaching narrative builders
+├── chat.js                 # Chat/NLP helpers
+├── export.js               # CSV/PNG/citation utilities
+├── ui.js                   # UI interaction helpers
 └── README.md               # This file
 ```
 
-### Current Architecture (Monolithic)
-**Note:** `script.js` currently handles:
+### Current Architecture
+The app now uses a thin bootstrap and a dedicated app orchestrator:
+- `script.js` initializes the app instance only
+- `app-main.js` holds the application orchestrator class
+
+Core responsibilities are organized into focused helper files:
 - Simulation engine (agent movement, encounters, matching)
 - Canvas rendering (drawing grid, agents, pairs)
 - Analytics computation (stats, correlations, hazard series)
