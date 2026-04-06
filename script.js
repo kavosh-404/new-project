@@ -1,42 +1,14 @@
-(function () {
-  const STEP_COUNT = 50;
-  const ENCOUNTER_DISTANCE = 28;
-  const AGENT_RADIUS = 6;
-  const RULE_ANALYTICS_RUNS = 20;
+/**
+ * script.js
+ * Main orchestrator for the mate choice simulation UI and chat system
+ * Uses the modular SimulationEngine for core logic
+ */
 
-  const densityMultipliers = {
-    Sparse: 0.8,
-    Normal: 1.6,
-    Dense: 2.6,
-  };
-  const baseDensityFactor = 0.00045; // scaled by canvas area to size populations
-
-  const mobilitySizes = {
-    Low: 6,
-    Medium: 14,
-    High: 24,
-  };
-
-  const selectivityMultipliers = {
-    Low: 1.15,
-    Medium: 1,
-    High: 0.85,
-  };
-
-  const patienceRates = {
-    Fast: 0.02,
-    Normal: 0.01,
-    Slow: 0.004,
-  };
-
-  const explorationMultipliers = {
-    Local: 0.75,
-    Balanced: 1,
-    Wide: 1.35,
-  };
-
-  class MateChoiceSimulation {
+class MateChoiceSimulation {
     constructor() {
+      // Initialize simulation engine (pure logic)
+      this.engine = new SimulationEngine(500);
+
       this.canvas = document.getElementById("simulation-canvas");
       this.context = this.canvas.getContext("2d");
       this.simulationGridSection = this.canvas
@@ -3443,5 +3415,5 @@
     }
   }
 
+  // Instantiate when DOM is ready
   new MateChoiceSimulation();
-})();
