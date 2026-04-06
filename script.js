@@ -75,6 +75,12 @@ class MateChoiceSimulation {
       this.summaryStrength = document.getElementById("summary-strength");
       this.summarySearch = document.getElementById("summary-search");
       this.runSummary = document.getElementById("run-summary");
+      this.runComparisonPanel = document.getElementById("run-comparison-panel");
+      this.runComparisonBody = document.getElementById("run-comparison-body");
+      this.runComparisonSummary = document.getElementById("run-comparison-summary");
+      this.clearRunComparisonButton = document.getElementById("clear-run-comparison");
+      this.lessonPresetStatus = document.getElementById("lesson-preset-status");
+      this.lessonPresetButtons = Array.from(document.querySelectorAll("[data-preset]"));
       this.controlHelpButtons = Array.from(document.querySelectorAll(".control-help"));
 
       this.state = {
@@ -86,6 +92,9 @@ class MateChoiceSimulation {
       };
 
       this.lastCitation = null;
+      this.runHistory = [];
+      this.maxRunHistory = 8;
+      this.nextRunId = 1;
       this.simpleMode = false; // Default to technical mode
       this.conversationHistory = []; // Track all questions/answers
       this.lastTopic = null; // Remember what user last asked about
@@ -118,6 +127,7 @@ class MateChoiceSimulation {
       this.setSimpleMode(this.simpleMode, { refreshTeachingPanel: false });
       this.resetTeachingExplanation();
       this.initChat();
+      this.renderRunComparison();
     }
 
     bindEvents() {
@@ -178,6 +188,9 @@ class MateChoiceSimulation {
       }
       if (this.copyCitationButton) {
         this.copyCitationButton.addEventListener("click", () => this.copyCitation());
+      }
+      if (this.clearRunComparisonButton) {
+        this.clearRunComparisonButton.addEventListener("click", () => this.clearRunComparison());
       }
       this.bindLessonPresets();
     }
@@ -606,6 +619,7 @@ class MateChoiceSimulation {
         this.topicDepth = 0;
       this.updateStatus(true);
       this.updateTeachingExplanation();
+      this.recordRunForComparison("Single");
       this.setExportEnabled(true);
       this.updateSummaryBar();
       this.autoOpenPreviewReport();
@@ -3279,15 +3293,128 @@ class MateChoiceSimulation {
     }
 
     bindLessonPresets() {
-      const buttons = document.querySelectorAll("[data-preset]");
-      buttons.forEach((button) => {
+      this.lessonPresetButtons.forEach((button) => {
         button.addEventListener("click", () => {
           const preset = button.getAttribute("data-preset");
           this.applyPreset(preset);
+          this.markActivePresetButton(button);
+          this.updatePresetStatus(preset);
           this.handleRun();
           button.blur();
         });
       });
+    }
+
+    markActivePresetButton(activeButton) {
+      this.lessonPresetButtons.forEach((button) => {
+        button.classList.toggle("is-active", button === activeButton);
+      });
+    }
+
+    updatePresetStatus(preset) {
+      if (!this.lessonPresetStatus) return;
+      const labels = {
+        "sparse-low-attractiveness": "Sparse + Low mobility + Attractiveness",
+        "dense-high-attractiveness": "Dense + High mobility + Attractiveness",
+        "normal-high-similarity": "Normal + High mobility + Similarity",
+      };
+      this.lessonPresetStatus.textContent =
+        "Preset status: " + (labels[preset] || "custom settings applied") + ".";
+    }
+
+    recordRunForComparison(modeLabel) {
+      if (!this.state.lastRun || !this.state.lastRun.metrics) return;
+      const run = this.state.lastRun;
+      this.runHistory.push({
+        id: this.nextRunId,
+        mode: modeLabel,
+        density: run.densityLevel,
+        mobility: run.mobilityLevel,
+        preference: run.preferenceRule,
+        pairCount: run.metrics.pairCount,
+        strength: run.metrics.matchingStrength,
+        search: run.metrics.averageSearchSteps,
+      });
+      this.nextRunId += 1;
+
+      if (this.runHistory.length > this.maxRunHistory) {
+        this.runHistory = this.runHistory.slice(this.runHistory.length - this.maxRunHistory);
+      }
+
+      this.renderRunComparison();
+    }
+
+    clearRunComparison() {
+      this.runHistory = [];
+      this.renderRunComparison();
+      this.addChatMessage("Assistant", "Run comparison history cleared.");
+    }
+
+    renderRunComparison() {
+      if (!this.runComparisonBody) return;
+
+      if (!this.runHistory.length) {
+        this.runComparisonBody.innerHTML = "<tr><td colspan=\"6\">No completed runs yet.</td></tr>";
+        if (this.runComparisonSummary) {
+          this.runComparisonSummary.textContent =
+            "Run at least two simulations to compare outcomes side-by-side.";
+        }
+        return;
+      }
+
+      const rows = this.runHistory
+        .map((run, index) => {
+          const prev = index > 0 ? this.runHistory[index - 1] : null;
+          const deltaPairs = prev ? run.pairCount - prev.pairCount : 0;
+          const deltaStrength = prev ? run.strength - prev.strength : 0;
+          const deltaText = prev
+            ? (deltaPairs >= 0 ? "+" : "") +
+              deltaPairs +
+              " pairs, " +
+              (deltaStrength >= 0 ? "+" : "") +
+              deltaStrength.toFixed(2) +
+              " str"
+            : "Baseline";
+
+          return (
+            "<tr>" +
+            "<td>#" + run.id + "</td>" +
+            "<td>" +
+            run.density +
+            " / " +
+            run.mobility +
+            " / " +
+            run.preference +
+            "</td>" +
+            "<td>" + run.pairCount + "</td>" +
+            "<td>" + run.strength.toFixed(2) + "</td>" +
+            "<td>" + run.search.toFixed(1) + "</td>" +
+            "<td>" + deltaText + "</td>" +
+            "</tr>"
+          );
+        })
+        .join("");
+
+      this.runComparisonBody.innerHTML = rows;
+
+      if (this.runComparisonSummary) {
+        const latest = this.runHistory[this.runHistory.length - 1];
+        const bestStrength = this.runHistory.reduce((best, run) =>
+          run.strength > best.strength ? run : best
+        );
+        this.runComparisonSummary.textContent =
+          "Tracking " +
+          this.runHistory.length +
+          " recent runs. Latest: " +
+          latest.pairCount +
+          " pairs, strength " +
+          latest.strength.toFixed(2) +
+          ". Best strength so far: Run #" +
+          bestStrength.id +
+          " (" +
+          bestStrength.strength.toFixed(2) +
+          ").";
+      }
     }
 
     updateSummaryBar() {

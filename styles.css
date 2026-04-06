@@ -424,6 +424,60 @@ select {
   font-size: 0.92rem;
 }
 
+.run-comparison {
+  margin-top: 0.7rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(79, 57, 36, 0.12);
+  border-radius: var(--radius-md);
+  background: #fffdf9;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.run-comparison-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.run-comparison-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #0f4f4a;
+}
+
+.run-comparison-summary {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.87rem;
+  line-height: 1.4;
+}
+
+.run-comparison-table-wrap {
+  overflow-x: auto;
+}
+
+.run-comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 620px;
+  font-size: 0.82rem;
+}
+
+.run-comparison-table th,
+.run-comparison-table td {
+  border: 1px solid rgba(79, 57, 36, 0.12);
+  padding: 0.42rem 0.5rem;
+  text-align: left;
+}
+
+.run-comparison-table th {
+  background: rgba(15, 118, 110, 0.1);
+  color: #0f4f4a;
+}
+
 .batch-tools {
   margin-top: 0.65rem;
   display: flex;
@@ -1099,10 +1153,23 @@ select {
   font-size: 0.95rem;
 }
 
+.lesson-status {
+  margin: 0.2rem 0 0;
+  color: #0f4f4a;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
 .lesson-buttons {
   display: grid;
   gap: 0.5rem;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.lesson-buttons .secondary-button.is-active {
+  border-color: rgba(15, 118, 110, 0.52);
+  background: rgba(15, 118, 110, 0.16);
+  color: #0f4f4a;
 }
 
 @media (max-width: 900px) {

@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=20260411" />
+    <link rel="stylesheet" href="styles.css?v=20260405" />
     <!-- Module loader for Phase A, B, C refactor -->
     <script src="constants.js"></script>
     <script src="simulation.js"></script>
@@ -190,6 +190,34 @@
               <span class="summary-metric" id="summary-strength">Strength —</span>
               <span class="summary-metric" id="summary-search">Avg search —</span>
             </div>
+            <section class="run-comparison" id="run-comparison-panel" aria-label="Run-to-run comparison">
+              <div class="run-comparison-header">
+                <h3>Run Comparison</h3>
+                <button class="secondary-button" id="clear-run-comparison" type="button">Clear history</button>
+              </div>
+              <p class="run-comparison-summary" id="run-comparison-summary">
+                Run at least two simulations to compare outcomes side-by-side.
+              </p>
+              <div class="run-comparison-table-wrap">
+                <table class="run-comparison-table" aria-label="Comparison of recent simulation runs">
+                  <thead>
+                    <tr>
+                      <th>Run</th>
+                      <th>Scenario</th>
+                      <th>Pairs</th>
+                      <th>Strength</th>
+                      <th>Avg search</th>
+                      <th>Delta vs prev</th>
+                    </tr>
+                  </thead>
+                  <tbody id="run-comparison-body">
+                    <tr>
+                      <td colspan="6">No completed runs yet.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
             <div class="batch-tools" aria-label="Batch experiment controls">
               <label class="batch-field" for="batch-run-count">
                 <span>Batch runs</span>
@@ -423,6 +451,7 @@
             <div class="lesson-header">
               <h3>Guided Lesson</h3>
               <p class="lesson-subtitle">Load a preset, run, then compare with the citations.</p>
+              <p class="lesson-status" id="lesson-preset-status">Preset status: none selected.</p>
             </div>
             <div class="lesson-buttons">
               <button class="secondary-button" type="button" data-preset="sparse-low-attractiveness">Sparse + Low mobility + Attractiveness</button>
@@ -458,6 +487,6 @@
         </section>
       </main>
     </div>
-    <script src="script.js?v=20260418"></script>
+    <script src="script.js?v=20260405"></script>
   </body>
 </html>
