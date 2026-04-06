@@ -834,103 +834,11 @@ class MateChoiceSimulation {
       }
 
       buildCapabilityMessage() {
-        if (!this.state.lastRun) {
-          return "This website is built with HTML, CSS, and vanilla JavaScript. The simulation runs fully in the browser on a 2D canvas, with no backend model or API. The chat assistant uses lightweight NLP and conversation-state tracking, not a full LLM, so it is designed to explain this specific simulation: density, mobility, preference rules, selectivity, patience, exploration, matching strength, search time, results, and citations from Smaldino & Schank (2012). Run a scenario, then use the insight questions below or ask about one of those topics.";
-        }
-
-        return "This website is built with HTML, CSS, and vanilla JavaScript. The system runs a browser-based agent simulation on a 2D canvas: agents move, encounter nearby neighbors, decide whether to match using the active preference rule, and then the page computes pair count, matching strength, and average search time from that run. This model also includes configurable selectivity, patience relaxation, and exploration bias. The assistant is a lightweight NLP layer on top of those results, so it can explain this simulation and its citations, but it is not a full LLM. For this scenario, use the insight questions below or ask about density, mobility, preference rule, selectivity, patience, exploration, matching strength, search time, or citations.";
+        return TeachingContent.buildCapabilityMessage(!!this.state.lastRun);
       }
 
       buildOutOfScopeReply() {
-        if (!this.state.lastRun) {
-          return "I can only help with this simulation right now. Run a scenario, then ask about density, mobility, preference rules, matching, search time, results, or citations.";
-        }
-
-        return "I am not sure I understood that. I can help with this run's density, mobility, preference rule, matching strength, search time, results, or citations. Try one of the suggested questions below.";
-      }
-
-      buildDensityCausalReply(metrics, density, mobility) {
-        return (
-          "Mechanism: density changes encounter frequency on the spatial grid. Under " +
-          density +
-          " density, agents had " +
-          (density === "Sparse"
-            ? "fewer local encounters"
-            : density === "Dense"
-            ? "more frequent local encounters"
-            : "intermediate encounter rates") +
-          ", which shifts how quickly acceptable partners are found. Evidence from this run: " +
-          metrics.pairCount +
-          " pairs, average search " +
-          metrics.averageSearchSteps.toFixed(1) +
-          " steps, matching strength " +
-          metrics.matchingStrength.toFixed(2) +
-          ". Paper alignment: Smaldino & Schank (2012, pp. 17–18) report the same directional effect of density on encounter and pairing dynamics."
-        );
-      }
-
-      buildDensitySearchReply(metrics, density) {
-        return (
-          "In this run, average search time is " +
-          metrics.averageSearchSteps.toFixed(1) +
-          " steps under " +
-          density +
-          " density. Interpretation: " +
-          (density === "Sparse"
-            ? "larger spacing lowers encounter probability per step, so unmatched agents require more movement turns before acceptance events occur"
-            : density === "Dense"
-            ? "higher local contact rates increase encounter probability per step, reducing time-to-match"
-            : "intermediate spacing keeps encounter probability and time-to-match in the middle range") +
-          ". This is consistent with the model trend in Smaldino & Schank (2012, pp. 17–18)."
-        );
-      }
-
-      buildDensityCounterfactualReply(metrics, density) {
-        return (
-          "Counterfactual: if density were " +
-          (density === "Dense" ? "Sparse" : "Dense") +
-          " instead of " +
-          density +
-          ", the first-order change would be encounter frequency. " +
-          (density === "Sparse"
-            ? "Switching to Dense should increase contact opportunities, typically lower average search below " + metrics.averageSearchSteps.toFixed(1) + " steps, and increase pair formation."
-            : "Switching to Sparse should reduce contact opportunities, typically raise average search above " + metrics.averageSearchSteps.toFixed(1) + " steps, and reduce pair formation.") +
-          " Exact counts are stochastic per run, but the directional prediction follows Smaldino & Schank (2012, pp. 17–18)."
-        );
-      }
-
-      buildDensityEvidenceReply(metrics, density) {
-        return (
-          "Best evidence in this graph/run is the joint pattern across metrics: " +
-          metrics.pairCount +
-          " pairs, average search " +
-          metrics.averageSearchSteps.toFixed(1) +
-          " steps, and matching strength " +
-          metrics.matchingStrength.toFixed(2) +
-          ". Under " +
-          density +
-          " density, this combination indicates the encounter constraint mechanism (pp. 11–13) operating through density-dependent contact rates (pp. 17–18)."
-        );
-      }
-
-      buildMobilityDensityComparisonReply(metrics, density, mobility) {
-        return (
-          "Density and mobility are distinct levers in the model. Density sets local encounter opportunity volume; mobility sets spatial exploration speed. In this run, " +
-          density.toLowerCase() +
-          " density constrained available contacts, while " +
-          mobility.toLowerCase() +
-          " mobility controlled how quickly agents traversed the space. Observed outcome: " +
-          metrics.pairCount +
-          " pairs, average search " +
-          metrics.averageSearchSteps.toFixed(1) +
-          " steps, matching strength " +
-          metrics.matchingStrength.toFixed(2) +
-          ". This decomposition matches Smaldino & Schank's framework (pp. 11–13, 16–18)."
-        );
-      }
-
-      isCapabilityQuestion(text) {
-        return !!text.match(/\bnlp\b|\bllm\b|language model|what can you do|what can you help|how do you work|what do you understand|what can i ask|help with|scope|capabilit/);
+        return TeachingContent.buildOutOfScopeReply();
       }
 
     renderInsightQuestions() {
@@ -977,348 +885,52 @@ class MateChoiceSimulation {
       this.chatLog.scrollTop = this.chatLog.scrollHeight;
     }
 
-    // Enhanced NLP: Detect question intent
-    detectIntent(text) {
-      const lower = text.toLowerCase().trim();
-      if (lower.match(/why|cause|result|effect|explain|happen/)) return "causal";
-      if (lower.match(/don't|confused|unclear|simpler|easier|again|still/)) return "clarification";
-      if (lower.match(/compare|vs|versus|different|same as|like|similar/)) return "comparative";
-      if (lower.match(/can you|could you|how to|tell me|show|give|what is/)) return "explanatory";
-      if (lower.match(/how much|how many|what|which|where|when/)) return "factual";
-      return "general";
-    }
-
-    // Enhanced NLP: Detect what topic they're asking about
-    detectTopic(text) {
-      const lower = text.toLowerCase();
-      if (lower.match(/density|grid|population|sparse|dense|encounter/)) return "density";
-      if (lower.match(/mobility|move|movement|search|distance|step/)) return "mobility";
-      if (lower.match(/selectivity|picky|choosy|strict|acceptance threshold/)) return "selectivity";
-      if (lower.match(/patience|relax|waiting|flexibility over time/)) return "patience";
-      if (lower.match(/exploration|explore|local|wide|roam/)) return "exploration";
-      if (lower.match(/match|assortative|similar|similarity|preference|pair/)) return "matching";
-      if (lower.match(/attract|preference|choice|rule|criterion/)) return "preference";
-      return null;
-    }
-
-    // Enhanced NLP: Check for clarification signals
-    isClarificationRequest(text) {
-      return !!text.toLowerCase().match(/don't\s*(understand|get|follow)|confused|unclear|simpler|make it simple|explain again|still\s*(don't|confused)/);
-    }
-
-    // Progressive explanation: Get progressively deeper
-    getProgressiveExplanation(topic, depth, metrics, density, mobility, preference) {
-      if (depth === 1) {
-        // First mention: basics
-        if (topic === "density") {
-          return "Density affects how often agents meet. With " + density + " density, agents are " + 
-            (density === "Sparse" ? "spread out—fewer encounters, harder to find partners" : 
-             density === "Dense" ? "packed together—frequent encounters, easy pairing" : 
-             "moderately spaced—steady encounter rate") + ".";
-        }
-        if (topic === "mobility") {
-          return "Mobility is how far each agent can move per turn. With " + mobility + " mobility, agents can " +
-            (mobility === "Low" ? "barely move—stay local, meet same neighbors" :
-             mobility === "High" ? "move far—explore more, meet diverse partners" :
-             "move moderately—balance local and exploration") + ".";
-        }
-      }
-      if (depth === 2) {
-        // Second mention: connect to results
-        if (topic === "density") {
-          return "Your run shows this: " + density + " density → " + metrics.pairCount + " pairs, strength " + 
-            metrics.matchingStrength.toFixed(2) + ". Smaldino & Schank (2012, pp. 17–18) found that " +
-            (density === "Sparse" ? "sparse grids drastically reduce pairing" :
-             density === "Dense" ? "dense grids accelerate pairing" :
-             "intermediate density produces steady pairing") + ". Your results match exactly.";
-        }
-        if (topic === "mobility") {
-          return "Your run took avg " + metrics.averageSearchSteps.toFixed(1) + " steps to pair up. " +
-            (mobility === "Low" ? "Low mobility forces agents to search harder." :
-             mobility === "High" ? "High mobility lets agents find partners faster." :
-             "Medium mobility balances exploration and efficiency.") +
-            " Smaldino & Schank (2012, p. 16) show this effect—your data confirms it.";
-        }
-      }
-      if (depth >= 3) {
-        // Third+ mention: deep mechanistic understanding
-        if (topic === "density") {
-          return "Deep dive on density: With " + density + " density and " + mobility + " mobility, " +
-            "agents operate in local neighborhoods (pp. 11–13). The grid spacing directly limits who can meet. " +
-            "Your matching strength " + metrics.matchingStrength.toFixed(2) + " emerges from this constraint—it's not " +
-            "free choice but forced assortment by proximity. That's the core insight of Smaldino & Schank (2012).";
-        }
-        if (topic === "mobility") {
-          return "Deep dive on mobility: Each step, agents move a certain distance. " + 
-            (mobility === "Low" ? "Low mobility (movement ~6px) keeps agents in tight regions." :
-             mobility === "High" ? "High mobility (movement ~24px) lets agents traverse the whole grid." :
-             "Medium mobility (movement ~14px) provides balance.") +
-            " Your avg search " + metrics.averageSearchSteps.toFixed(1) + " reflects this—it's tied directly " +
-            "to how far agents can explore before encountering someone acceptable.";
-        }
-      }
-      return null;
-    }
 
     buildChatReply(text) {
-      const lower = text.toLowerCase().trim();
+      const normalizeDensity = (densityLevel) =>
+        densityLevel === "Sparse" ? "Low Density" : densityLevel === "Dense" ? "High Density" : "Normal Density";
+      const normalizeMobility = (mobilityLevel) =>
+        mobilityLevel === "Low" ? "Low Mobility" : mobilityLevel === "High" ? "High Mobility" : "Medium Mobility";
 
-      if (this.isCapabilityQuestion(lower)) {
-        return this.buildCapabilityMessage();
-      }
-      
-      // If no run yet, prompt to run
-      if (!this.state.lastRun) {
-        return "No simulation run yet. Hit Run Simulation or change a control to auto-run, then ask about the results. Once a run exists, I can explain density, mobility, preference rules, assortative matching, search time, and citation-based takeaways.";
-      }
-
-      const { metrics, mobilityLevel: mobility, densityLevel: density, preferenceRule: preference } = this.state.lastRun;
-      
-      // NLP: Detect intent and topic
-      const intent = this.detectIntent(text);
-      const detectedTopic = this.detectTopic(text);
-      const isClarifying = this.isClarificationRequest(text);
+      const intent = ChatEngine.detectIntent(text);
+      const detectedTopic = ChatEngine.detectTopic(text);
       this.lastQuestionType = intent;
-      
-      // Update conversation tracking
+
       if (detectedTopic) {
-        if (this.lastTopic === detectedTopic) {
-          this.topicDepth += 1; // Same topic asked again—go deeper
-        } else {
-          this.lastTopic = detectedTopic;
-          this.topicDepth = 1; // New topic—reset depth
-        }
+        this.topicDepth = this.lastTopic === detectedTopic ? this.topicDepth + 1 : 1;
+        this.lastTopic = detectedTopic;
       }
-      
-      // Store conversation turn
+
       this.conversationHistory.push({
         userInput: text,
-        intent: intent,
+        intent,
         topic: detectedTopic || this.lastTopic,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
-      // Handle clarification with progressive depth
-      if (isClarifying) {
-        // If they just asked about something specific, go deeper on that topic
-        if (this.lastTopic === "density") {
-          return (
-            "Density affects how often agents meet. With " +
-            density +
-            " density: " +
-            (density === "Sparse" ? "agents are spread out, so they rarely encounter each other. This means fewer pairs form and search takes longer." : density === "Dense" ? "agents are packed together, so they meet very frequently. This means pairs form faster and more easily." : "agents are at a balanced spacing, so they meet regularly but not overwhelmingly.") +
-            " Your run shows " +
-            metrics.pairCount +
-            " pairs formed. In Smaldino & Schank (2012, pp. 17–18), they found this exact pattern: higher density = more encounters = faster, stronger pairing."
-          );
-        }
-        if (this.lastTopic === "mobility") {
-          return (
-            "Mobility is how far agents can move each turn. With " +
-            mobility +
-            " mobility: " +
-            (mobility === "Low" ? "agents can only move a little, so they stay in one area and meet the same neighbors repeatedly. This limits their choices." : mobility === "High" ? "agents can move far, so they explore more of the grid and meet many different potential partners." : "agents have moderate movement, staying somewhat local but exploring more than low mobility.") +
-            " Your run took avg " +
-            metrics.averageSearchSteps.toFixed(1) +
-            " steps to find partners. Smaldino & Schank (2012, p. 16) show that limited movement really does slow down the search, which is what we see here."
-          );
-        }
-        if (this.lastTopic === "matching") {
-          return (
-            "Assortative matching means: do partners end up similar to each other? Your strength = " +
-            metrics.matchingStrength.toFixed(2) +
-            ". In your run with " +
-            density +
-            " density and " +
-            mobility +
-            " mobility, agents could only meet nearby neighbors (not pick globally). So they paired based on who was actually available locally, not on perfect preference. That's why space matters so much—it forces assortment (Smaldino & Schank 2012, pp. 11–13)."
-          );
-        }
-        // Generic clarification
-        return (
-          "Let me break it down: Your run formed " +
-          metrics.pairCount +
-          " pairs. Matching strength " +
-          metrics.matchingStrength.toFixed(2) +
-          " means partners are " +
-          (metrics.matchingStrength < 0.15 ? "very different" : metrics.matchingStrength > 0.3 ? "quite similar" : "somewhat similar") +
-          ". With " +
-          density +
-          " density and " +
-          mobility +
-          " mobility, agents mostly encountered neighbors, which shaped who paired with whom. Ask me about a specific aspect: density, mobility, or matching?"
-        );
-      }
+      const hasRun = !!this.state.lastRun;
+      const metrics = hasRun
+        ? {
+            ...this.state.lastRun.metrics,
+            pairs: this.state.pairs,
+            agents: this.state.agents,
+          }
+        : null;
 
-      if (lower.includes("mobility") && lower.includes("density")) {
-        this.lastTopic = "mobility";
-        return this.buildMobilityDensityComparisonReply(metrics, density, mobility);
-      }
+      const densityLevel = hasRun ? normalizeDensity(this.state.lastRun.densityLevel) : "Normal Density";
+      const mobilityLevel = hasRun ? normalizeMobility(this.state.lastRun.mobilityLevel) : "Medium Mobility";
+      const preferenceRule = hasRun ? this.state.lastRun.preferenceRule : "Attractiveness-based";
 
-      if (lower.includes("density") && (lower.includes("search time") || lower.includes("avg search"))) {
-        this.lastTopic = "density";
-        return this.buildDensitySearchReply(metrics, density);
-      }
-
-      if (lower.includes("density") && (lower.includes("instead of") || lower.includes("would likely change"))) {
-        this.lastTopic = "density";
-        return this.buildDensityCounterfactualReply(metrics, density);
-      }
-
-      if (lower.includes("density") && lower.includes("evidence")) {
-        this.lastTopic = "density";
-        return this.buildDensityEvidenceReply(metrics, density);
-      }
-
-      if (lower.includes("density") && (lower.includes("lead to") || lower.includes("affect pairing"))) {
-        this.lastTopic = "density";
-        return this.buildDensityCausalReply(metrics, density, mobility);
-      }
-
-      // Detect topic from user input and track it
-      if (lower.includes("density")) {
-        this.lastTopic = "density";
-        return (
-          "Density note: Your run had " +
-          density +
-          " density, yielding " +
-          metrics.pairCount +
-          " pairs and matching strength " +
-          metrics.matchingStrength.toFixed(2) +
-          ". " +
-          (density === "Sparse" ? "Sparse grids dramatically reduce encounters and extend search time, which weakens how well-matched pairs are (Smaldino & Schank 2012, pp. 17–18)." : density === "Dense" ? "Dense grids accelerate encounters and boost matching strength because agents meet more alternatives and sort better (Smaldino & Schank 2012, pp. 17–18)." : "Normal density provides steady encounters, producing stable intermediate matching (Smaldino & Schank 2012, pp. 17–18).")
-        );
-      }
-
-      if (lower.includes("mobility")) {
-        this.lastTopic = "mobility";
-        return (
-          "Mobility note: With " +
-          mobility +
-          " mobility, avg search was " +
-          metrics.averageSearchSteps.toFixed(1) +
-          " steps. " +
-          (mobility === "Low" ? "Low mobility severely constrains search—agents stay local and meet few potential partners, so matching weakens (Smaldino & Schank 2012, p. 16)." : mobility === "High" ? "High mobility improves search dramatically—agents explore more and find better-matched partners (Smaldino & Schank 2012, p. 16)." : "Medium mobility balances local interaction with broader search (Smaldino & Schank 2012, p. 16).") +
-          " This matches the paper's findings exactly."
-        );
-      }
-
-      if (lower.includes("selectivity") || lower.includes("picky") || lower.includes("choosy")) {
-        this.lastTopic = "selectivity";
-        const setting = this.state.lastRun.selectivityLevel || "Medium";
-        return (
-          "Selectivity note: This run used " +
-          setting +
-          " selectivity. " +
-          (setting === "High"
-            ? "High selectivity lowers acceptance probability, usually increasing search time and reducing pair formation."
-            : setting === "Low"
-            ? "Low selectivity raises acceptance probability, usually reducing search time and increasing pair formation."
-            : "Medium selectivity keeps acceptance near baseline behavior.") +
-          " In this run, we observed " +
-          metrics.pairCount +
-          " pairs with average search " +
-          metrics.averageSearchSteps.toFixed(1) +
-          "."
-        );
-      }
-
-      if (lower.includes("patience") || lower.includes("relax") || lower.includes("waiting")) {
-        this.lastTopic = "patience";
-        const setting = this.state.lastRun.patienceLevel || "Normal";
-        return (
-          "Patience note: This run used " +
-          setting +
-          " patience relaxation. " +
-          (setting === "Fast"
-            ? "Fast relaxation increases acceptance quickly as unsuccessful search steps accumulate."
-            : setting === "Slow"
-            ? "Slow relaxation keeps standards tight for longer, delaying acceptance."
-            : "Normal relaxation gradually widens acceptance over search time.") +
-          " This setting influences how quickly unmatched agents become willing to accept available partners."
-        );
-      }
-
-      if (lower.includes("exploration") || lower.includes("explore") || lower.includes("roam")) {
-        this.lastTopic = "exploration";
-        const setting = this.state.lastRun.explorationLevel || "Balanced";
-        return (
-          "Exploration note: This run used " +
-          setting +
-          " exploration. " +
-          (setting === "Wide"
-            ? "Wide exploration increases movement range per step, producing broader contact opportunities."
-            : setting === "Local"
-            ? "Local exploration reduces movement range per step, concentrating encounters in nearby neighborhoods."
-            : "Balanced exploration keeps movement near baseline.") +
-          " Through encounter rates, this affects search time and eventual pair formation."
-        );
-      }
-
-      if (lower.includes("matching") || lower.includes("similar") || lower.includes("assort")) {
-        this.lastTopic = "matching";
-        return (
-          "Assortative matching (how similar partners are): Your strength = " +
-          metrics.matchingStrength.toFixed(2) +
-          ". " +
-          (metrics.matchingStrength < 0.15 ? "Very weak—partners are quite different." : metrics.matchingStrength > 0.3 ? "Strong—partners are quite similar." : "Moderate—partners are somewhat similar.") +
-          " Smaldino & Schank (2012, pp. 11–18) show that spatial constraints force assortment: agents can't choose globally, so they pair based on local availability. Your " +
-          density +
-          " density and " +
-          mobility +
-          " mobility produced exactly this effect."
-        );
-      }
-
-      if (lower.includes("attractiveness") || lower.includes("preference")) {
-        this.lastTopic = "preference";
-        return (
-          "Preference rule: " +
-          (preference === "Attractiveness-based" ? "Under attractiveness-based choice, highly attractive agents can afford to wait. Your avg search " + metrics.averageSearchSteps.toFixed(1) + " reflects this—waiting slows the overall search. Smaldino & Schank (2012, p. 16) note that spatial constraints make this pattern especially pronounced." : "Under similarity-based choice, agents accept partners who are locally similar, so pairing happens faster. Your avg search " + metrics.averageSearchSteps.toFixed(1) + " and matching strength " + metrics.matchingStrength.toFixed(2) + " show local similarity effects (Smaldino & Schank 2012, pp. 11–13).")
-        );
-      }
-
-      if (lower.includes("explain") || lower.includes("result") || lower.includes("summary")) {
-        this.lastTopic = "overall";
-        return this.buildExplainMessage(metrics, mobility, density, preference);
-      }
-
-      if (lower.includes("citation")) {
-        this.lastTopic = "citation";
-        return this.buildRunCitationMessage(
-          metrics,
-          mobility,
-          density,
-          preference,
-          this.state.lastRun.selectivityLevel,
-          this.state.lastRun.patienceLevel,
-          this.state.lastRun.explorationLevel
-        );
-      }
-
-      if (lower.includes("detail") || lower.includes("quote") || lower.includes("map")) {
-        this.lastTopic = "details";
-        return (
-          "The spatial locality constraint (pp. 11–13) shows that agents only meet neighbors. " +
-          (mobility === "Low" ? "With low mobility (p. 16), agents cover little space and experience fewer encounters." : mobility === "High" ? "Higher mobility (p. 16) improves search by letting agents sweep through more of the grid." : "Medium mobility (p. 16) balances encounter breadth with realistic movement constraints.") + " " +
-          (density === "Sparse" ? "Sparse density (pp. 17–18) further limits encounters and extends search time." : density === "Dense" ? "Dense conditions (pp. 17–18) accelerate encounters and reduce search duration." : "Normal density (pp. 17–18) produces steady encounter rates.") + " These patterns align with Smaldino & Schank's (2012) findings on how space constrains matching."
-        );
-      }
-
-      if (lower.trim() === "yes" || lower.trim() === "ok" || lower.trim() === "sure") {
-        return (
-          "Tell me what to dig into: density effects, mobility effects, preference rules, or assortative matching? Quick recap: " +
-          metrics.pairCount +
-          " pairs, strength " +
-          metrics.matchingStrength.toFixed(2) +
-          ", avg search " +
-          metrics.averageSearchSteps.toFixed(1) +
-          "."
-        );
-      }
-
-      // Default fallback
-      return this.buildOutOfScopeReply();
+      return ChatEngine.buildChatReply(
+        text,
+        metrics,
+        hasRun,
+        densityLevel,
+        mobilityLevel,
+        preferenceRule,
+        this.lastTopic,
+        this.topicDepth
+      );
     }
 
     resetTeachingExplanation() {
@@ -1357,9 +969,7 @@ class MateChoiceSimulation {
     }
 
     getTeachingPlaceholderText() {
-      return this.simpleMode
-        ? "Run the simulation, and this panel will explain the result in plain language using everyday terms."
-        : "Run the simulation to generate a teaching explanation about how mobility, density, and preference rules shape assortative matching in this model.";
+      return TeachingContent.getTeachingPlaceholderText(this.simpleMode);
     }
 
     buildTeachingPanelNarrative(
@@ -1371,63 +981,26 @@ class MateChoiceSimulation {
       patienceLevel,
       explorationLevel
     ) {
-      if (this.simpleMode) {
-        const strengthLabel =
-          metrics.matchingStrength < 0.15
-            ? "very low"
-            : metrics.matchingStrength > 0.3
-            ? "high"
-            : "moderate";
+      const normalizeDensity = (level) =>
+        level === "Sparse" ? "Low Density" : level === "Dense" ? "High Density" : "Normal Density";
+      const normalizeMobility = (level) =>
+        level === "Low" ? "Low Mobility" : level === "High" ? "High Mobility" : "Medium Mobility";
+      const moduleMetrics = {
+        ...metrics,
+        pairs: this.state.pairs,
+        agents: this.state.agents,
+      };
 
-        return [
-          "Plain-language summary: " +
-            "In this run, movement was " +
-            mobilityLevel.toLowerCase() +
-            ", the crowd was " +
-            densityLevel.toLowerCase() +
-            ", and the decision rule was " +
-            preferenceRule.toLowerCase() +
-            ".",
-          "The simulation formed " +
-            metrics.pairCount +
-            " pairs. The similarity score was " +
-            metrics.matchingStrength.toFixed(2) +
-            " (" +
-            strengthLabel +
-            " similarity), and people needed about " +
-            metrics.averageSearchSteps.toFixed(1) +
-            " steps on average to find a partner.",
-          "How to read this: density and mobility decide who meets whom first, and the rule decides who says yes once two people meet.",
-        ].join(" ");
-      }
-
-      const sentences = [
-        "This run used " +
-          mobilityLevel.toLowerCase() +
-          " mobility, " +
-          densityLevel.toLowerCase() +
-          " density, " +
-          selectivityLevel.toLowerCase() +
-          " selectivity, " +
-          patienceLevel.toLowerCase() +
-          " patience, " +
-          explorationLevel.toLowerCase() +
-          " exploration, and a " +
-          preferenceRule.toLowerCase() +
-          " rule, producing " +
-          metrics.pairCount +
-          " pairs with a matching strength of " +
-          metrics.matchingStrength.toFixed(2) +
-          ".",
-        this.getMobilityCommentary(mobilityLevel),
-        this.getDensityCommentary(densityLevel),
-        this.getPreferenceCommentary(preferenceRule),
-        this.getBehaviorCommentary(selectivityLevel, patienceLevel, explorationLevel),
-        this.getStrengthCommentary(metrics.matchingStrength),
-        this.getSearchCommentary(metrics.averageSearchSteps),
-      ];
-
-      return sentences.join(" ");
+      return TeachingContent.buildTeachingPanelNarrative(
+        moduleMetrics,
+        normalizeMobility(mobilityLevel),
+        normalizeDensity(densityLevel),
+        preferenceRule,
+        selectivityLevel,
+        patienceLevel,
+        explorationLevel,
+        this.simpleMode
+      );
     }
 
     refreshTeachingPanelNarrative() {
@@ -1470,12 +1043,27 @@ class MateChoiceSimulation {
       this.appendRunSummary(metrics, mobilityLevel, densityLevel, preferenceRule);
       
       // Use simple mode or technical citation based on user preference
+      const normalizeDensity = (level) =>
+        level === "Sparse" ? "Low Density" : level === "Dense" ? "High Density" : "Normal Density";
+      const normalizeMobility = (level) =>
+        level === "Low" ? "Low Mobility" : level === "High" ? "High Mobility" : "Medium Mobility";
+      const moduleMetrics = {
+        ...metrics,
+        pairs: this.state.pairs,
+        agents: this.state.agents,
+      };
+
       const chatMessage = this.simpleMode
-        ? this.buildExplainMessage(metrics, mobilityLevel, densityLevel, preferenceRule)
+        ? TeachingContent.buildSimpleExplainMessage(
+            moduleMetrics,
+            normalizeDensity(densityLevel),
+            normalizeMobility(mobilityLevel),
+            preferenceRule
+          )
         : this.buildRunCitationMessage(
-            metrics,
-            mobilityLevel,
-            densityLevel,
+            moduleMetrics,
+            normalizeMobility(mobilityLevel),
+            normalizeDensity(densityLevel),
             preferenceRule,
             selectivityLevel,
             patienceLevel,
@@ -1493,9 +1081,9 @@ class MateChoiceSimulation {
         explorationLevel,
       };
       this.lastCitation = this.buildRunCitationMessage(
-        metrics,
-        mobilityLevel,
-        densityLevel,
+        moduleMetrics,
+        normalizeMobility(mobilityLevel),
+        normalizeDensity(densityLevel),
         preferenceRule,
         selectivityLevel,
         patienceLevel,
@@ -1558,191 +1146,34 @@ class MateChoiceSimulation {
     }
 
     buildRunCitationMessage(metrics, mobilityLevel, densityLevel, preferenceRule, selectivityLevel, patienceLevel, explorationLevel) {
-      const assort =
-        metrics.matchingStrength < 0.15
-          ? "weak assortative pattern"
-          : metrics.matchingStrength > 0.30
-          ? "strong assortative pattern"
-          : "moderate assortative pattern";
+      const normalizeDensity = (level) =>
+        level === "Sparse" ? "Low Density" : level === "Dense" ? "High Density" : "Normal Density";
+      const normalizeMobility = (level) =>
+        level === "Low" ? "Low Mobility" : level === "High" ? "High Mobility" : "Medium Mobility";
+      const moduleMetrics = {
+        ...metrics,
+        pairs: this.state.pairs,
+        agents: this.state.agents,
+      };
 
-      const mobilityDesc =
-        mobilityLevel === "Low"
-          ? "lower mobility slows partner search and weakens assortment (p. 16)"
-          : mobilityLevel === "High"
-          ? "higher mobility improves partner search (p. 16)"
-          : "medium mobility yields intermediate search efficiency (p. 16)";
-
-      const densityDesc =
-        densityLevel === "Sparse"
-          ? "lower density reduces matching opportunities while increasing search duration (pp. 17–18)"
-          : densityLevel === "Dense"
-          ? "higher density increases encounter rates and accelerates matching (pp. 17–18)"
-          : "normal density produces steady encounter rates (pp. 17–18)";
-
-      const prefDesc =
-        preferenceRule === "Attractiveness-based"
-          ? "The observed longer wait times for high-attractiveness agents are consistent with the paper's discussion of attractiveness-prioritized matching (p. 16)."
-          : "The results reflect similarity-based matching, which depends more on local availability than global sorting (pp. 11–13).";
-
-      const behaviorDesc =
-        "Behavior settings were selectivity=" +
-        (selectivityLevel || "Medium") +
-        ", patience=" +
-        (patienceLevel || "Normal") +
-        ", exploration=" +
-        (explorationLevel || "Balanced") +
-        ", which modulate acceptance strictness, relaxation over search time, and movement range.";
-
-      return (
-        "Run result: " +
-        metrics.pairCount +
-        " pairs, matching strength = " +
-        metrics.matchingStrength.toFixed(2) +
-        ", suggesting a " +
-        assort +
-        " (avg search " +
-        metrics.averageSearchSteps.toFixed(1) +
-        " steps). This result is consistent with Smaldino & Schank (2012): spatial locality constrains encounters (pp. 11–13), " +
-        mobilityDesc.toLowerCase() +
-        ", and " +
-        densityDesc.toLowerCase() +
-        ". " +
-        prefDesc +
-        " " +
-        behaviorDesc
+      return TeachingContent.buildRunCitationMessage(
+        moduleMetrics,
+        normalizeMobility(mobilityLevel),
+        normalizeDensity(densityLevel),
+        preferenceRule,
+        selectivityLevel,
+        patienceLevel,
+        explorationLevel
       );
-    }
-
-    buildExplainMessage(metrics, mobility, density, preference) {
-      const simple = !!this.simpleMode;
-      const strengthLabel =
-        metrics.matchingStrength < 0.15
-          ? "very little similarity between partners"
-          : metrics.matchingStrength > 0.30
-          ? "partners are quite similar"
-          : "partners are somewhat similar";
-
-      if (simple) {
-        return (
-          "In plain terms: We formed " +
-          metrics.pairCount +
-          " pairs. Partners ended up " +
-          strengthLabel +
-          " (score " +
-          metrics.matchingStrength.toFixed(2) +
-          "). On average it took about " +
-          metrics.averageSearchSteps.toFixed(1) +
-          " moves to find someone. Because the grid was " +
-          density.toLowerCase() +
-          " and movement was " +
-          mobility.toLowerCase() +
-          ", people mostly met nearby others, which made matching depend on who was close. That’s exactly what Smaldino & Schank found: space and movement change who meets whom (pp. 11–18)."
-        );
-      }
-
-      return (
-        "Result recap: " +
-        metrics.pairCount +
-        " pairs; matching strength " +
-        metrics.matchingStrength.toFixed(2) +
-        " (" +
-        strengthLabel +
-        "); avg search " +
-        metrics.averageSearchSteps.toFixed(1) +
-        ". According to Smaldino & Schank (2012), spatial locality (pp. 11–13) constrains encounters such that assortment reflects nearby availability more than global choice. With " +
-        density.toLowerCase() +
-        " density (pp. 17–18) and " +
-        mobility.toLowerCase() +
-        " mobility (p. 16), agents mostly meet nearby others, producing patterns consistent with the paper's spatial and movement effects on partner selection."
-      );
-    }
-
-    getMobilityCommentary(mobilityLevel) {
-      if (mobilityLevel === "Low") {
-        return "With low mobility, agents cover little space, so they experience fewer encounters and weaker matching because many potential partners never come into range.";
-      }
-
-      if (mobilityLevel === "High") {
-        return "High mobility improves search because agents sweep through more of the grid, creating better opportunities to find acceptable partners and strengthening the resulting matches.";
-      }
-
-      return "Medium mobility creates an intermediate search environment in which agents encounter enough alternatives to improve matching, but not as efficiently as in the high-mobility case.";
-    }
-
-    getDensityCommentary(densityLevel) {
-      if (densityLevel === "Sparse") {
-        return "In a sparse population, search is slow and pair formation is limited because agents spend more time moving without encountering nearby partners (Smaldino & Schank 2012, pp. 17–18).";
-      }
-
-      if (densityLevel === "Dense") {
-        return "In a dense population, encounter rates rise quickly, so matching happens faster and agents have more chances to sort into compatible pairs (Smaldino & Schank 2012, pp. 17–18).";
-      }
-
-      return "At normal density, encounter opportunities are steady, which supports pair formation without the extreme search difficulty of sparse settings or the rapid contact of dense ones (Smaldino & Schank 2012, pp. 17–18).";
-    }
-
-    getPreferenceCommentary(preferenceRule) {
-      if (preferenceRule === "Attractiveness-based") {
-        return "Under attractiveness-based choice, highly attractive agents can afford to wait longer, and matching tends to strengthen when mobility and density give everyone broader access to alternatives (Smaldino & Schank 2012, p. 16).";
-      }
-
-      return "Under similarity-based choice, pairing tends to happen faster because agents can accept locally similar partners, so outcomes depend strongly on who is actually available in each neighborhood (Smaldino & Schank 2012, pp. 11–13).";
-    }
-
-    getBehaviorCommentary(selectivityLevel, patienceLevel, explorationLevel) {
-      const selectivityText =
-        selectivityLevel === "High"
-          ? "High selectivity lowers acceptance probability and usually raises search difficulty."
-          : selectivityLevel === "Low"
-          ? "Low selectivity raises acceptance probability and usually speeds up matching."
-          : "Medium selectivity keeps acceptance criteria near baseline.";
-
-      const patienceText =
-        patienceLevel === "Fast"
-          ? "Fast patience relaxation increases acceptance quickly as search continues."
-          : patienceLevel === "Slow"
-          ? "Slow patience relaxation keeps standards tighter for longer."
-          : "Normal patience relaxation gradually broadens acceptance over search time.";
-
-      const explorationText =
-        explorationLevel === "Wide"
-          ? "Wide exploration expands per-step movement, increasing contact opportunities."
-          : explorationLevel === "Local"
-          ? "Local exploration limits per-step movement and concentrates encounters nearby."
-          : "Balanced exploration keeps movement near the default range.";
-
-      return selectivityText + " " + patienceText + " " + explorationText;
-    }
-
-    getStrengthCommentary(matchingStrength) {
-      if (matchingStrength < 0.15) {
-        return "Because matching strength is below 0.15, this run shows weak assortative mating, meaning the final pairs are only weakly sorted by attractiveness (Smaldino & Schank 2012, pp. 11–13).";
-      }
-
-      if (matchingStrength > 0.30) {
-        return "Because matching strength is above 0.30, this run shows strong assortative patterns, with partners ending up noticeably similar in attractiveness (Smaldino & Schank 2012, pp. 11–13).";
-      }
-
-      return "The middle-range matching strength suggests moderate assortment, where some sorting is visible but the environment still limits how cleanly agents can match with similar partners (Smaldino & Schank 2012, pp. 11–13).";
-    }
-
-    getSearchCommentary(averageSearchSteps) {
-      if (averageSearchSteps > STEP_COUNT * 0.65) {
-        return "The high average search time of " +
-          averageSearchSteps.toFixed(1) +
-          " steps indicates substantial search difficulty, so many agents had to wait a long time before finding an acceptable partner or failed to match at all (Smaldino & Schank 2012, p. 16).";
-      }
-
-      return "The average search time of " +
-        averageSearchSteps.toFixed(1) +
-        " steps suggests that the search environment was comparatively manageable for this population (Smaldino & Schank 2012, p. 16).";
     }
 
     setExportEnabled(isEnabled) {
-      if (this.previewCsvButton) this.previewCsvButton.disabled = !isEnabled;
-      if (this.downloadCsvButton) this.downloadCsvButton.disabled = !isEnabled;
-      if (this.downloadPngButton) this.downloadPngButton.disabled = !isEnabled;
-      if (this.copyCitationButton) this.copyCitationButton.disabled = !isEnabled;
+      ExportEngine.setExportEnabled(isEnabled, {
+        previewCsvButton: this.previewCsvButton,
+        downloadCsvButton: this.downloadCsvButton,
+        downloadPngButton: this.downloadPngButton,
+        copyCitationButton: this.copyCitationButton,
+      });
       
       if (isEnabled && this.state.lastRun) {
         this.lastCitation = this.buildRunCitationMessage(
@@ -1764,30 +1195,29 @@ class MateChoiceSimulation {
         return null;
       }
 
-      const { metrics, mobilityLevel, densityLevel, preferenceRule } = this.state.lastRun;
-      const rows = [
-        ["date", new Date().toISOString()],
-        ["mobility", mobilityLevel],
-        ["density", densityLevel],
-        ["preferenceRule", preferenceRule],
-        ["selectivity", this.state.lastRun.selectivityLevel || "Medium"],
-        ["patience", this.state.lastRun.patienceLevel || "Normal"],
-        ["exploration", this.state.lastRun.explorationLevel || "Balanced"],
-        ["pairs", metrics.pairCount],
-        ["matchingStrength", metrics.matchingStrength.toFixed(3)],
-        ["averageSearchSteps", metrics.averageSearchSteps.toFixed(2)],
-        ["matchedAgents", metrics.matchedCount],
-        ["totalAgents", this.state.agents.length],
-        [],
-        ["pair_id", "a_id", "b_id", "a_attr", "b_attr"],
-        ...this.state.pairs.map((pair, index) => {
-          const a = this.state.agents[pair.agent1];
-          const b = this.state.agents[pair.agent2];
-          return [index, a.id, b.id, a.attractiveness, b.attractiveness];
-        }),
-      ];
+      const normalizeDensity = (level) =>
+        level === "Sparse" ? "Low Density" : level === "Dense" ? "High Density" : "Normal Density";
+      const normalizeMobility = (level) =>
+        level === "Low" ? "Low Mobility" : level === "High" ? "High Mobility" : "Medium Mobility";
 
-      return rows.map((r) => r.join(",")).join("\n");
+      const exportMetrics = {
+        pairs: this.state.pairs.map((pair) => ({ a: pair.agent1, b: pair.agent2 })),
+        agents: this.state.agents.map((agent) => ({ id: agent.id, attr: agent.attractiveness })),
+        matchingStrength: this.state.lastRun.metrics.matchingStrength,
+        averageSearchSteps: this.state.lastRun.metrics.averageSearchSteps,
+        matchedAgents: this.state.lastRun.metrics.matchedCount,
+      };
+
+      const exportSettings = {
+        mobilityLevel: normalizeMobility(this.state.lastRun.mobilityLevel),
+        densityLevel: normalizeDensity(this.state.lastRun.densityLevel),
+        preferenceRule: this.state.lastRun.preferenceRule,
+        selectivityLevel: this.state.lastRun.selectivityLevel || "Medium",
+        patienceLevel: this.state.lastRun.patienceLevel || "Normal",
+        explorationLevel: this.state.lastRun.explorationLevel || "Balanced",
+      };
+
+      return ExportEngine.buildRunCsvText(exportMetrics, exportSettings);
     }
 
     previewCsv() {
@@ -1800,14 +1230,34 @@ class MateChoiceSimulation {
     }
 
     downloadCsv() {
-      const csv = this.buildRunCsvText();
-      if (!csv) {
+      if (!this.state.lastRun) {
         this.addChatMessage("Assistant", "Run first, then download the summary.");
         return;
       }
-      const blob = new Blob([csv], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      this.triggerDownload(url, "simulation-summary.csv");
+
+      const normalizeDensity = (level) =>
+        level === "Sparse" ? "Low Density" : level === "Dense" ? "High Density" : "Normal Density";
+      const normalizeMobility = (level) =>
+        level === "Low" ? "Low Mobility" : level === "High" ? "High Mobility" : "Medium Mobility";
+
+      const exportMetrics = {
+        pairs: this.state.pairs.map((pair) => ({ a: pair.agent1, b: pair.agent2 })),
+        agents: this.state.agents.map((agent) => ({ id: agent.id, attr: agent.attractiveness })),
+        matchingStrength: this.state.lastRun.metrics.matchingStrength,
+        averageSearchSteps: this.state.lastRun.metrics.averageSearchSteps,
+        matchedAgents: this.state.lastRun.metrics.matchedCount,
+      };
+
+      const exportSettings = {
+        mobilityLevel: normalizeMobility(this.state.lastRun.mobilityLevel),
+        densityLevel: normalizeDensity(this.state.lastRun.densityLevel),
+        preferenceRule: this.state.lastRun.preferenceRule,
+        selectivityLevel: this.state.lastRun.selectivityLevel || "Medium",
+        patienceLevel: this.state.lastRun.patienceLevel || "Normal",
+        explorationLevel: this.state.lastRun.explorationLevel || "Balanced",
+      };
+
+      ExportEngine.downloadCsv(exportMetrics, exportSettings);
     }
 
     showCsvPreview(csvText) {
@@ -2062,101 +1512,16 @@ class MateChoiceSimulation {
     updateRecreatedFigureInsights(rows) {
       if (!rows || !rows.length) return;
 
-      const avg = (values) => values.reduce((sum, value) => sum + value, 0) / Math.max(1, values.length);
-      const labelFor = (row) => row.ruleShort + "-" + row.movement;
-      const signed = (value, digits = 2) => (value >= 0 ? "+" : "") + value.toFixed(digits);
-
       if (this.recreatedFigure5Insight) {
-        const topCorrRow = rows.reduce((best, row) =>
-          row.interPairCorrelation > best.interPairCorrelation ? row : best
-        , rows[0]);
-        const meanNoReplCorr = avg(rows.map((row) => row.interPairCorrelation));
-        const meanReplCorr = avg(rows.map((row) => row.interPairCorrelationReplacement));
-        const gap = meanNoReplCorr - meanReplCorr;
-        const topGap = topCorrRow.interPairCorrelation - topCorrRow.interPairCorrelationReplacement;
-
-        this.recreatedFigure5Insight.textContent =
-          "Insight: Highest inter-pair correlation is " +
-          labelFor(topCorrRow) +
-          " at r=" +
-          topCorrRow.interPairCorrelation.toFixed(2) +
-          " (replacement=" +
-          topCorrRow.interPairCorrelationReplacement.toFixed(2) +
-          ", delta=" +
-          signed(topGap) +
-          "). Across all six conditions, mean r is " +
-          meanNoReplCorr.toFixed(2) +
-          " vs " +
-          meanReplCorr.toFixed(2) +
-          " with replacement (overall delta " +
-          signed(gap) +
-          ").";
+        this.recreatedFigure5Insight.textContent = AnalyticsEngine.generateFigure5Insight(rows);
       }
 
       if (this.recreatedFigure6Insight) {
-        const fastestRow = rows.reduce((best, row) =>
-          row.meanDateToMate < best.meanDateToMate ? row : best
-        , rows[0]);
-        const slowestRow = rows.reduce((best, row) =>
-          row.meanDateToMate > best.meanDateToMate ? row : best
-        , rows[0]);
-        const meanNoReplDate = avg(rows.map((row) => row.meanDateToMate));
-        const meanReplDate = avg(rows.map((row) => row.meanDateToMateReplacement));
-
-        this.recreatedFigure6Insight.textContent =
-          "Insight: Fastest matching is " +
-          labelFor(fastestRow) +
-          " at t_m=" +
-          fastestRow.meanDateToMate.toFixed(2) +
-          "; slowest is " +
-          labelFor(slowestRow) +
-          " at t_m=" +
-          slowestRow.meanDateToMate.toFixed(2) +
-          ". Mean t_m across all conditions is " +
-          meanNoReplDate.toFixed(2) +
-          " vs " +
-          meanReplDate.toFixed(2) +
-          " with replacement (delta " +
-          signed(meanNoReplDate - meanReplDate) +
-          "). Lower t_m indicates quicker pair formation.";
+        this.recreatedFigure6Insight.textContent = AnalyticsEngine.generateFigure6Insight(rows);
       }
 
       if (this.recreatedFigure7Insight) {
-        const maxStep = 15;
-        const hazardSummaries = rows.map((row) => {
-          const early = row.hazardSeries.slice(0, maxStep);
-          let peakIndex = 0;
-          for (let i = 1; i < early.length; i += 1) {
-            if (early[i] > early[peakIndex]) peakIndex = i;
-          }
-          const earlyMean = early.reduce((sum, value) => sum + value, 0) / Math.max(1, early.length);
-          return {
-            row,
-            peakHazard: early[peakIndex] || 0,
-            peakStep: peakIndex + 1,
-            earlyMean,
-          };
-        });
-
-        const topPeak = hazardSummaries.reduce((best, item) =>
-          item.peakHazard > best.peakHazard ? item : best
-        , hazardSummaries[0]);
-        const topEarlyMean = hazardSummaries.reduce((best, item) =>
-          item.earlyMean > best.earlyMean ? item : best
-        , hazardSummaries[0]);
-
-        this.recreatedFigure7Insight.textContent =
-          "Insight: The earliest hazard spike is highest for " +
-          labelFor(topPeak.row) +
-          " at h(" +
-          topPeak.peakStep +
-          ")=" +
-          topPeak.peakHazard.toFixed(3) +
-          ". Over steps 1-15, the highest average hazard is " +
-          labelFor(topEarlyMean.row) +
-          " at " +
-          topEarlyMean.earlyMean.toFixed(3) +
-          ", indicating the strongest early-phase matching pressure.";
+        this.recreatedFigure7Insight.textContent = AnalyticsEngine.generateFigure7Insight(rows);
       }
     }
 
@@ -3276,20 +2641,7 @@ class MateChoiceSimulation {
     }
 
     downloadPng() {
-      const dataUrl = this.canvas.toDataURL("image/png");
-      this.triggerDownload(dataUrl, "simulation-grid.png");
-    }
-
-    triggerDownload(url, filename) {
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      if (url.startsWith("blob:")) {
-        URL.revokeObjectURL(url);
-      }
+      ExportEngine.downloadPng(this.canvas);
     }
 
     bindLessonPresets() {
@@ -3429,10 +2781,19 @@ class MateChoiceSimulation {
     copyCitation() {
       if (!this.lastCitation) {
         if (this.state.lastRun) {
+          const normalizeDensity = (level) =>
+            level === "Sparse" ? "Low Density" : level === "Dense" ? "High Density" : "Normal Density";
+          const normalizeMobility = (level) =>
+            level === "Low" ? "Low Mobility" : level === "High" ? "High Mobility" : "Medium Mobility";
+          const moduleMetrics = {
+            ...this.state.lastRun.metrics,
+            pairs: this.state.pairs,
+            agents: this.state.agents,
+          };
           this.lastCitation = this.buildRunCitationMessage(
-            this.state.lastRun.metrics,
-            this.state.lastRun.mobilityLevel,
-            this.state.lastRun.densityLevel,
+            moduleMetrics,
+            normalizeMobility(this.state.lastRun.mobilityLevel),
+            normalizeDensity(this.state.lastRun.densityLevel),
             this.state.lastRun.preferenceRule,
             this.state.lastRun.selectivityLevel,
             this.state.lastRun.patienceLevel,
