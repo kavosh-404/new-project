@@ -20,8 +20,20 @@ class MateChoiceSimulation {
       this.selectivitySelect = document.getElementById("selectivity-level");
       this.patienceSelect = document.getElementById("patience-level");
       this.explorationSelect = document.getElementById("exploration-level");
+      this.modelTypeSelect = document.getElementById("model-type");
+      this.agentCountInput = document.getElementById("agent-count");
+      this.acceptanceBiasInput = document.getElementById("acceptance-bias");
+      this.randomSeedInput = document.getElementById("random-seed");
+      this.speedSelect = document.getElementById("simulation-speed");
       this.runButton = document.getElementById("run-simulation");
+      this.stepButton = document.getElementById("step-simulation");
+      this.resetButton = document.getElementById("reset-simulation");
       this.status = document.getElementById("simulation-status");
+      this.decisionStatus = document.getElementById("decision-status");
+      this.barBothAccept = document.getElementById("bar-both-accept");
+      this.barAOnly = document.getElementById("bar-a-only");
+      this.barBOnly = document.getElementById("bar-b-only");
+      this.barBothReject = document.getElementById("bar-both-reject");
       this.teachingExplanation = document.getElementById("teaching-explanation");
       this.teachingSimpleToggle = document.getElementById("teaching-simple-toggle");
       this.chatLog = document.getElementById("chat-log");
@@ -95,6 +107,16 @@ class MateChoiceSimulation {
         pairs: [],
         step: 0,
         isRunning: false,
+        interactionEvents: [],
+        interactionQueue: [],
+        rippleQueue: [],
+        decisionStats: {
+          bothAccept: 0,
+          aAcceptsOnly: 0,
+          bAcceptsOnly: 0,
+          bothReject: 0,
+        },
+        pairDecisionCorrelation: 0,
         lastRun: null,
       };
 
@@ -127,6 +149,10 @@ class MateChoiceSimulation {
       this.hazardSeriesSelection = {};
       this.autoHighlightedSeriesLabels = [];
       this.autoHighlightTop2Enabled = false;
+      this.stepTimer = null;
+      this.postStartScrollTimer = null;
+      this.rngState = null;
+      this.baseSeed = null;
 
       this.bindEvents();
       this.handleResize();
@@ -141,9 +167,30 @@ class MateChoiceSimulation {
     bindEvents() {
       window.addEventListener("resize", this.handleResize);
       this.runButton.addEventListener("click", this.handleRun);
+      if (this.stepButton) {
+        this.stepButton.addEventListener("click", () => this.handleStepForward());
+      }
+      if (this.resetButton) {
+        this.resetButton.addEventListener("click", () => this.handleReset());
+      }
       this.preferenceSelect.addEventListener("change", this.handleControlChange);
       this.mobilitySelect.addEventListener("change", this.handleControlChange);
       this.densitySelect.addEventListener("change", this.handleControlChange);
+      if (this.modelTypeSelect) {
+        this.modelTypeSelect.addEventListener("change", this.handleControlChange);
+      }
+      if (this.agentCountInput) {
+        this.agentCountInput.addEventListener("change", this.handleControlChange);
+      }
+      if (this.speedSelect) {
+        this.speedSelect.addEventListener("change", () => this.updateStatus());
+      }
+      if (this.acceptanceBiasInput) {
+        this.acceptanceBiasInput.addEventListener("change", this.handleControlChange);
+      }
+      if (this.randomSeedInput) {
+        this.randomSeedInput.addEventListener("change", this.handleControlChange);
+      }
       if (this.selectivitySelect) {
         this.selectivitySelect.addEventListener("change", this.handleControlChange);
       }
@@ -257,16 +304,32 @@ class MateChoiceSimulation {
     }
 
     seedPreview() {
-      this.state.agents = this.createAgents(this.getDensityCount(this.densitySelect.value));
-      this.state.pairs = [];
-      this.state.step = 0;
+      this.resetRng();
+      this.state = this.buildFreshState();
+      this.runButton.textContent = "Start Simulation";
+      if (this.stepButton) this.stepButton.disabled = false;
       this.draw();
+      this.updateDecisionStatus();
     }
 
-    handleRun() {
-      if (this.state.isRunning) {
+    handleRun(options = {}) {
+      const { forceRestart = false } = options;
+
+      if (this.state.isRunning && !forceRestart) {
+        this.state.isRunning = false;
+        this.runButton.textContent = "Resume Simulation";
+        if (this.stepButton) this.stepButton.disabled = false;
+        this.stopStepping();
+        this.updateStatus();
         return;
       }
+
+      if (forceRestart && this.state.isRunning) {
+        this.state.isRunning = false;
+        this.stopStepping();
+      }
+
+      const needsFreshStart = forceRestart || (this.state.step === 0 && this.state.pairs.length === 0);
 
       this.scrollToSimulationGrid();
 
@@ -277,19 +340,129 @@ class MateChoiceSimulation {
       if (this.csvPreview) {
         this.csvPreview.classList.remove("is-visible");
       }
-      this.resetPreviewContent();
+      this.resetPreviewContent("light");
 
-      this.state = {
-        agents: this.createAgents(this.getDensityCount(this.densitySelect.value)),
+      if (needsFreshStart) {
+        this.resetRng();
+        this.state = this.buildFreshState();
+      }
+
+      this.state.isRunning = true;
+      this.runButton.textContent = "Pause Simulation";
+      if (this.stepButton) this.stepButton.disabled = true;
+      this.status.textContent = "Simulation started. Agents are interacting now.";
+      this.draw();
+      this.scheduleSummaryScrollAfterStart();
+      this.animate(true);
+    }
+
+    handleStepForward() {
+      if (this.state.isRunning || this.state.step >= STEP_COUNT) {
+        return;
+      }
+      this.stepSimulation();
+      this.state.step += 1;
+      this.draw();
+      this.updateStatus();
+      this.updateDecisionStatus();
+      if (this.state.step >= STEP_COUNT) {
+        this.finishRun();
+      }
+    }
+
+    handleReset() {
+      this.stopStepping();
+      this.resetRng();
+      this.state = this.buildFreshState();
+      this.runButton.textContent = "Start Simulation";
+      if (this.stepButton) this.stepButton.disabled = false;
+      this.updateSummaryBarPlaceholder();
+      this.updateStatus();
+      this.updateDecisionStatus();
+      this.draw();
+    }
+
+    stopStepping() {
+      if (this.stepTimer) {
+        window.clearTimeout(this.stepTimer);
+        this.stepTimer = null;
+      }
+      if (this.postStartScrollTimer) {
+        window.clearTimeout(this.postStartScrollTimer);
+        this.postStartScrollTimer = null;
+      }
+    }
+
+    scheduleSummaryScrollAfterStart() {
+      if (this.postStartScrollTimer) {
+        window.clearTimeout(this.postStartScrollTimer);
+      }
+
+      this.postStartScrollTimer = window.setTimeout(() => {
+        this.postStartScrollTimer = null;
+        const target = this.runSummary || this.csvPreview;
+        if (target && target.scrollIntoView) {
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 5000);
+    }
+
+    getSpeedMultiplier() {
+      const parsed = parseFloat(this.speedSelect ? this.speedSelect.value : "1");
+      return this.clamp(isNaN(parsed) ? 1 : parsed, 0.2, 4);
+    }
+
+    getActiveAgentCount() {
+      const parsed = parseInt(this.agentCountInput ? this.agentCountInput.value : "500", 10);
+      const clamped = this.clamp(isNaN(parsed) ? 500 : parsed, 100, 2000);
+      if (this.agentCountInput) {
+        this.agentCountInput.value = String(clamped);
+      }
+      return clamped;
+    }
+
+    getNumericSeed() {
+      if (!this.randomSeedInput || this.randomSeedInput.value === "") return null;
+      const parsed = parseInt(this.randomSeedInput.value, 10);
+      if (isNaN(parsed) || parsed <= 0) return null;
+      return parsed;
+    }
+
+    resetRng(seedOverride) {
+      const seed = typeof seedOverride === "number" ? seedOverride : this.getNumericSeed();
+      this.baseSeed = seed;
+      if (typeof seed === "number" && isFinite(seed)) {
+        this.rngState = Math.abs(seed) % 2147483647;
+        if (this.rngState === 0) this.rngState = 1;
+      } else {
+        this.rngState = null;
+      }
+    }
+
+    random() {
+      if (!this.rngState) return Math.random();
+      this.rngState = (this.rngState * 48271) % 2147483647;
+      return this.rngState / 2147483647;
+    }
+
+    buildFreshState() {
+      return {
+        agents: this.createAgents(this.getActiveAgentCount()),
         pairs: [],
         step: 0,
-        isRunning: true,
+        isRunning: false,
+        interactionEvents: [],
+        interactionQueue: [],
+        rippleQueue: [],
+        decisionStats: {
+          bothAccept: 0,
+          aAcceptsOnly: 0,
+          bAcceptsOnly: 0,
+          bothReject: 0,
+        },
+        pairDecisionCorrelation: 0,
+        lastRun: this.state ? this.state.lastRun : null,
       };
-
-      this.runButton.disabled = true;
-      this.status.textContent = "Simulation started. Agents are moving into their first encounters.";
-      this.draw();
-      this.animate();
     }
 
     handleBatchRun() {
@@ -304,9 +477,26 @@ class MateChoiceSimulation {
       if (this.runBatchButton) this.runBatchButton.disabled = true;
       this.status.textContent = "Running batch experiment: " + runCount + " simulations...";
 
+      const preservedState = {
+        ...this.state,
+        agents: this.state.agents.map((agent) => ({ ...agent })),
+        pairs: this.state.pairs.map((pair) => ({ ...pair })),
+        interactionEvents: this.state.interactionEvents.map((interaction) => ({ ...interaction })),
+        interactionQueue: this.state.interactionQueue.map((interaction) => ({ ...interaction })),
+        decisionStats: { ...this.state.decisionStats },
+      };
+
+      const currentModel = this.modelTypeSelect ? this.modelTypeSelect.value : "Spatial";
+      const spatialStrength = [];
+      const nonSpatialStrength = [];
+
       for (let runIndex = 0; runIndex < runCount; runIndex += 1) {
+        const seedBase = this.getNumericSeed();
+        const runSeed = typeof seedBase === "number" ? seedBase + runIndex * 101 : null;
+        this.resetRng(runSeed);
         this.state = {
-          agents: this.createAgents(this.getDensityCount(this.densitySelect.value)),
+          ...this.buildFreshState(),
+          agents: this.createAgents(this.getActiveAgentCount()),
           pairs: [],
           step: 0,
           isRunning: false,
@@ -318,12 +508,45 @@ class MateChoiceSimulation {
           this.state.step = stepIndex + 1;
         }
 
-        metricsList.push(this.getSimulationMetrics());
+        const metrics = this.getSimulationMetrics();
+        metricsList.push(metrics);
+        if (currentModel === "Spatial") {
+          spatialStrength.push(metrics.matchingStrength);
+        } else {
+          nonSpatialStrength.push(metrics.matchingStrength);
+        }
+
+        const compareModel = currentModel === "Spatial" ? "Non-Spatial" : "Spatial";
+        if (this.modelTypeSelect) this.modelTypeSelect.value = compareModel;
+        if (typeof runSeed === "number") {
+          this.resetRng(runSeed + 53);
+        }
+        this.state = {
+          ...this.buildFreshState(),
+          agents: this.createAgents(this.getActiveAgentCount()),
+          pairs: [],
+          step: 0,
+          isRunning: false,
+          lastRun: this.state.lastRun,
+        };
+        for (let stepIndex = 0; stepIndex < STEP_COUNT; stepIndex += 1) {
+          this.stepSimulation();
+          this.state.step = stepIndex + 1;
+        }
+        const compareMetrics = this.getSimulationMetrics();
+        if (compareModel === "Spatial") {
+          spatialStrength.push(compareMetrics.matchingStrength);
+        } else {
+          nonSpatialStrength.push(compareMetrics.matchingStrength);
+        }
+        if (this.modelTypeSelect) this.modelTypeSelect.value = currentModel;
       }
 
       const pairStats = this.computeBatchStats(metricsList.map((m) => m.pairCount));
       const strengthStats = this.computeBatchStats(metricsList.map((m) => m.matchingStrength));
       const searchStats = this.computeBatchStats(metricsList.map((m) => m.averageSearchSteps));
+      const spatialStats = this.computeBatchStats(spatialStrength);
+      const nonSpatialStats = this.computeBatchStats(nonSpatialStrength);
       const lastMetrics = metricsList[metricsList.length - 1];
 
       this.state.lastRun = {
@@ -334,6 +557,8 @@ class MateChoiceSimulation {
         selectivityLevel: this.selectivitySelect ? this.selectivitySelect.value : "Medium",
         patienceLevel: this.patienceSelect ? this.patienceSelect.value : "Normal",
         explorationLevel: this.explorationSelect ? this.explorationSelect.value : "Balanced",
+        modelType: this.modelTypeSelect ? this.modelTypeSelect.value : "Spatial",
+        agentCount: this.getActiveAgentCount(),
       };
 
       this.lastCitation = this.buildRunCitationMessage(
@@ -351,7 +576,7 @@ class MateChoiceSimulation {
       this.setExportEnabled(true);
       this.renderInsightQuestions();
       this.draw();
-      this.showBatchSummary(runCount, pairStats, strengthStats, searchStats);
+      this.showBatchSummary(runCount, pairStats, strengthStats, searchStats, spatialStats, nonSpatialStats);
 
       this.status.textContent =
         "Batch complete: " +
@@ -362,6 +587,10 @@ class MateChoiceSimulation {
         strengthStats.mean.toFixed(2) +
         ", mean search " +
         searchStats.mean.toFixed(1) +
+        ". Spatial r=" +
+        spatialStats.mean.toFixed(2) +
+        ", Non-spatial r=" +
+        nonSpatialStats.mean.toFixed(2) +
         ".";
 
       this.addChatMessage(
@@ -386,9 +615,28 @@ class MateChoiceSimulation {
           searchStats.ciLow.toFixed(1) +
           " to " +
           searchStats.ciHigh.toFixed(1) +
+          "). Spatial r=" +
+          spatialStats.mean.toFixed(2) +
+          " (95% CI " +
+          spatialStats.ciLow.toFixed(2) +
+          " to " +
+          spatialStats.ciHigh.toFixed(2) +
+          "), Non-spatial r=" +
+          nonSpatialStats.mean.toFixed(2) +
+          " (95% CI " +
+          nonSpatialStats.ciLow.toFixed(2) +
+          " to " +
+          nonSpatialStats.ciHigh.toFixed(2) +
           ")."
       );
 
+      const batchLastRun = this.state.lastRun;
+      this.state = preservedState;
+      this.state.lastRun = batchLastRun;
+      this.resetRng();
+      this.draw();
+      this.updateStatus();
+      this.updateDecisionStatus();
       this.runButton.disabled = false;
       if (this.runBatchButton) this.runBatchButton.disabled = false;
     }
@@ -415,7 +663,7 @@ class MateChoiceSimulation {
       };
     }
 
-    showBatchSummary(runCount, pairStats, strengthStats, searchStats) {
+    showBatchSummary(runCount, pairStats, strengthStats, searchStats, spatialStats, nonSpatialStats) {
       if (!this.batchSummary) return;
 
       this.batchSummary.innerHTML =
@@ -439,6 +687,18 @@ class MateChoiceSimulation {
         searchStats.ciLow.toFixed(1) +
         " to " +
         searchStats.ciHigh.toFixed(1) +
+        ") | Spatial r=" +
+        spatialStats.mean.toFixed(2) +
+        " (95% CI " +
+        spatialStats.ciLow.toFixed(2) +
+        " to " +
+        spatialStats.ciHigh.toFixed(2) +
+        ") | Non-spatial r=" +
+        nonSpatialStats.mean.toFixed(2) +
+        " (95% CI " +
+        nonSpatialStats.ciLow.toFixed(2) +
+        " to " +
+        nonSpatialStats.ciHigh.toFixed(2) +
         ").";
       this.batchSummary.classList.add("is-visible");
     }
@@ -452,7 +712,9 @@ class MateChoiceSimulation {
         this.debounceTimer = null;
 
         if (!this.state.isRunning) {
-          this.handleRun();
+          this.seedPreview();
+          this.updateStatus();
+          this.updateDecisionStatus();
         }
       }, 400);
     }
@@ -507,40 +769,80 @@ class MateChoiceSimulation {
           partnerId: null,
           matchedAtStep: null,
           searchSteps: 0,
+          trail: [],
+          lastDecision: null,
+          isInteracting: false,
         });
       }
 
       return agents;
     }
 
-    animate() {
-      if (!this.state.isRunning) {
-        return;
+    animate(runImmediate) {
+      if (!this.state.isRunning) return;
+
+      if (runImmediate) {
+        this.advanceOneSimulationFrame();
       }
 
+      const delayMs = Math.max(24, Math.round(220 / this.getSpeedMultiplier()));
+      this.stopStepping();
+      this.stepTimer = window.setTimeout(() => {
+        this.stepTimer = null;
+        if (!this.state.isRunning) return;
+        this.advanceOneSimulationFrame();
+        if (this.state.isRunning) {
+          this.animate(false);
+        }
+      }, delayMs);
+    }
+
+    advanceOneSimulationFrame() {
       if (this.state.step >= STEP_COUNT) {
         this.finishRun();
         return;
       }
 
       this.stepSimulation();
-      this.draw();
       this.state.step += 1;
+      this.draw();
       this.updateStatus();
+      this.updateDecisionStatus();
 
-      window.requestAnimationFrame(() => this.animate());
+      if (this.state.step >= STEP_COUNT) {
+        this.finishRun();
+      }
     }
 
     stepSimulation() {
       const currentStep = this.state.step + 1;
-      this.moveAgents();
-      this.resolveEncounters(currentStep);
+
+      this.state.interactionQueue = this.state.interactionQueue
+        .map((interaction) => ({ ...interaction, ttl: interaction.ttl - 1 }))
+        .filter((interaction) => interaction.ttl > 0);
+      this.state.rippleQueue = this.state.rippleQueue
+        .map((ripple) => ({ ...ripple, ttl: ripple.ttl - 1 }))
+        .filter((ripple) => ripple.ttl > 0);
+
+      this.state.agents.forEach((agent) => {
+        agent.isInteracting = false;
+      });
+
+      const modelType = this.modelTypeSelect ? this.modelTypeSelect.value : "Spatial";
+      if (modelType === "Non-Spatial") {
+        this.resolveNonSpatialEncounters(currentStep);
+      } else {
+        this.moveAgents();
+        this.resolveSpatialEncounters(currentStep);
+      }
 
       this.state.agents.forEach((agent) => {
         if (!agent.matched) {
           agent.searchSteps += 1;
         }
       });
+
+      this.state.pairDecisionCorrelation = this.computeDecisionCorrelation();
     }
 
     moveAgents() {
@@ -555,12 +857,17 @@ class MateChoiceSimulation {
           return;
         }
 
+        agent.trail.push({ x: agent.x, y: agent.y });
+        if (agent.trail.length > 6) {
+          agent.trail.shift();
+        }
+
         agent.x = this.clamp(agent.x + this.randomFloat(-movementRange, movementRange), padding, size - padding);
         agent.y = this.clamp(agent.y + this.randomFloat(-movementRange, movementRange), padding, size - padding);
       });
     }
 
-    resolveEncounters(currentStep) {
+    resolveSpatialEncounters(currentStep) {
       const unmatchedAgents = this.shuffle(this.state.agents.filter((agent) => !agent.matched));
 
       for (let index = 0; index < unmatchedAgents.length; index += 1) {
@@ -577,11 +884,14 @@ class MateChoiceSimulation {
             continue;
           }
 
-          if (this.getDistance(agent, candidate) > ENCOUNTER_DISTANCE) {
+          if (this.getDistance(agent, candidate) > this.getEncounterDistance()) {
             continue;
           }
 
-          if (this.mutuallyAccept(agent, candidate)) {
+          const outcome = this.evaluateEncounter(agent, candidate);
+          this.registerInteraction(agent, candidate, outcome, currentStep);
+
+          if (outcome.acceptA && outcome.acceptB) {
             this.matchAgents(agent, candidate, currentStep);
             break;
           }
@@ -589,12 +899,66 @@ class MateChoiceSimulation {
       }
     }
 
-    mutuallyAccept(agent, candidate) {
+    resolveNonSpatialEncounters(currentStep) {
+      const bag = this.shuffle(this.state.agents.filter((agent) => !agent.matched));
+      for (let index = 0; index < bag.length - 1; index += 2) {
+        const first = bag[index];
+        const second = bag[index + 1];
+        if (!first || !second || first.matched || second.matched) continue;
+        const outcome = this.evaluateEncounter(first, second);
+        this.registerInteraction(first, second, outcome, currentStep);
+        if (outcome.acceptA && outcome.acceptB) {
+          this.matchAgents(first, second, currentStep);
+        }
+      }
+    }
+
+    evaluateEncounter(agent, candidate) {
       const preferenceRule = this.preferenceSelect.value;
       const agentAcceptance = this.getAcceptanceScore(agent, candidate, preferenceRule);
       const candidateAcceptance = this.getAcceptanceScore(candidate, agent, preferenceRule);
 
-      return Math.random() < agentAcceptance && Math.random() < candidateAcceptance;
+      const acceptA = this.random() < agentAcceptance;
+      const acceptB = this.random() < candidateAcceptance;
+      return {
+        acceptA,
+        acceptB,
+        outcome: acceptA && acceptB ? "both-accept" : acceptA ? "a-accepts" : acceptB ? "b-accepts" : "both-reject",
+      };
+    }
+
+    registerInteraction(agent, candidate, outcome, currentStep) {
+      this.state.interactionQueue.push({
+        agentA: agent.id,
+        agentB: candidate.id,
+        step: currentStep,
+        ttl: 8,
+        outcome: outcome.outcome,
+      });
+
+      agent.isInteracting = true;
+      candidate.isInteracting = true;
+      agent.lastDecision = outcome.acceptA ? "accept" : "reject";
+      candidate.lastDecision = outcome.acceptB ? "accept" : "reject";
+
+      if (outcome.outcome === "both-accept") this.state.decisionStats.bothAccept += 1;
+      else if (outcome.outcome === "a-accepts") this.state.decisionStats.aAcceptsOnly += 1;
+      else if (outcome.outcome === "b-accepts") this.state.decisionStats.bAcceptsOnly += 1;
+      else this.state.decisionStats.bothReject += 1;
+
+      this.state.interactionEvents.push({
+        step: currentStep,
+        acceptA: outcome.acceptA ? 1 : 0,
+        acceptB: outcome.acceptB ? 1 : 0,
+      });
+
+      const color = outcome.outcome === "both-accept"
+        ? "rgba(22, 163, 74, 0.55)"
+        : outcome.outcome === "both-reject"
+        ? "rgba(185, 28, 28, 0.5)"
+        : "rgba(17, 24, 39, 0.45)";
+      this.state.rippleQueue.push({ x: agent.x, y: agent.y, ttl: 10, color });
+      this.state.rippleQueue.push({ x: candidate.x, y: candidate.y, ttl: 10, color });
     }
 
     getAcceptanceScore(agent, candidate, preferenceRule) {
@@ -621,12 +985,16 @@ class MateChoiceSimulation {
     }
 
     finishRun() {
+      this.stopStepping();
       this.state.isRunning = false;
       this.runButton.disabled = false;
-        this.lastTopic = null;
-        this.lastQuestionType = null;
-        this.topicDepth = 0;
+      this.runButton.textContent = "Start Simulation";
+      if (this.stepButton) this.stepButton.disabled = false;
+      this.lastTopic = null;
+      this.lastQuestionType = null;
+      this.topicDepth = 0;
       this.updateStatus(true);
+      this.updateDecisionStatus();
       this.updateTeachingExplanation();
       this.recordRunForComparison("Single");
       this.setExportEnabled(true);
@@ -655,6 +1023,7 @@ class MateChoiceSimulation {
     updateStatus(isComplete = false) {
       const matchedCount = this.state.agents.filter((agent) => agent.matched).length;
       const pairCount = this.state.pairs.length;
+      const modelType = this.modelTypeSelect ? this.modelTypeSelect.value : "Spatial";
 
       if (isComplete) {
         this.status.textContent =
@@ -669,8 +1038,17 @@ class MateChoiceSimulation {
       }
 
       if (!this.state.isRunning) {
+        if (this.state.step === 0) {
+          this.status.textContent =
+            "Ready to simulate density, mobility, and mate choice encounters.";
+          return;
+        }
         this.status.textContent =
-          "Ready to simulate density, mobility, and mate choice encounters.";
+          "Paused at step " +
+          this.state.step +
+          ". Model: " +
+          modelType +
+          ". Use Step +1 for frame-by-frame decisions.";
         return;
       }
 
@@ -681,7 +1059,36 @@ class MateChoiceSimulation {
         STEP_COUNT +
         ": " +
         pairCount +
-        " pairs formed so far.";
+        " pairs formed so far (" +
+        modelType +
+        ", speed x" +
+        this.getSpeedMultiplier().toFixed(1) +
+        ").";
+    }
+
+    updateDecisionStatus() {
+      if (!this.decisionStatus) return;
+      const stats = this.state.decisionStats;
+      const total = stats.bothAccept + stats.aAcceptsOnly + stats.bAcceptsOnly + stats.bothReject;
+      const toPercent = (value) => (total > 0 ? (value / total) * 100 : 0);
+
+      this.decisionStatus.textContent =
+        "Decisions: both accept " +
+        stats.bothAccept +
+        ", A only " +
+        stats.aAcceptsOnly +
+        ", B only " +
+        stats.bAcceptsOnly +
+        ", both reject " +
+        stats.bothReject +
+        ". Pair decision correlation r=" +
+        this.state.pairDecisionCorrelation.toFixed(2) +
+        ".";
+
+      if (this.barBothAccept) this.barBothAccept.style.width = toPercent(stats.bothAccept).toFixed(1) + "%";
+      if (this.barAOnly) this.barAOnly.style.width = toPercent(stats.aAcceptsOnly).toFixed(1) + "%";
+      if (this.barBOnly) this.barBOnly.style.width = toPercent(stats.bAcceptsOnly).toFixed(1) + "%";
+      if (this.barBothReject) this.barBothReject.style.width = toPercent(stats.bothReject).toFixed(1) + "%";
     }
 
     draw() {
@@ -689,8 +1096,87 @@ class MateChoiceSimulation {
 
       this.context.clearRect(0, 0, size, size);
       this.drawGrid(size);
+      this.drawTrails();
+      this.drawActiveInteractions();
+      this.drawRipples();
       this.drawPairs();
       this.drawAgents();
+      this.drawSimulationLegend(size);
+    }
+
+    drawSimulationLegend(size) {
+      const panelX = 10;
+      const panelY = 10;
+      const panelW = Math.min(240, size * 0.72);
+      const panelH = 102;
+
+      this.context.save();
+      this.context.fillStyle = "rgba(255, 255, 255, 0.88)";
+      this.context.strokeStyle = "rgba(31, 26, 23, 0.18)";
+      this.context.lineWidth = 1;
+      this.context.beginPath();
+      this.context.roundRect(panelX, panelY, panelW, panelH, 10);
+      this.context.fill();
+      this.context.stroke();
+
+      this.context.fillStyle = "#1f1a17";
+      this.context.font = "600 11px Instrument Sans, sans-serif";
+      this.context.fillText("Legend", panelX + 10, panelY + 16);
+
+      const rowStartY = panelY + 30;
+      const rowGap = 16;
+      const dotX = panelX + 14;
+      const textX = panelX + 26;
+
+      const drawDot = (y, color, label) => {
+        this.context.beginPath();
+        this.context.arc(dotX, y, 4, 0, Math.PI * 2);
+        this.context.fillStyle = color;
+        this.context.fill();
+        this.context.fillStyle = "#1f1a17";
+        this.context.font = "10px Instrument Sans, sans-serif";
+        this.context.fillText(label, textX, y + 3);
+      };
+
+      drawDot(rowStartY, this.getAgentColor(5), "Blue = neutral");
+      drawDot(rowStartY + rowGap, "#16a34a", "Green = accepted/matched");
+      drawDot(rowStartY + rowGap * 2, "#b91c1c", "Red = rejected");
+
+      const lineY = rowStartY + rowGap * 3;
+      this.context.beginPath();
+      this.context.moveTo(dotX - 4, lineY);
+      this.context.lineTo(dotX + 10, lineY);
+      this.context.strokeStyle = "#111827";
+      this.context.lineWidth = 2;
+      this.context.stroke();
+      this.context.fillStyle = "#1f1a17";
+      this.context.fillText("Black = interaction", textX, lineY + 3);
+
+      this.context.beginPath();
+      this.context.moveTo(panelX + 126, lineY);
+      this.context.lineTo(panelX + 142, lineY);
+      this.context.strokeStyle = "#ff4d4d";
+      this.context.lineWidth = 2.5;
+      this.context.stroke();
+      this.context.fillText("Red line = paired", panelX + 148, lineY + 3);
+      this.context.restore();
+    }
+
+    drawTrails() {
+      this.state.agents.forEach((agent) => {
+        if (!agent.trail || agent.trail.length < 2) return;
+        for (let index = 1; index < agent.trail.length; index += 1) {
+          const from = agent.trail[index - 1];
+          const to = agent.trail[index];
+          const alpha = (index / agent.trail.length) * 0.22;
+          this.context.beginPath();
+          this.context.moveTo(from.x, from.y);
+          this.context.lineTo(to.x, to.y);
+          this.context.strokeStyle = "rgba(15, 118, 110, " + alpha.toFixed(3) + ")";
+          this.context.lineWidth = 1.1;
+          this.context.stroke();
+        }
+      });
     }
 
     drawGrid(size) {
@@ -730,19 +1216,57 @@ class MateChoiceSimulation {
       });
     }
 
+    drawActiveInteractions() {
+      this.state.interactionQueue.forEach((interaction) => {
+        const first = this.state.agents[interaction.agentA];
+        const second = this.state.agents[interaction.agentB];
+        if (!first || !second) return;
+
+        const progress = this.clamp((8 - interaction.ttl) / 8, 0.08, 1);
+        const x = first.x + (second.x - first.x) * progress;
+        const y = first.y + (second.y - first.y) * progress;
+        const pulse = 1 + 0.2 * Math.sin((8 - interaction.ttl) * 0.8);
+
+        this.context.beginPath();
+        this.context.moveTo(first.x, first.y);
+        this.context.lineTo(x, y);
+        this.context.strokeStyle = "rgba(0, 0, 0, " + this.clamp(0.25 + interaction.ttl / 8, 0.25, 0.9) + ")";
+        this.context.lineWidth = (1.2 + (interaction.ttl / 8) * 2.4) * pulse;
+        this.context.stroke();
+      });
+    }
+
+    drawRipples() {
+      this.state.rippleQueue.forEach((ripple) => {
+        const progress = 1 - ripple.ttl / 10;
+        const radius = AGENT_RADIUS + progress * 10;
+        this.context.beginPath();
+        this.context.arc(ripple.x, ripple.y, radius, 0, Math.PI * 2);
+        this.context.strokeStyle = ripple.color.replace(/0\.[0-9]+\)/, (0.45 * (1 - progress)).toFixed(3) + ")");
+        this.context.lineWidth = 1.4;
+        this.context.stroke();
+      });
+    }
+
     drawAgents() {
       this.state.agents.forEach((agent) => {
         this.context.beginPath();
         this.context.arc(agent.x, agent.y, AGENT_RADIUS, 0, Math.PI * 2);
-        this.context.fillStyle = agent.matched
-          ? "#22c55e"
-          : this.getAgentColor(agent.attractiveness);
+        this.context.fillStyle = this.getAgentFillColor(agent);
         this.context.fill();
 
         this.context.lineWidth = 1;
         this.context.strokeStyle = "rgba(31, 26, 23, 0.18)";
         this.context.stroke();
       });
+    }
+
+    getAgentFillColor(agent) {
+      if (agent.isInteracting) return "#111827";
+      if (agent.lastDecision === "accept") return "#16a34a";
+      if (agent.lastDecision === "reject") return "#b91c1c";
+      if (agent.matched) return "#22c55e";
+      return this.getAgentColor(agent.attractiveness);
     }
 
     getAgentColor(attractiveness) {
@@ -760,12 +1284,32 @@ class MateChoiceSimulation {
       return this.canvas.width / (window.devicePixelRatio || 1);
     }
 
-    getDensityCount(densityLevel) {
-      const size = this.getCanvasSize();
-      const area = size * size;
-      const multiplier = densityMultipliers[densityLevel] || 1;
-      const count = Math.max(10, Math.round(area * baseDensityFactor * multiplier));
-      return count;
+    getDensityCount() {
+      return this.getActiveAgentCount();
+    }
+
+    getEncounterDistance() {
+      const densityLevel = this.densitySelect ? this.densitySelect.value : "Normal";
+      const multiplier = densityLevel === "Sparse" ? 0.85 : densityLevel === "Dense" ? 1.2 : 1;
+      return ENCOUNTER_DISTANCE * multiplier;
+    }
+
+    computeDecisionCorrelation() {
+      if (!this.state.interactionEvents.length) return 0;
+      const xs = this.state.interactionEvents.map((event) => event.acceptA);
+      const ys = this.state.interactionEvents.map((event) => event.acceptB);
+      if (xs.length < 2) return 0;
+
+      const n = xs.length;
+      const sumX = xs.reduce((acc, value) => acc + value, 0);
+      const sumY = ys.reduce((acc, value) => acc + value, 0);
+      const sumXX = xs.reduce((acc, value) => acc + value * value, 0);
+      const sumYY = ys.reduce((acc, value) => acc + value * value, 0);
+      const sumXY = xs.reduce((acc, value, index) => acc + value * ys[index], 0);
+      const numerator = n * sumXY - sumX * sumY;
+      const denominator = Math.sqrt((n * sumXX - sumX * sumX) * (n * sumYY - sumY * sumY));
+      if (!denominator) return 0;
+      return this.clamp(numerator / denominator, -1, 1);
     }
 
     initChat() {
@@ -1089,6 +1633,8 @@ class MateChoiceSimulation {
         selectivityLevel,
         patienceLevel,
         explorationLevel,
+        modelType: this.modelTypeSelect ? this.modelTypeSelect.value : "Spatial",
+        agentCount: this.getActiveAgentCount(),
       };
       this.lastCitation = this.buildRunCitationMessage(
         moduleMetrics,
@@ -1123,13 +1669,16 @@ class MateChoiceSimulation {
         ? 9
         : pairDifferences.reduce((sum, difference) => sum + difference, 0) / pairDifferences.length;
 
-      const matchingStrength = this.clamp(1 - averageDifference / 9, 0, 1);
+      const matchingStrength = this.computeInterPairCorrelation(this.state.agents, this.state.pairs);
 
       return {
         pairCount: this.state.pairs.length,
         matchedCount: matchedAgents.length,
         averageSearchSteps,
         matchingStrength,
+        averagePairDifference: averageDifference,
+        pairDecisionCorrelation: this.state.pairDecisionCorrelation,
+        decisionStats: { ...this.state.decisionStats },
       };
     }
 
@@ -1222,6 +1771,8 @@ class MateChoiceSimulation {
         mobilityLevel: normalizeMobility(this.state.lastRun.mobilityLevel),
         densityLevel: normalizeDensity(this.state.lastRun.densityLevel),
         preferenceRule: this.state.lastRun.preferenceRule,
+        modelType: this.state.lastRun.modelType || "Spatial",
+        agentCount: this.state.lastRun.agentCount || this.state.agents.length,
         selectivityLevel: this.state.lastRun.selectivityLevel || "Medium",
         patienceLevel: this.state.lastRun.patienceLevel || "Normal",
         explorationLevel: this.state.lastRun.explorationLevel || "Balanced",
@@ -1262,6 +1813,8 @@ class MateChoiceSimulation {
         mobilityLevel: normalizeMobility(this.state.lastRun.mobilityLevel),
         densityLevel: normalizeDensity(this.state.lastRun.densityLevel),
         preferenceRule: this.state.lastRun.preferenceRule,
+        modelType: this.state.lastRun.modelType || "Spatial",
+        agentCount: this.state.lastRun.agentCount || this.state.agents.length,
         selectivityLevel: this.state.lastRun.selectivityLevel || "Medium",
         patienceLevel: this.state.lastRun.patienceLevel || "Normal",
         explorationLevel: this.state.lastRun.explorationLevel || "Balanced",
@@ -1290,7 +1843,7 @@ class MateChoiceSimulation {
     buildPreviewReportData() {
       if (!this.state.lastRun) return null;
 
-      const { metrics, mobilityLevel, densityLevel, preferenceRule, selectivityLevel, patienceLevel, explorationLevel } = this.state.lastRun;
+      const { metrics, mobilityLevel, densityLevel, preferenceRule, selectivityLevel, patienceLevel, explorationLevel, modelType, agentCount } = this.state.lastRun;
       const totalAgents = this.state.agents.length || 0;
       const maxPairs = Math.max(1, Math.floor(totalAgents / 2));
 
@@ -1315,6 +1868,8 @@ class MateChoiceSimulation {
         mobilityLevel,
         densityLevel,
         preferenceRule,
+        modelType: modelType || (this.modelTypeSelect ? this.modelTypeSelect.value : "Spatial"),
+        agentCount: agentCount || totalAgents,
         selectivityLevel: selectivityLevel || "Medium",
         patienceLevel: patienceLevel || "Normal",
         explorationLevel: explorationLevel || "Balanced",
@@ -1331,6 +1886,8 @@ class MateChoiceSimulation {
         mobilityLevel,
         densityLevel,
         preferenceRule,
+        modelType,
+        agentCount,
         selectivityLevel,
         patienceLevel,
         explorationLevel,
@@ -1351,6 +1908,11 @@ class MateChoiceSimulation {
         this.previewIntroText.textContent =
           "This run evaluated " +
           preferenceRule.toLowerCase() +
+          " in " +
+          modelType.toLowerCase() +
+          " mode with " +
+          agentCount +
+          " active agents" +
           " matching under " +
           densityLevel.toLowerCase() +
           " density and " +
@@ -1360,8 +1922,10 @@ class MateChoiceSimulation {
           ", patience " +
           patienceLevel.toLowerCase() +
           ", and exploration " +
-          explorationLevel.toLowerCase() +
-          ".";
+            explorationLevel.toLowerCase() +
+            ". Pair-decision correlation within encounters was " +
+            metrics.pairDecisionCorrelation.toFixed(2) +
+            ".";
       }
 
       if (this.previewBodyText) {
@@ -1426,7 +1990,7 @@ class MateChoiceSimulation {
 
       const values = [
         reportData.metrics.pairCount / reportData.maxPairs,
-        reportData.metrics.matchingStrength,
+        (reportData.metrics.matchingStrength + 1) / 2,
         Math.min(1, reportData.metrics.averageSearchSteps / STEP_COUNT),
       ];
       const labels = ["Pairs", "Strength", "Search"];
@@ -1463,11 +2027,12 @@ class MateChoiceSimulation {
           pairRate.toFixed(0) +
           "% of the maximum possible count, matching strength is " +
           metrics.matchingStrength.toFixed(2) +
-          " (" +
-          structureLabel +
-          "), and average search used " +
-          searchPercent.toFixed(0) +
-          "% of the run horizon. Higher search with lower pair/strength bars usually indicates tighter encounter constraints.";
+            " (Pearson r), " +
+            "assortment appears " +
+            structureLabel +
+            ", and average search used " +
+            searchPercent.toFixed(0) +
+            "% of the run horizon. Higher search with lower pair/strength bars usually indicates tighter encounter constraints.";
       }
 
       if (this.previewDifferenceInsight) {
@@ -1561,6 +2126,8 @@ class MateChoiceSimulation {
             mobilityLevel: settings.mobilityLevel,
             selectivityLevel: settings.selectivityLevel,
             patienceLevel: settings.patienceLevel,
+            modelType: settings.modelType || "Spatial",
+            acceptanceBias: settings.acceptanceBias || 0,
           });
           const replacementResult = this.runSyntheticSimulation({
             preferenceRule: combo.preferenceRule,
@@ -1569,6 +2136,8 @@ class MateChoiceSimulation {
             mobilityLevel: settings.mobilityLevel,
             selectivityLevel: settings.selectivityLevel,
             patienceLevel: settings.patienceLevel,
+            modelType: settings.modelType || "Spatial",
+            acceptanceBias: settings.acceptanceBias || 0,
             withReplacement: true,
           });
 
@@ -1611,6 +2180,8 @@ class MateChoiceSimulation {
       const padding = AGENT_RADIUS + 2;
       const densityMultiplier = densityMultipliers[settings.densityLevel] || 1;
       const agentCount = Math.max(10, Math.round(size * size * baseDensityFactor * densityMultiplier));
+      const modelType = settings.modelType || "Spatial";
+      const bias = typeof settings.acceptanceBias === "number" ? settings.acceptanceBias : 0;
 
       const agents = [];
       const pairs = [];
@@ -1624,38 +2195,43 @@ class MateChoiceSimulation {
         (explorationMultipliers[settings.movementLevel] || explorationMultipliers.Balanced);
 
       for (let step = 1; step <= STEP_COUNT; step += 1) {
-        agents.forEach((agent) => {
-          if (agent.matched) return;
-          agent.x = this.clamp(agent.x + this.randomFloat(-movement, movement), padding, size - padding);
-          agent.y = this.clamp(agent.y + this.randomFloat(-movement, movement), padding, size - padding);
-        });
+        if (modelType === "Spatial") {
+          agents.forEach((agent) => {
+            if (agent.matched) return;
+            agent.x = this.clamp(agent.x + this.randomFloat(-movement, movement), padding, size - padding);
+            agent.y = this.clamp(agent.y + this.randomFloat(-movement, movement), padding, size - padding);
+          });
+        }
 
         const unmatched = this.shuffle(agents.filter((agent) => !agent.matched));
         for (let i = 0; i < unmatched.length; i += 1) {
           const first = unmatched[i];
           if (first.matched) continue;
 
-          for (let j = i + 1; j < unmatched.length; j += 1) {
+          const startJ = modelType === "Non-Spatial" ? i + 1 : i + 1;
+          for (let j = startJ; j < unmatched.length; j += 1) {
             const second = unmatched[j];
             if (second.matched) continue;
-            if (this.getDistance(first, second) > ENCOUNTER_DISTANCE) continue;
+            if (modelType === "Spatial" && this.getDistance(first, second) > ENCOUNTER_DISTANCE) continue;
 
             const acceptFirst = this.getAcceptanceScoreWithSettings(
               first,
               second,
               settings.preferenceRule,
               settings.selectivityLevel,
-              settings.patienceLevel
+              settings.patienceLevel,
+              bias
             );
             const acceptSecond = this.getAcceptanceScoreWithSettings(
               second,
               first,
               settings.preferenceRule,
               settings.selectivityLevel,
-              settings.patienceLevel
+              settings.patienceLevel,
+              bias
             );
 
-            if (Math.random() < acceptFirst && Math.random() < acceptSecond) {
+            if (this.random() < acceptFirst && this.random() < acceptSecond) {
               matchedPairValues.push([first.attractiveness, second.attractiveness]);
               matchedEventSteps.push(step, step);
 
@@ -1674,6 +2250,10 @@ class MateChoiceSimulation {
               first.matchedAtStep = step;
               second.matchedAtStep = step;
               pairs.push({ agent1: first.id, agent2: second.id });
+              break;
+            }
+
+            if (modelType === "Non-Spatial") {
               break;
             }
           }
@@ -1716,17 +2296,20 @@ class MateChoiceSimulation {
       };
     }
 
-    getAcceptanceScoreWithSettings(agent, candidate, preferenceRule, selectivityLevel, patienceLevel) {
+    getAcceptanceScoreWithSettings(agent, candidate, preferenceRule, selectivityLevel, patienceLevel, explicitBias) {
       const selectivity = selectivityMultipliers[selectivityLevel || "Medium"] || 1;
       const patienceRate = patienceRates[patienceLevel || "Normal"] || 0.01;
       const patienceBoost = agent.searchSteps * patienceRate;
+      const bias = typeof explicitBias === "number"
+        ? explicitBias
+        : (parseFloat(this.acceptanceBiasInput ? this.acceptanceBiasInput.value : "0") || 0);
 
       if (preferenceRule === "Similarity-based") {
         const difference = Math.abs(agent.attractiveness - candidate.attractiveness);
-        return this.clamp((1 - difference / 9) * selectivity + patienceBoost, 0.1, 1);
+        return this.clamp((1 - difference / 9) * selectivity + patienceBoost + bias, 0.1, 1);
       }
 
-      return this.clamp((candidate.attractiveness / 10) * selectivity + patienceBoost, 0.1, 1);
+      return this.clamp((candidate.attractiveness / 10) * selectivity + patienceBoost + bias, 0.1, 1);
     }
 
     computeInterPairCorrelation(agents, pairs) {
@@ -2564,7 +3147,8 @@ class MateChoiceSimulation {
       }
     }
 
-    resetPreviewContent() {
+    resetPreviewContent(mode) {
+      const resetMode = mode || "full";
       if (this.csvPreviewContent) {
         this.csvPreviewContent.textContent = "";
       }
@@ -2606,6 +3190,9 @@ class MateChoiceSimulation {
       if (this.ruleHazardInsight) {
         this.ruleHazardInsight.textContent =
           "Insight: Hazard at step t is matches at t divided by agents still unmatched at the start of t.";
+      }
+      if (resetMode !== "full") {
+        return;
       }
       if (this.ruleHazardChart) {
         const ruleCtx = this.ruleHazardChart.getContext("2d");
@@ -2661,7 +3248,7 @@ class MateChoiceSimulation {
           this.applyPreset(preset);
           this.markActivePresetButton(button);
           this.updatePresetStatus(preset);
-          this.handleRun();
+          this.handleRun({ forceRestart: true });
           button.blur();
         });
       });
@@ -3073,14 +3660,14 @@ class MateChoiceSimulation {
       if (this.csvPreview) {
         this.csvPreview.classList.remove("is-visible");
       }
-      this.resetPreviewContent();
+      this.resetPreviewContent("light");
     }
 
     shuffle(items) {
       const copy = [...items];
 
       for (let index = copy.length - 1; index > 0; index -= 1) {
-        const swapIndex = Math.floor(Math.random() * (index + 1));
+        const swapIndex = Math.floor(this.random() * (index + 1));
         [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
       }
 
@@ -3088,11 +3675,11 @@ class MateChoiceSimulation {
     }
 
     randomInt(min, max) {
-      return Math.floor(Math.random() * (max - min + 1)) + min;
+      return Math.floor(this.random() * (max - min + 1)) + min;
     }
 
     randomFloat(min, max) {
-      return Math.random() * (max - min) + min;
+      return this.random() * (max - min) + min;
     }
 
     clamp(value, min, max) {

@@ -173,11 +173,66 @@
                   <option>Wide</option>
                 </select>
               </label>
+
+              <label class="control-field">
+                <span class="control-label">Model Type
+                  <span class="control-help" tabindex="0" role="button" aria-expanded="false" aria-label="Model Type: Spatial uses local movement on a grid; Non-Spatial uses random pairing from a global bag.">?
+                    <span class="control-tooltip">Spatial uses local movement on a grid; Non-Spatial uses random pairing from a global bag.</span>
+                  </span>
+                </span>
+                <select id="model-type" name="model-type">
+                  <option value="Spatial" selected>Spatial</option>
+                  <option value="Non-Spatial">Non-Spatial (Hamilton bag)</option>
+                </select>
+              </label>
+
+              <label class="control-field">
+                <span class="control-label">Active Agents
+                  <span class="control-help" tabindex="0" role="button" aria-expanded="false" aria-label="Active Agents: Directly set the number of agents shown in the live simulation, independent of batch runs.">?
+                    <span class="control-tooltip">Directly set the number of agents shown in the live simulation, independent of batch runs.</span>
+                  </span>
+                </span>
+                <input id="agent-count" name="agent-count" type="number" min="100" max="2000" step="50" value="500" />
+                <small class="control-hint">Live population size (100-2000). Higher values increase interactions and visual density.</small>
+              </label>
+
+              <label class="control-field">
+                <span class="control-label">Acceptance Bias
+                  <span class="control-help" tabindex="0" role="button" aria-expanded="false" aria-label="Acceptance Bias: Shift all accept probabilities up or down to test strategic leniency or strictness.">?
+                    <span class="control-tooltip">Shift all accept probabilities up or down to test strategic leniency or strictness.</span>
+                  </span>
+                </span>
+                <input id="acceptance-bias" name="acceptance-bias" type="range" min="-0.3" max="0.3" step="0.02" value="0" />
+              </label>
+
+              <label class="control-field">
+                <span class="control-label">Random Seed
+                  <span class="control-help" tabindex="0" role="button" aria-expanded="false" aria-label="Random Seed: Use the same seed to reproduce the same run trajectory and summary statistics.">?
+                    <span class="control-tooltip">Use the same seed to reproduce the same run trajectory and summary statistics.</span>
+                  </span>
+                </span>
+                <input id="random-seed" name="random-seed" type="number" min="1" step="1" placeholder="Optional (e.g., 42)" />
+                <small class="control-hint">Positive integer. Same seed + same settings = reproducible results.</small>
+              </label>
             </form>
 
-            <button class="run-button" id="run-simulation" type="button">
-              Run Simulation
-            </button>
+            <div class="execution-controls" aria-label="Simulation execution controls">
+              <button class="run-button" id="run-simulation" type="button">
+                Start Simulation
+              </button>
+              <button class="secondary-button" id="step-simulation" type="button">Step +1</button>
+              <button class="secondary-button" id="reset-simulation" type="button">Reset</button>
+              <label class="speed-field" for="simulation-speed">
+                Speed
+                <select id="simulation-speed" name="simulation-speed">
+                  <option value="0.4">Slow Motion</option>
+                  <option value="0.8">Slow</option>
+                  <option value="1" selected>Normal</option>
+                  <option value="1.8">Fast</option>
+                  <option value="3">Very Fast</option>
+                </select>
+              </label>
+            </div>
             <div class="export-row">
               <button class="secondary-button" id="preview-csv" type="button" disabled>Preview run summary (CSV)</button>
               <button class="secondary-button" id="download-csv" type="button" disabled>Download run summary (CSV)</button>
@@ -244,6 +299,7 @@
                   <option>50</option>
                   <option>100</option>
                 </select>
+                <small class="control-hint">Repeats the simulation many times to estimate means and 95% confidence intervals.</small>
               </label>
               <button class="secondary-button" id="run-batch" type="button">Run batch experiment</button>
             </div>
@@ -438,6 +494,27 @@
                 <p id="simulation-status">
                   Ready to simulate density, mobility, and mate choice encounters.
                 </p>
+                <p class="decision-status" id="decision-status" aria-live="polite">
+                  Decisions: both accept 0, A only 0, B only 0, both reject 0.
+                </p>
+                <div class="decision-dashboard" aria-label="Live decision dashboard">
+                  <div class="decision-bar-row">
+                    <span>Both accept</span>
+                    <div class="decision-bar-track"><div class="decision-bar-fill" id="bar-both-accept"></div></div>
+                  </div>
+                  <div class="decision-bar-row">
+                    <span>A accepts only</span>
+                    <div class="decision-bar-track"><div class="decision-bar-fill" id="bar-a-only"></div></div>
+                  </div>
+                  <div class="decision-bar-row">
+                    <span>B accepts only</span>
+                    <div class="decision-bar-track"><div class="decision-bar-fill" id="bar-b-only"></div></div>
+                  </div>
+                  <div class="decision-bar-row">
+                    <span>Both reject</span>
+                    <div class="decision-bar-track"><div class="decision-bar-fill" id="bar-both-reject"></div></div>
+                  </div>
+                </div>
               </div>
               <div class="simulation-grid-shell">
                 <canvas
