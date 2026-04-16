@@ -420,6 +420,16 @@ body.intro-open {
   font-weight: 500;
 }
 
+.range-end-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.74rem;
+  color: var(--muted);
+  font-weight: 600;
+  margin-top: -0.2rem;
+}
+
 .control-field span {
   font-size: 0.95rem;
 }

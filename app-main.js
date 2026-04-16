@@ -23,6 +23,7 @@ class MateChoiceSimulation {
       this.modelTypeSelect = document.getElementById("model-type");
       this.agentCountInput = document.getElementById("agent-count");
       this.acceptanceBiasInput = document.getElementById("acceptance-bias");
+      this.acceptanceBiasEffect = document.getElementById("acceptance-bias-effect");
       this.randomSeedInput = document.getElementById("random-seed");
       this.speedSelect = document.getElementById("simulation-speed");
       this.runButton = document.getElementById("run-simulation");
@@ -156,6 +157,7 @@ class MateChoiceSimulation {
 
       this.bindEvents();
       this.handleResize();
+      this.updateAcceptanceBiasEffect();
       this.seedPreview();
       this.setSimpleMode(this.simpleMode, { refreshTeachingPanel: false });
       this.resetTeachingExplanation();
@@ -186,6 +188,7 @@ class MateChoiceSimulation {
         this.speedSelect.addEventListener("change", () => this.updateStatus());
       }
       if (this.acceptanceBiasInput) {
+        this.acceptanceBiasInput.addEventListener("input", () => this.updateAcceptanceBiasEffect());
         this.acceptanceBiasInput.addEventListener("change", this.handleControlChange);
       }
       if (this.randomSeedInput) {
@@ -308,8 +311,27 @@ class MateChoiceSimulation {
       this.state = this.buildFreshState();
       this.runButton.textContent = "Start Simulation";
       if (this.stepButton) this.stepButton.disabled = false;
+      this.updateAcceptanceBiasEffect();
       this.draw();
       this.updateDecisionStatus();
+    }
+
+    updateAcceptanceBiasEffect() {
+      if (!this.acceptanceBiasEffect || !this.acceptanceBiasInput) return;
+      const bias = parseFloat(this.acceptanceBiasInput.value || "0") || 0;
+      const percent = Math.round(Math.abs(bias) * 100);
+
+      if (percent === 0) {
+        this.acceptanceBiasEffect.textContent = "Current effect: neutral (no threshold shift).";
+        return;
+      }
+
+      if (bias < 0) {
+        this.acceptanceBiasEffect.textContent = "Current effect: lowers base acceptance by " + percent + "% (more selective).";
+        return;
+      }
+
+      this.acceptanceBiasEffect.textContent = "Current effect: raises base acceptance by " + percent + "% (more lenient).";
     }
 
     handleRun(options = {}) {
@@ -707,6 +729,8 @@ class MateChoiceSimulation {
       if (this.debounceTimer) {
         window.clearTimeout(this.debounceTimer);
       }
+
+      this.updateAcceptanceBiasEffect();
 
       this.debounceTimer = window.setTimeout(() => {
         this.debounceTimer = null;
