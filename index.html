@@ -22,6 +22,17 @@
     <script src="ui.js"></script>
   </head>
   <body>
+    <div class="intro-overlay" id="intro-overlay" role="dialog" aria-live="polite" aria-modal="true" aria-label="Welcome overlay">
+      <div class="intro-card">
+        <p class="intro-kicker">Interactive Research Experience</p>
+        <h2>Ready to explore Human Mate Choice Models?</h2>
+        <p>
+          See how space, movement, and preference shape who pairs with whom.
+        </p>
+        <button class="intro-start" id="intro-start" type="button">Start Exploring</button>
+        <div class="intro-progress" aria-hidden="true"><span id="intro-progress-fill"></span></div>
+      </div>
+    </div>
     <div class="site-shell">
       <header class="hero">
         <div class="hero-top">
@@ -233,6 +244,43 @@
                 </select>
               </label>
             </div>
+            <section class="simulation-grid" aria-labelledby="simulation-grid-title">
+              <div class="simulation-grid-header">
+                <h3 id="simulation-grid-title">Simulation Grid</h3>
+                <p id="simulation-status">
+                  Ready to simulate density, mobility, and mate choice encounters.
+                </p>
+                <p class="decision-status" id="decision-status" aria-live="polite">
+                  Decisions: both accept 0, A only 0, B only 0, both reject 0.
+                </p>
+                <div class="decision-dashboard" aria-label="Live decision dashboard">
+                  <div class="decision-bar-row">
+                    <span>Both accept</span>
+                    <div class="decision-bar-track"><div class="decision-bar-fill" id="bar-both-accept"></div></div>
+                  </div>
+                  <div class="decision-bar-row">
+                    <span>A accepts only</span>
+                    <div class="decision-bar-track"><div class="decision-bar-fill" id="bar-a-only"></div></div>
+                  </div>
+                  <div class="decision-bar-row">
+                    <span>B accepts only</span>
+                    <div class="decision-bar-track"><div class="decision-bar-fill" id="bar-b-only"></div></div>
+                  </div>
+                  <div class="decision-bar-row">
+                    <span>Both reject</span>
+                    <div class="decision-bar-track"><div class="decision-bar-fill" id="bar-both-reject"></div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="simulation-grid-shell">
+                <canvas
+                  class="simulation-canvas"
+                  id="simulation-canvas"
+                  aria-label="Simulation grid canvas"
+                ></canvas>
+              </div>
+            </section>
+
             <div class="export-row">
               <button class="secondary-button" id="preview-csv" type="button" disabled>Preview run summary (CSV)</button>
               <button class="secondary-button" id="download-csv" type="button" disabled>Download run summary (CSV)</button>
@@ -488,42 +536,6 @@
               </details>
             </section>
 
-            <section class="simulation-grid" aria-labelledby="simulation-grid-title">
-              <div class="simulation-grid-header">
-                <h3 id="simulation-grid-title">Simulation Grid</h3>
-                <p id="simulation-status">
-                  Ready to simulate density, mobility, and mate choice encounters.
-                </p>
-                <p class="decision-status" id="decision-status" aria-live="polite">
-                  Decisions: both accept 0, A only 0, B only 0, both reject 0.
-                </p>
-                <div class="decision-dashboard" aria-label="Live decision dashboard">
-                  <div class="decision-bar-row">
-                    <span>Both accept</span>
-                    <div class="decision-bar-track"><div class="decision-bar-fill" id="bar-both-accept"></div></div>
-                  </div>
-                  <div class="decision-bar-row">
-                    <span>A accepts only</span>
-                    <div class="decision-bar-track"><div class="decision-bar-fill" id="bar-a-only"></div></div>
-                  </div>
-                  <div class="decision-bar-row">
-                    <span>B accepts only</span>
-                    <div class="decision-bar-track"><div class="decision-bar-fill" id="bar-b-only"></div></div>
-                  </div>
-                  <div class="decision-bar-row">
-                    <span>Both reject</span>
-                    <div class="decision-bar-track"><div class="decision-bar-fill" id="bar-both-reject"></div></div>
-                  </div>
-                </div>
-              </div>
-              <div class="simulation-grid-shell">
-                <canvas
-                  class="simulation-canvas"
-                  id="simulation-canvas"
-                  aria-label="Simulation grid canvas"
-                ></canvas>
-              </div>
-            </section>
           </section>
         </section>
 
@@ -585,19 +597,66 @@
     <script src="script.js?v=20260405"></script>
     <script>
       (function () {
-        const hero = document.querySelector('.hero');
-        if (!hero) return;
-        hero.addEventListener('mousemove', function (e) {
-          const rect = hero.getBoundingClientRect();
-          const x = ((e.clientX - rect.left) / rect.width * 100).toFixed(1) + '%';
-          const y = ((e.clientY - rect.top) / rect.height * 100).toFixed(1) + '%';
-          hero.style.setProperty('--mx', x);
-          hero.style.setProperty('--my', y);
-        });
-        hero.addEventListener('mouseleave', function () {
-          hero.style.setProperty('--mx', '50%');
-          hero.style.setProperty('--my', '50%');
-        });
+        function setupIntroOverlay() {
+          const overlay = document.getElementById('intro-overlay');
+          const startButton = document.getElementById('intro-start');
+          const progress = document.getElementById('intro-progress-fill');
+          if (!overlay || !startButton || !progress) return;
+
+          const seenKey = 'mateChoiceIntroSeen';
+          const alreadySeen = sessionStorage.getItem(seenKey) === '1';
+          if (alreadySeen) {
+            overlay.remove();
+            return;
+          }
+
+          document.body.classList.add('intro-open');
+          progress.style.animation = 'introCountDown 5s linear forwards';
+
+          let dismissed = false;
+          let closeTimer = null;
+
+          function dismissIntro() {
+            if (dismissed) return;
+            dismissed = true;
+            sessionStorage.setItem(seenKey, '1');
+            document.body.classList.remove('intro-open');
+            overlay.classList.add('intro-overlay-closing');
+            closeTimer = setTimeout(function () {
+              overlay.remove();
+            }, 420);
+          }
+
+          startButton.addEventListener('click', dismissIntro);
+          overlay.addEventListener('click', function (e) {
+            if (e.target === overlay) dismissIntro();
+          });
+          document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') dismissIntro();
+          });
+
+          setTimeout(dismissIntro, 5000);
+          window.addEventListener('beforeunload', function () {
+            if (closeTimer) clearTimeout(closeTimer);
+          });
+        }
+
+        function attachDepthEffect(selector, xVar, yVar) {
+          const el = document.querySelector(selector);
+          if (!el) return;
+          el.addEventListener('mousemove', function (e) {
+            const rect = el.getBoundingClientRect();
+            el.style.setProperty(xVar, ((e.clientX - rect.left) / rect.width * 100).toFixed(1) + '%');
+            el.style.setProperty(yVar, ((e.clientY - rect.top) / rect.height * 100).toFixed(1) + '%');
+          });
+          el.addEventListener('mouseleave', function () {
+            el.style.setProperty(xVar, '50%');
+            el.style.setProperty(yVar, '50%');
+          });
+        }
+        setupIntroOverlay();
+        attachDepthEffect('.hero', '--mx', '--my');
+        attachDepthEffect('.workspace-grid', '--wx', '--wy');
       })();
     </script>
   </body>
