@@ -146,6 +146,7 @@ class MateChoiceSimulation {
       this.handleRun = this.handleRun.bind(this);
       this.handleBatchRun = this.handleBatchRun.bind(this);
       this.handleCanvasClick = this.handleCanvasClick.bind(this);
+      this.handleViewRadiusChange = this.handleViewRadiusChange.bind(this);
       this.handleControlChange = this.handleControlChange.bind(this);
       this.handleChatSubmit = this.handleChatSubmit.bind(this);
       this.handleControlHelpDocumentClick = this.handleControlHelpDocumentClick.bind(this);
@@ -205,7 +206,7 @@ class MateChoiceSimulation {
           this.updateViewRadiusEffect();
           this.draw();
         });
-        this.viewRadiusInput.addEventListener("change", this.handleControlChange);
+        this.viewRadiusInput.addEventListener("change", this.handleViewRadiusChange);
       }
       if (this.randomSeedInput) {
         this.randomSeedInput.addEventListener("change", this.handleControlChange);
@@ -897,6 +898,19 @@ class MateChoiceSimulation {
           this.updateDecisionStatus();
         }
       }, 400);
+    }
+
+    handleViewRadiusChange() {
+      if (this.debounceTimer) {
+        window.clearTimeout(this.debounceTimer);
+        this.debounceTimer = null;
+      }
+
+      this.updateViewRadiusControlState();
+      this.updateViewRadiusEffect();
+      this.updateStatus();
+      this.updateInspectionPanel();
+      this.draw();
     }
 
     handleChatSubmit(event) {

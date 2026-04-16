@@ -470,6 +470,7 @@ body.intro-open {
 .control-tooltip {
   position: absolute;
   left: 50%;
+  right: auto;
   bottom: calc(100% + 0.45rem);
   transform: translateX(-50%);
   width: min(270px, 70vw);
@@ -503,9 +504,28 @@ body.intro-open {
   background: rgba(15, 118, 110, 0.16);
 }
 
+.controls-grid > .control-field:nth-child(3n + 1) .control-tooltip {
+  left: 0;
+  right: auto;
+  transform: none;
+}
+
+.controls-grid > .control-field:nth-child(3n + 2) .control-tooltip {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+}
+
+.controls-grid > .control-field:nth-child(3n) .control-tooltip {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
 @media (max-width: 640px) {
   .control-tooltip {
     left: 0;
+    right: auto;
     transform: none;
     width: min(280px, 82vw);
   }
