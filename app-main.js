@@ -24,6 +24,8 @@ class MateChoiceSimulation {
       this.agentCountInput = document.getElementById("agent-count");
       this.acceptanceBiasInput = document.getElementById("acceptance-bias");
       this.acceptanceBiasEffect = document.getElementById("acceptance-bias-effect");
+      this.viewRadiusInput = document.getElementById("view-radius");
+      this.viewRadiusEffect = document.getElementById("view-radius-effect");
       this.randomSeedInput = document.getElementById("random-seed");
       this.speedSelect = document.getElementById("simulation-speed");
       this.runButton = document.getElementById("run-simulation");
@@ -35,6 +37,9 @@ class MateChoiceSimulation {
       this.barAOnly = document.getElementById("bar-a-only");
       this.barBOnly = document.getElementById("bar-b-only");
       this.barBothReject = document.getElementById("bar-both-reject");
+      this.inspectionSummary = document.getElementById("inspection-summary");
+      this.inspectionCandidates = document.getElementById("inspection-candidates");
+      this.inspectionOutcome = document.getElementById("inspection-outcome");
       this.teachingExplanation = document.getElementById("teaching-explanation");
       this.teachingSimpleToggle = document.getElementById("teaching-simple-toggle");
       this.chatLog = document.getElementById("chat-log");
@@ -111,6 +116,7 @@ class MateChoiceSimulation {
         interactionEvents: [],
         interactionQueue: [],
         rippleQueue: [],
+        selectedAgentId: null,
         decisionStats: {
           bothAccept: 0,
           aAcceptsOnly: 0,
@@ -139,6 +145,7 @@ class MateChoiceSimulation {
       this.handleResize = this.handleResize.bind(this);
       this.handleRun = this.handleRun.bind(this);
       this.handleBatchRun = this.handleBatchRun.bind(this);
+      this.handleCanvasClick = this.handleCanvasClick.bind(this);
       this.handleControlChange = this.handleControlChange.bind(this);
       this.handleChatSubmit = this.handleChatSubmit.bind(this);
       this.handleControlHelpDocumentClick = this.handleControlHelpDocumentClick.bind(this);
@@ -158,6 +165,8 @@ class MateChoiceSimulation {
       this.bindEvents();
       this.handleResize();
       this.updateAcceptanceBiasEffect();
+      this.updateViewRadiusControlState();
+      this.updateViewRadiusEffect();
       this.seedPreview();
       this.setSimpleMode(this.simpleMode, { refreshTeachingPanel: false });
       this.resetTeachingExplanation();
@@ -191,6 +200,13 @@ class MateChoiceSimulation {
         this.acceptanceBiasInput.addEventListener("input", () => this.updateAcceptanceBiasEffect());
         this.acceptanceBiasInput.addEventListener("change", this.handleControlChange);
       }
+      if (this.viewRadiusInput) {
+        this.viewRadiusInput.addEventListener("input", () => {
+          this.updateViewRadiusEffect();
+          this.draw();
+        });
+        this.viewRadiusInput.addEventListener("change", this.handleControlChange);
+      }
       if (this.randomSeedInput) {
         this.randomSeedInput.addEventListener("change", this.handleControlChange);
       }
@@ -209,6 +225,9 @@ class MateChoiceSimulation {
       this.bindHazardTooltipEvents();
       this.bindHazardExplorerEvents();
       this.bindControlHelpTooltips();
+      if (this.canvas) {
+        this.canvas.addEventListener("click", this.handleCanvasClick);
+      }
       this.chatForm.addEventListener("submit", this.handleChatSubmit);
       if (this.chatCapabilitiesButton) {
         this.chatCapabilitiesButton.addEventListener("click", () => {
@@ -312,6 +331,8 @@ class MateChoiceSimulation {
       this.runButton.textContent = "Start Simulation";
       if (this.stepButton) this.stepButton.disabled = false;
       this.updateAcceptanceBiasEffect();
+      this.updateViewRadiusControlState();
+      this.updateViewRadiusEffect();
       this.draw();
       this.updateDecisionStatus();
     }
@@ -332,6 +353,134 @@ class MateChoiceSimulation {
       }
 
       this.acceptanceBiasEffect.textContent = "Current effect: raises base acceptance by " + percent + "% (more lenient).";
+    }
+
+    getViewRadiusMultiplier() {
+      const parsed = parseFloat(this.viewRadiusInput ? this.viewRadiusInput.value : "1");
+      return this.clamp(isNaN(parsed) ? 1 : parsed, 0.7, 2.2);
+    }
+
+    updateViewRadiusControlState() {
+      if (!this.viewRadiusInput) return;
+      const isSpatial = !this.modelTypeSelect || this.modelTypeSelect.value === "Spatial";
+      this.viewRadiusInput.disabled = !isSpatial;
+    }
+
+    updateViewRadiusEffect() {
+      if (!this.viewRadiusEffect) return;
+      const isSpatial = !this.modelTypeSelect || this.modelTypeSelect.value === "Spatial";
+      if (!isSpatial) {
+        this.viewRadiusEffect.textContent = "Current model uses global encounters; view radius applies in Spatial mode only.";
+        return;
+      }
+
+      this.viewRadiusEffect.textContent =
+        "Current radius: " +
+        Math.round(this.getEncounterDistance()) +
+        " px. Wider radius exposes more nearby potential matches.";
+    }
+
+    getSelectedAgent() {
+      if (!this.state || typeof this.state.selectedAgentId !== "number") {
+        return null;
+      }
+
+      return this.state.agents.find((agent) => agent.id === this.state.selectedAgentId) || null;
+    }
+
+    getVisibleCandidatesForAgent(agent) {
+      const isSpatial = !this.modelTypeSelect || this.modelTypeSelect.value === "Spatial";
+      if (!agent || agent.matched || !isSpatial) {
+        return [];
+      }
+
+      const radius = this.getEncounterDistance();
+      return this.state.agents.filter((candidate) => {
+        if (candidate.id === agent.id || candidate.matched) {
+          return false;
+        }
+
+        return this.getDistance(agent, candidate) <= radius;
+      });
+    }
+
+    updateInspectionPanel() {
+      if (!this.inspectionSummary || !this.inspectionCandidates || !this.inspectionOutcome) {
+        return;
+      }
+
+      const isSpatial = !this.modelTypeSelect || this.modelTypeSelect.value === "Spatial";
+      if (!isSpatial) {
+        this.inspectionSummary.textContent = "Inspection ring is available in Spatial mode. Switch models to inspect local visibility.";
+        this.inspectionCandidates.textContent = "Visible candidates: all unmatched agents are globally reachable in Non-Spatial mode.";
+        this.inspectionOutcome.textContent = "Match possible now: local radius is not used in this model.";
+        return;
+      }
+
+      const selectedAgent = this.getSelectedAgent();
+      if (!selectedAgent) {
+        this.inspectionSummary.textContent = "Click an agent to inspect its 360-degree view. Click empty space to clear.";
+        this.inspectionCandidates.textContent = "Visible candidates: -";
+        this.inspectionOutcome.textContent = "Match possible now: -";
+        return;
+      }
+
+      const visibleCandidates = this.getVisibleCandidatesForAgent(selectedAgent);
+      this.inspectionSummary.textContent =
+        "Agent " +
+        (selectedAgent.id + 1) +
+        " selected · attractiveness " +
+        selectedAgent.attractiveness +
+        "/10" +
+        (selectedAgent.matched ? " · already matched" : ".");
+      this.inspectionCandidates.textContent =
+        "Visible candidates: " +
+        visibleCandidates.length +
+        " within " +
+        Math.round(this.getEncounterDistance()) +
+        " px.";
+
+      if (selectedAgent.matched) {
+        this.inspectionOutcome.textContent = "Match possible now: no, this agent is already paired.";
+      } else if (!visibleCandidates.length) {
+        this.inspectionOutcome.textContent = "Match possible now: no nearby unmatched agents are inside view.";
+      } else {
+        this.inspectionOutcome.textContent = "Match possible now: yes, if one of these visible agents is encountered and both accept.";
+      }
+    }
+
+    getCanvasPoint(event) {
+      const rect = this.canvas.getBoundingClientRect();
+      const size = this.getCanvasSize();
+      const scaleX = rect.width ? size / rect.width : 1;
+      const scaleY = rect.height ? size / rect.height : 1;
+      return {
+        x: (event.clientX - rect.left) * scaleX,
+        y: (event.clientY - rect.top) * scaleY,
+      };
+    }
+
+    handleCanvasClick(event) {
+      const isSpatial = !this.modelTypeSelect || this.modelTypeSelect.value === "Spatial";
+      if (!isSpatial || !this.canvas) {
+        return;
+      }
+
+      const point = this.getCanvasPoint(event);
+      let selectedAgent = null;
+      let bestDistance = Infinity;
+
+      this.state.agents.forEach((agent) => {
+        const distance = this.getDistance(point, agent);
+        if (distance <= AGENT_RADIUS + 6 && distance < bestDistance) {
+          bestDistance = distance;
+          selectedAgent = agent;
+        }
+      });
+
+      this.state.selectedAgentId = selectedAgent ? selectedAgent.id : null;
+      this.updateInspectionPanel();
+      this.draw();
     }
 
     handleRun(options = {}) {
@@ -382,6 +531,7 @@ class MateChoiceSimulation {
       if (this.state.isRunning || this.state.step >= STEP_COUNT) {
         return;
       }
+      this.scrollToSimulationGrid();
       this.stepSimulation();
       this.state.step += 1;
       this.draw();
@@ -399,6 +549,8 @@ class MateChoiceSimulation {
       this.runButton.textContent = "Start Simulation";
       if (this.stepButton) this.stepButton.disabled = false;
       this.updateSummaryBarPlaceholder();
+      this.updateViewRadiusControlState();
+      this.updateViewRadiusEffect();
       this.updateStatus();
       this.updateDecisionStatus();
       this.draw();
@@ -476,6 +628,7 @@ class MateChoiceSimulation {
         interactionEvents: [],
         interactionQueue: [],
         rippleQueue: [],
+        selectedAgentId: null,
         decisionStats: {
           bothAccept: 0,
           aAcceptsOnly: 0,
@@ -581,6 +734,7 @@ class MateChoiceSimulation {
         explorationLevel: this.explorationSelect ? this.explorationSelect.value : "Balanced",
         modelType: this.modelTypeSelect ? this.modelTypeSelect.value : "Spatial",
         agentCount: this.getActiveAgentCount(),
+        viewRadiusMultiplier: this.getViewRadiusMultiplier(),
       };
 
       this.lastCitation = this.buildRunCitationMessage(
@@ -731,6 +885,8 @@ class MateChoiceSimulation {
       }
 
       this.updateAcceptanceBiasEffect();
+      this.updateViewRadiusControlState();
+      this.updateViewRadiusEffect();
 
       this.debounceTimer = window.setTimeout(() => {
         this.debounceTimer = null;
@@ -1040,6 +1196,12 @@ class MateChoiceSimulation {
 
     scrollToSimulationGrid() {
       if (this.simulationGridSection && this.simulationGridSection.scrollIntoView) {
+        const rect = this.simulationGridSection.getBoundingClientRect();
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+        const alreadyVisible = rect.top >= 0 && rect.bottom <= viewportHeight;
+        if (alreadyVisible) {
+          return;
+        }
         this.simulationGridSection.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     }
@@ -1124,8 +1286,44 @@ class MateChoiceSimulation {
       this.drawActiveInteractions();
       this.drawRipples();
       this.drawPairs();
+      this.drawInspectionOverlay();
       this.drawAgents();
       this.drawSimulationLegend(size);
+      this.updateInspectionPanel();
+    }
+
+    drawInspectionOverlay() {
+      const selectedAgent = this.getSelectedAgent();
+      const isSpatial = !this.modelTypeSelect || this.modelTypeSelect.value === "Spatial";
+      if (!selectedAgent || !isSpatial) {
+        return;
+      }
+
+      const visibleCandidates = this.getVisibleCandidatesForAgent(selectedAgent);
+      const radius = this.getEncounterDistance();
+
+      this.context.save();
+      this.context.beginPath();
+      this.context.arc(selectedAgent.x, selectedAgent.y, radius, 0, Math.PI * 2);
+      this.context.fillStyle = "rgba(79, 70, 229, 0.08)";
+      this.context.fill();
+      this.context.setLineDash([8, 6]);
+      this.context.strokeStyle = "rgba(79, 70, 229, 0.42)";
+      this.context.lineWidth = 2;
+      this.context.stroke();
+      this.context.setLineDash([]);
+
+      visibleCandidates.forEach((candidate) => {
+        this.context.beginPath();
+        this.context.arc(candidate.x, candidate.y, AGENT_RADIUS + 4.5, 0, Math.PI * 2);
+        this.context.fillStyle = "rgba(245, 158, 11, 0.14)";
+        this.context.fill();
+        this.context.strokeStyle = "rgba(245, 158, 11, 0.82)";
+        this.context.lineWidth = 1.5;
+        this.context.stroke();
+      });
+
+      this.context.restore();
     }
 
     drawSimulationLegend(size) {
@@ -1273,15 +1471,39 @@ class MateChoiceSimulation {
     }
 
     drawAgents() {
+      const selectedAgent = this.getSelectedAgent();
+      const visibleCandidateIds = new Set(this.getVisibleCandidatesForAgent(selectedAgent).map((agent) => agent.id));
+
       this.state.agents.forEach((agent) => {
+        if (visibleCandidateIds.has(agent.id)) {
+          this.context.beginPath();
+          this.context.arc(agent.x, agent.y, AGENT_RADIUS + 4.5, 0, Math.PI * 2);
+          this.context.strokeStyle = "rgba(245, 158, 11, 0.88)";
+          this.context.lineWidth = 1.4;
+          this.context.stroke();
+        }
+
         this.context.beginPath();
         this.context.arc(agent.x, agent.y, AGENT_RADIUS, 0, Math.PI * 2);
         this.context.fillStyle = this.getAgentFillColor(agent);
         this.context.fill();
 
-        this.context.lineWidth = 1;
-        this.context.strokeStyle = "rgba(31, 26, 23, 0.18)";
+        if (selectedAgent && agent.id === selectedAgent.id) {
+          this.context.lineWidth = 2.4;
+          this.context.strokeStyle = "#4f46e5";
+        } else {
+          this.context.lineWidth = 1;
+          this.context.strokeStyle = "rgba(31, 26, 23, 0.18)";
+        }
         this.context.stroke();
+
+        if (selectedAgent && agent.id === selectedAgent.id) {
+          this.context.beginPath();
+          this.context.arc(agent.x, agent.y, AGENT_RADIUS + 5.8, 0, Math.PI * 2);
+          this.context.strokeStyle = "rgba(79, 70, 229, 0.28)";
+          this.context.lineWidth = 2.4;
+          this.context.stroke();
+        }
       });
     }
 
@@ -1314,8 +1536,16 @@ class MateChoiceSimulation {
 
     getEncounterDistance() {
       const densityLevel = this.densitySelect ? this.densitySelect.value : "Normal";
-      const multiplier = densityLevel === "Sparse" ? 0.85 : densityLevel === "Dense" ? 1.2 : 1;
-      return ENCOUNTER_DISTANCE * multiplier;
+      return this.getEncounterDistanceForDensity(densityLevel);
+    }
+
+    getEncounterDistanceForDensity(densityLevel, explicitViewRadiusMultiplier) {
+      const densityMultiplier = densityLevel === "Sparse" ? 0.85 : densityLevel === "Dense" ? 1.2 : 1;
+      const radiusMultiplier =
+        typeof explicitViewRadiusMultiplier === "number"
+          ? explicitViewRadiusMultiplier
+          : this.getViewRadiusMultiplier();
+      return ENCOUNTER_DISTANCE * densityMultiplier * radiusMultiplier;
     }
 
     computeDecisionCorrelation() {
@@ -1348,7 +1578,9 @@ class MateChoiceSimulation {
           " density, " +
           this.state.lastRun.mobilityLevel +
           " mobility, " +
-          this.state.lastRun.preferenceRule.toLowerCase()
+          this.state.lastRun.preferenceRule.toLowerCase() +
+          ", radius x" +
+          (this.state.lastRun.viewRadiusMultiplier || 1).toFixed(1)
         );
       }
 
@@ -1659,6 +1891,7 @@ class MateChoiceSimulation {
         explorationLevel,
         modelType: this.modelTypeSelect ? this.modelTypeSelect.value : "Spatial",
         agentCount: this.getActiveAgentCount(),
+        viewRadiusMultiplier: this.getViewRadiusMultiplier(),
       };
       this.lastCitation = this.buildRunCitationMessage(
         moduleMetrics,
@@ -1800,6 +2033,7 @@ class MateChoiceSimulation {
         selectivityLevel: this.state.lastRun.selectivityLevel || "Medium",
         patienceLevel: this.state.lastRun.patienceLevel || "Normal",
         explorationLevel: this.state.lastRun.explorationLevel || "Balanced",
+        viewRadiusMultiplier: this.state.lastRun.viewRadiusMultiplier || 1,
       };
 
       return ExportEngine.buildRunCsvText(exportMetrics, exportSettings);
@@ -1842,6 +2076,7 @@ class MateChoiceSimulation {
         selectivityLevel: this.state.lastRun.selectivityLevel || "Medium",
         patienceLevel: this.state.lastRun.patienceLevel || "Normal",
         explorationLevel: this.state.lastRun.explorationLevel || "Balanced",
+        viewRadiusMultiplier: this.state.lastRun.viewRadiusMultiplier || 1,
       };
 
       ExportEngine.downloadCsv(exportMetrics, exportSettings);
@@ -1867,7 +2102,7 @@ class MateChoiceSimulation {
     buildPreviewReportData() {
       if (!this.state.lastRun) return null;
 
-      const { metrics, mobilityLevel, densityLevel, preferenceRule, selectivityLevel, patienceLevel, explorationLevel, modelType, agentCount } = this.state.lastRun;
+      const { metrics, mobilityLevel, densityLevel, preferenceRule, selectivityLevel, patienceLevel, explorationLevel, modelType, agentCount, viewRadiusMultiplier } = this.state.lastRun;
       const totalAgents = this.state.agents.length || 0;
       const maxPairs = Math.max(1, Math.floor(totalAgents / 2));
 
@@ -1897,6 +2132,7 @@ class MateChoiceSimulation {
         selectivityLevel: selectivityLevel || "Medium",
         patienceLevel: patienceLevel || "Normal",
         explorationLevel: explorationLevel || "Balanced",
+        viewRadiusMultiplier: viewRadiusMultiplier || 1,
         totalAgents,
         maxPairs,
         pairDifferenceBins,
@@ -2092,6 +2328,7 @@ class MateChoiceSimulation {
         mobilityLevel: reportData.mobilityLevel,
         selectivityLevel: reportData.selectivityLevel,
         patienceLevel: reportData.patienceLevel,
+        viewRadiusMultiplier: reportData.viewRadiusMultiplier || 1,
       };
 
       const analyticsRows = this.computeRuleAnalyticsRows(settings, RULE_ANALYTICS_RUNS);
@@ -2152,6 +2389,7 @@ class MateChoiceSimulation {
             patienceLevel: settings.patienceLevel,
             modelType: settings.modelType || "Spatial",
             acceptanceBias: settings.acceptanceBias || 0,
+            viewRadiusMultiplier: settings.viewRadiusMultiplier || 1,
           });
           const replacementResult = this.runSyntheticSimulation({
             preferenceRule: combo.preferenceRule,
@@ -2162,6 +2400,7 @@ class MateChoiceSimulation {
             patienceLevel: settings.patienceLevel,
             modelType: settings.modelType || "Spatial",
             acceptanceBias: settings.acceptanceBias || 0,
+            viewRadiusMultiplier: settings.viewRadiusMultiplier || 1,
             withReplacement: true,
           });
 
@@ -2206,6 +2445,10 @@ class MateChoiceSimulation {
       const agentCount = Math.max(10, Math.round(size * size * baseDensityFactor * densityMultiplier));
       const modelType = settings.modelType || "Spatial";
       const bias = typeof settings.acceptanceBias === "number" ? settings.acceptanceBias : 0;
+      const encounterDistance = this.getEncounterDistanceForDensity(
+        settings.densityLevel,
+        settings.viewRadiusMultiplier || 1
+      );
 
       const agents = [];
       const pairs = [];
@@ -2236,7 +2479,7 @@ class MateChoiceSimulation {
           for (let j = startJ; j < unmatched.length; j += 1) {
             const second = unmatched[j];
             if (second.matched) continue;
-            if (modelType === "Spatial" && this.getDistance(first, second) > ENCOUNTER_DISTANCE) continue;
+            if (modelType === "Spatial" && this.getDistance(first, second) > encounterDistance) continue;
 
             const acceptFirst = this.getAcceptanceScoreWithSettings(
               first,
@@ -3304,6 +3547,7 @@ class MateChoiceSimulation {
         density: run.densityLevel,
         mobility: run.mobilityLevel,
         preference: run.preferenceRule,
+        radiusMultiplier: run.viewRadiusMultiplier || 1,
         pairCount: run.metrics.pairCount,
         strength: run.metrics.matchingStrength,
         search: run.metrics.averageSearchSteps,
@@ -3358,6 +3602,8 @@ class MateChoiceSimulation {
             run.mobility +
             " / " +
             run.preference +
+            " / R x" +
+            run.radiusMultiplier.toFixed(1) +
             "</td>" +
             "<td>" + run.pairCount + "</td>" +
             "<td>" + run.strength.toFixed(2) + "</td>" +

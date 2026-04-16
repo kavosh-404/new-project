@@ -276,6 +276,27 @@
                     <div class="decision-bar-track"><div class="decision-bar-fill" id="bar-both-reject"></div></div>
                   </div>
                 </div>
+                <div class="visibility-lab" aria-label="Spatial visibility inspector">
+                  <label class="visibility-radius-field" for="view-radius">
+                    <span class="control-label">View Radius
+                      <span class="control-help" tabindex="0" role="button" aria-expanded="false" aria-label="View Radius: Expands or shrinks how far a spatial agent can see nearby potential matches.">?
+                        <span class="control-tooltip">Expands or shrinks how far a spatial agent can see nearby potential matches.</span>
+                      </span>
+                    </span>
+                    <input id="view-radius" name="view-radius" type="range" min="0.7" max="2.2" step="0.1" value="1" />
+                    <div class="range-end-labels" aria-hidden="true">
+                      <span>Narrow search</span>
+                      <span>Wide search</span>
+                    </div>
+                    <small class="control-hint" id="view-radius-effect">Current radius: 28 px in Spatial mode.</small>
+                  </label>
+                  <div class="inspection-card" aria-live="polite">
+                    <p class="inspection-label">Agent inspection</p>
+                    <p class="inspection-line" id="inspection-summary">Click an agent to inspect its 360-degree view. Click empty space to clear.</p>
+                    <p class="inspection-line" id="inspection-candidates">Visible candidates: -</p>
+                    <p class="inspection-line" id="inspection-outcome">Match possible now: -</p>
+                  </div>
+                </div>
               </div>
               <div class="simulation-grid-shell">
                 <canvas
