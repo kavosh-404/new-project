@@ -400,6 +400,26 @@
                   </label>
                   <button class="secondary-button" id="run-batch" type="button">Run batch experiment</button>
                 </div>
+                <div class="batch-progress" id="batch-progress" aria-live="polite" aria-hidden="true">
+                  <div class="batch-progress-header">
+                    <p class="batch-progress-title" id="batch-progress-label">Batch progress</p>
+                    <span class="batch-progress-count" id="batch-progress-count">0/0</span>
+                  </div>
+                  <p class="batch-progress-phase" id="batch-progress-phase">Preparing batch runs...</p>
+                  <div class="batch-progress-bar" role="progressbar" aria-label="Batch progress">
+                    <span class="batch-progress-fill" id="batch-progress-fill"></span>
+                  </div>
+                  <p class="batch-progress-eta" id="batch-progress-eta">Elapsed 0.0s</p>
+                  <div class="batch-progress-live-grid">
+                    <p id="batch-progress-interactions">Sampled interactions: -</p>
+                    <p id="batch-progress-pairs">Rolling pairs mean: -</p>
+                    <p id="batch-progress-strength">Rolling strength mean: -</p>
+                    <p id="batch-progress-search">Rolling search mean: -</p>
+                  </div>
+                  <div class="batch-ghost" aria-hidden="true">
+                    <canvas id="batch-ghost-canvas" width="220" height="86"></canvas>
+                  </div>
+                </div>
                 <div class="batch-summary" id="batch-summary" aria-live="polite"></div>
               </div>
             </details>

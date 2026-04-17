@@ -975,6 +975,96 @@ input[type="range"]:disabled {
   padding: 0.6rem 0.85rem;
 }
 
+.batch-progress {
+  margin-top: 0.6rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(15, 118, 110, 0.22);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.09) 0%, rgba(255, 253, 249, 0.92) 100%);
+  display: none;
+  gap: 0.45rem;
+}
+
+.batch-progress.is-visible {
+  display: grid;
+}
+
+.batch-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.batch-progress-title {
+  margin: 0;
+  color: #0f4f4a;
+  font-size: 0.83rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.batch-progress-count {
+  padding: 0.18rem 0.48rem;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 118, 110, 0.26);
+  background: rgba(255, 253, 249, 0.82);
+  color: #0f4f4a;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.batch-progress-phase,
+.batch-progress-eta {
+  margin: 0;
+  color: #2f3e3b;
+  font-size: 0.84rem;
+}
+
+.batch-progress-bar {
+  height: 0.5rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(15, 118, 110, 0.12);
+}
+
+.batch-progress-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #0f766e 0%, #16a34a 100%);
+  transition: width 160ms ease;
+}
+
+.batch-progress-live-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.3rem 0.6rem;
+}
+
+.batch-progress-live-grid p {
+  margin: 0;
+  color: #3d332b;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.batch-ghost {
+  margin-top: 0.1rem;
+  border-radius: 10px;
+  border: 1px dashed rgba(15, 118, 110, 0.25);
+  background: rgba(255, 255, 255, 0.6);
+  padding: 0.2rem;
+}
+
+.batch-ghost canvas {
+  display: block;
+  width: 100%;
+  height: 5rem;
+}
+
 .batch-summary {
   margin-top: 0.6rem;
   padding: 0.7rem 0.85rem;

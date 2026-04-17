@@ -58,6 +58,17 @@ class MateChoiceSimulation {
       this.batchRunCountSelect = document.getElementById("batch-run-count");
       this.runBatchButton = document.getElementById("run-batch");
       this.batchSummary = document.getElementById("batch-summary");
+      this.batchProgress = document.getElementById("batch-progress");
+      this.batchProgressLabel = document.getElementById("batch-progress-label");
+      this.batchProgressCount = document.getElementById("batch-progress-count");
+      this.batchProgressPhase = document.getElementById("batch-progress-phase");
+      this.batchProgressFill = document.getElementById("batch-progress-fill");
+      this.batchProgressEta = document.getElementById("batch-progress-eta");
+      this.batchProgressInteractions = document.getElementById("batch-progress-interactions");
+      this.batchProgressPairs = document.getElementById("batch-progress-pairs");
+      this.batchProgressStrength = document.getElementById("batch-progress-strength");
+      this.batchProgressSearch = document.getElementById("batch-progress-search");
+      this.batchGhostCanvas = document.getElementById("batch-ghost-canvas");
       this.csvPreview = document.getElementById("csv-preview");
       this.csvPreviewContent = document.getElementById("csv-preview-content");
       this.previewIntroText = document.getElementById("preview-intro-text");
@@ -166,6 +177,11 @@ class MateChoiceSimulation {
       this.rngState = null;
       this.baseSeed = null;
       this.wasDesktopLayout = null;
+      this.isBatchRunning = false;
+      this.batchGhostContext = null;
+      this.batchGhostParticles = [];
+      this.batchGhostAnimationId = null;
+      this.batchProgressHideTimer = null;
 
       this.bindEvents();
       this.handleResize();
@@ -660,17 +676,39 @@ class MateChoiceSimulation {
       };
     }
 
-    handleBatchRun() {
-      if (this.state.isRunning) {
+    async handleBatchRun() {
+      if (this.state.isRunning || this.isBatchRunning) {
         return;
       }
 
+      this.isBatchRunning = true;
+
       const runCount = parseInt(this.batchRunCountSelect ? this.batchRunCountSelect.value : "30", 10) || 30;
       const metricsList = [];
+      const spatialStrength = [];
+      const nonSpatialStrength = [];
+      const totalSamples = runCount * 2;
+      const batchStartMs = performance.now ? performance.now() : Date.now();
+      let processedSamples = 0;
+      let batchLastRun = this.state.lastRun;
 
       this.runButton.disabled = true;
       if (this.runBatchButton) this.runBatchButton.disabled = true;
       this.status.textContent = "Running batch experiment: " + runCount + " simulations...";
+      if (this.batchProgressHideTimer) {
+        window.clearTimeout(this.batchProgressHideTimer);
+        this.batchProgressHideTimer = null;
+      }
+      this.setBatchProgressVisible(true);
+      this.startBatchGhostAnimation();
+      this.updateBatchProgress({
+        phase: "Preparing batch runs...",
+        processed: 0,
+        total: totalSamples,
+        batchStartMs,
+        metricsList,
+        recentInteractions: 0,
+      });
 
       const preservedState = {
         ...this.state,
@@ -682,159 +720,382 @@ class MateChoiceSimulation {
       };
 
       const currentModel = this.modelTypeSelect ? this.modelTypeSelect.value : "Spatial";
-      const spatialStrength = [];
-      const nonSpatialStrength = [];
+      const compareModel = currentModel === "Spatial" ? "Non-Spatial" : "Spatial";
 
-      for (let runIndex = 0; runIndex < runCount; runIndex += 1) {
-        const seedBase = this.getNumericSeed();
-        const runSeed = typeof seedBase === "number" ? seedBase + runIndex * 101 : null;
-        this.resetRng(runSeed);
-        this.state = {
-          ...this.buildFreshState(),
-          agents: this.createAgents(this.getActiveAgentCount()),
-          pairs: [],
-          step: 0,
-          isRunning: false,
-          lastRun: this.state.lastRun,
+      try {
+        for (let runIndex = 0; runIndex < runCount; runIndex += 1) {
+          const seedBase = this.getNumericSeed();
+          const runSeed = typeof seedBase === "number" ? seedBase + runIndex * 101 : null;
+
+          const primaryResult = this.runSingleBatchSample({
+            modelName: currentModel,
+            seed: runSeed,
+          });
+          metricsList.push(primaryResult.metrics);
+          if (currentModel === "Spatial") {
+            spatialStrength.push(primaryResult.metrics.matchingStrength);
+          } else {
+            nonSpatialStrength.push(primaryResult.metrics.matchingStrength);
+          }
+          processedSamples += 1;
+          this.updateBatchProgress({
+            phase: "Sampling " + currentModel + " run " + (runIndex + 1) + " of " + runCount + "...",
+            processed: processedSamples,
+            total: totalSamples,
+            batchStartMs,
+            metricsList,
+            recentInteractions: primaryResult.interactions,
+          });
+          await this.waitForNextFrame();
+
+          const compareSeed = typeof runSeed === "number" ? runSeed + 53 : null;
+          const compareResult = this.runSingleBatchSample({
+            modelName: compareModel,
+            seed: compareSeed,
+          });
+          if (compareModel === "Spatial") {
+            spatialStrength.push(compareResult.metrics.matchingStrength);
+          } else {
+            nonSpatialStrength.push(compareResult.metrics.matchingStrength);
+          }
+          processedSamples += 1;
+          this.updateBatchProgress({
+            phase: "Sampling " + compareModel + " run " + (runIndex + 1) + " of " + runCount + "...",
+            processed: processedSamples,
+            total: totalSamples,
+            batchStartMs,
+            metricsList,
+            recentInteractions: compareResult.interactions,
+          });
+          await this.waitForNextFrame();
+        }
+        const pairStats = this.computeBatchStats(metricsList.map((m) => m.pairCount));
+        const strengthStats = this.computeBatchStats(metricsList.map((m) => m.matchingStrength));
+        const searchStats = this.computeBatchStats(metricsList.map((m) => m.averageSearchSteps));
+        const spatialStats = this.computeBatchStats(spatialStrength);
+        const nonSpatialStats = this.computeBatchStats(nonSpatialStrength);
+        const lastMetrics = metricsList[metricsList.length - 1];
+
+        this.state.lastRun = {
+          metrics: lastMetrics,
+          mobilityLevel: this.mobilitySelect.value,
+          densityLevel: this.densitySelect.value,
+          preferenceRule: this.preferenceSelect.value,
+          selectivityLevel: this.selectivitySelect ? this.selectivitySelect.value : "Medium",
+          patienceLevel: this.patienceSelect ? this.patienceSelect.value : "Normal",
+          explorationLevel: this.explorationSelect ? this.explorationSelect.value : "Balanced",
+          modelType: this.modelTypeSelect ? this.modelTypeSelect.value : "Spatial",
+          agentCount: this.getActiveAgentCount(),
+          viewRadiusMultiplier: this.getViewRadiusMultiplier(),
         };
+        batchLastRun = this.state.lastRun;
 
-        for (let stepIndex = 0; stepIndex < STEP_COUNT; stepIndex += 1) {
-          this.stepSimulation();
-          this.state.step = stepIndex + 1;
-        }
+        this.lastCitation = this.buildRunCitationMessage(
+          this.state.lastRun.metrics,
+          this.state.lastRun.mobilityLevel,
+          this.state.lastRun.densityLevel,
+          this.state.lastRun.preferenceRule,
+          this.state.lastRun.selectivityLevel,
+          this.state.lastRun.patienceLevel,
+          this.state.lastRun.explorationLevel
+        );
 
-        const metrics = this.getSimulationMetrics();
-        metricsList.push(metrics);
-        if (currentModel === "Spatial") {
-          spatialStrength.push(metrics.matchingStrength);
-        } else {
-          nonSpatialStrength.push(metrics.matchingStrength);
-        }
+        this.updateSummaryBar();
+        this.updateRunInterpretation(this.buildPreviewReportData());
+        this.setExportEnabled(true);
+        this.renderInsightQuestions();
+        this.draw();
+        this.showBatchSummary(runCount, pairStats, strengthStats, searchStats, spatialStats, nonSpatialStats);
 
-        const compareModel = currentModel === "Spatial" ? "Non-Spatial" : "Spatial";
-        if (this.modelTypeSelect) this.modelTypeSelect.value = compareModel;
-        if (typeof runSeed === "number") {
-          this.resetRng(runSeed + 53);
+        this.status.textContent =
+          "Batch complete: " +
+          runCount +
+          " runs. Mean pairs " +
+          pairStats.mean.toFixed(1) +
+          ", mean strength " +
+          strengthStats.mean.toFixed(2) +
+          ", mean search " +
+          searchStats.mean.toFixed(1) +
+          ". Spatial r=" +
+          spatialStats.mean.toFixed(2) +
+          ", Non-spatial r=" +
+          nonSpatialStats.mean.toFixed(2) +
+          ".";
+
+        this.addChatMessage(
+          "Assistant",
+          "Batch experiment complete (n=" +
+            runCount +
+            "). Mean pairs=" +
+            pairStats.mean.toFixed(1) +
+            " (95% CI " +
+            pairStats.ciLow.toFixed(1) +
+            " to " +
+            pairStats.ciHigh.toFixed(1) +
+            "), matching strength=" +
+            strengthStats.mean.toFixed(2) +
+            " (95% CI " +
+            strengthStats.ciLow.toFixed(2) +
+            " to " +
+            strengthStats.ciHigh.toFixed(2) +
+            "), avg search=" +
+            searchStats.mean.toFixed(1) +
+            " (95% CI " +
+            searchStats.ciLow.toFixed(1) +
+            " to " +
+            searchStats.ciHigh.toFixed(1) +
+            "). Spatial r=" +
+            spatialStats.mean.toFixed(2) +
+            " (95% CI " +
+            spatialStats.ciLow.toFixed(2) +
+            " to " +
+            spatialStats.ciHigh.toFixed(2) +
+            "), Non-spatial r=" +
+            nonSpatialStats.mean.toFixed(2) +
+            " (95% CI " +
+            nonSpatialStats.ciLow.toFixed(2) +
+            " to " +
+            nonSpatialStats.ciHigh.toFixed(2) +
+            ")."
+        );
+
+        this.updateBatchProgress({
+          phase: "Batch complete.",
+          processed: totalSamples,
+          total: totalSamples,
+          batchStartMs,
+          metricsList,
+          recentInteractions: 0,
+        });
+      } catch (error) {
+        console.error("Batch run failed", error);
+        this.status.textContent = "Batch run failed. Please try again.";
+        this.addChatMessage("Assistant", "Batch run failed unexpectedly. Try a smaller n and run again.");
+      } finally {
+        if (this.modelTypeSelect) {
+          this.modelTypeSelect.value = currentModel;
         }
-        this.state = {
-          ...this.buildFreshState(),
-          agents: this.createAgents(this.getActiveAgentCount()),
-          pairs: [],
-          step: 0,
-          isRunning: false,
-          lastRun: this.state.lastRun,
-        };
-        for (let stepIndex = 0; stepIndex < STEP_COUNT; stepIndex += 1) {
-          this.stepSimulation();
-          this.state.step = stepIndex + 1;
-        }
-        const compareMetrics = this.getSimulationMetrics();
-        if (compareModel === "Spatial") {
-          spatialStrength.push(compareMetrics.matchingStrength);
-        } else {
-          nonSpatialStrength.push(compareMetrics.matchingStrength);
-        }
-        if (this.modelTypeSelect) this.modelTypeSelect.value = currentModel;
+        this.state = preservedState;
+        this.state.lastRun = batchLastRun;
+        this.resetRng();
+        this.draw();
+        this.updateStatus();
+        this.updateDecisionStatus();
+        this.stopBatchGhostAnimation();
+        this.scheduleBatchProgressAutoHide();
+        this.runButton.disabled = false;
+        if (this.runBatchButton) this.runBatchButton.disabled = false;
+        this.isBatchRunning = false;
       }
+    }
 
-      const pairStats = this.computeBatchStats(metricsList.map((m) => m.pairCount));
-      const strengthStats = this.computeBatchStats(metricsList.map((m) => m.matchingStrength));
-      const searchStats = this.computeBatchStats(metricsList.map((m) => m.averageSearchSteps));
-      const spatialStats = this.computeBatchStats(spatialStrength);
-      const nonSpatialStats = this.computeBatchStats(nonSpatialStrength);
-      const lastMetrics = metricsList[metricsList.length - 1];
-
-      this.state.lastRun = {
-        metrics: lastMetrics,
-        mobilityLevel: this.mobilitySelect.value,
-        densityLevel: this.densitySelect.value,
-        preferenceRule: this.preferenceSelect.value,
-        selectivityLevel: this.selectivitySelect ? this.selectivitySelect.value : "Medium",
-        patienceLevel: this.patienceSelect ? this.patienceSelect.value : "Normal",
-        explorationLevel: this.explorationSelect ? this.explorationSelect.value : "Balanced",
-        modelType: this.modelTypeSelect ? this.modelTypeSelect.value : "Spatial",
-        agentCount: this.getActiveAgentCount(),
-        viewRadiusMultiplier: this.getViewRadiusMultiplier(),
+    runSingleBatchSample({ modelName, seed }) {
+      if (this.modelTypeSelect) {
+        this.modelTypeSelect.value = modelName;
+      }
+      this.resetRng(seed);
+      this.state = {
+        ...this.buildFreshState(),
+        agents: this.createAgents(this.getActiveAgentCount()),
+        pairs: [],
+        step: 0,
+        isRunning: false,
+        lastRun: this.state.lastRun,
       };
 
-      this.lastCitation = this.buildRunCitationMessage(
-        this.state.lastRun.metrics,
-        this.state.lastRun.mobilityLevel,
-        this.state.lastRun.densityLevel,
-        this.state.lastRun.preferenceRule,
-        this.state.lastRun.selectivityLevel,
-        this.state.lastRun.patienceLevel,
-        this.state.lastRun.explorationLevel
-      );
+      for (let stepIndex = 0; stepIndex < STEP_COUNT; stepIndex += 1) {
+        this.stepSimulation();
+        this.state.step = stepIndex + 1;
+      }
 
-      this.updateSummaryBar();
-      this.updateRunInterpretation(this.buildPreviewReportData());
-      this.setExportEnabled(true);
-      this.renderInsightQuestions();
-      this.draw();
-      this.showBatchSummary(runCount, pairStats, strengthStats, searchStats, spatialStats, nonSpatialStats);
+      return {
+        metrics: this.getSimulationMetrics(),
+        interactions: this.state.interactionEvents.length,
+      };
+    }
 
-      this.status.textContent =
-        "Batch complete: " +
-        runCount +
-        " runs. Mean pairs " +
-        pairStats.mean.toFixed(1) +
-        ", mean strength " +
-        strengthStats.mean.toFixed(2) +
-        ", mean search " +
-        searchStats.mean.toFixed(1) +
-        ". Spatial r=" +
-        spatialStats.mean.toFixed(2) +
-        ", Non-spatial r=" +
-        nonSpatialStats.mean.toFixed(2) +
-        ".";
+    waitForNextFrame() {
+      return new Promise((resolve) => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    }
 
-      this.addChatMessage(
-        "Assistant",
-        "Batch experiment complete (n=" +
-          runCount +
-          "). Mean pairs=" +
-          pairStats.mean.toFixed(1) +
-          " (95% CI " +
-          pairStats.ciLow.toFixed(1) +
-          " to " +
-          pairStats.ciHigh.toFixed(1) +
-          "), matching strength=" +
-          strengthStats.mean.toFixed(2) +
-          " (95% CI " +
-          strengthStats.ciLow.toFixed(2) +
-          " to " +
-          strengthStats.ciHigh.toFixed(2) +
-          "), avg search=" +
-          searchStats.mean.toFixed(1) +
-          " (95% CI " +
-          searchStats.ciLow.toFixed(1) +
-          " to " +
-          searchStats.ciHigh.toFixed(1) +
-          "). Spatial r=" +
-          spatialStats.mean.toFixed(2) +
-          " (95% CI " +
-          spatialStats.ciLow.toFixed(2) +
-          " to " +
-          spatialStats.ciHigh.toFixed(2) +
-          "), Non-spatial r=" +
-          nonSpatialStats.mean.toFixed(2) +
-          " (95% CI " +
-          nonSpatialStats.ciLow.toFixed(2) +
-          " to " +
-          nonSpatialStats.ciHigh.toFixed(2) +
-          ")."
-      );
+    setBatchProgressVisible(isVisible) {
+      if (!this.batchProgress) return;
+      this.batchProgress.classList.toggle("is-visible", !!isVisible);
+      this.batchProgress.setAttribute("aria-hidden", isVisible ? "false" : "true");
+    }
 
-      const batchLastRun = this.state.lastRun;
-      this.state = preservedState;
-      this.state.lastRun = batchLastRun;
-      this.resetRng();
-      this.draw();
-      this.updateStatus();
-      this.updateDecisionStatus();
-      this.runButton.disabled = false;
-      if (this.runBatchButton) this.runBatchButton.disabled = false;
+    scheduleBatchProgressAutoHide() {
+      if (this.batchProgressHideTimer) {
+        window.clearTimeout(this.batchProgressHideTimer);
+      }
+      this.batchProgressHideTimer = window.setTimeout(() => {
+        this.batchProgressHideTimer = null;
+        if (!this.isBatchRunning) {
+          this.setBatchProgressVisible(false);
+        }
+      }, 2400);
+    }
+
+    startBatchGhostAnimation() {
+      if (!this.batchGhostCanvas) return;
+      if (!this.batchGhostContext) {
+        this.batchGhostContext = this.batchGhostCanvas.getContext("2d");
+      }
+      if (!this.batchGhostContext) return;
+
+      const width = this.batchGhostCanvas.width || 220;
+      const height = this.batchGhostCanvas.height || 86;
+      this.batchGhostParticles = Array.from({ length: 14 }, () => ({
+        x: this.randomFloat(8, width - 8),
+        y: this.randomFloat(8, height - 8),
+        vx: this.randomFloat(-0.55, 0.55),
+        vy: this.randomFloat(-0.45, 0.45),
+        tint: this.random() > 0.55 ? "teal" : "amber",
+      }));
+
+      if (this.batchGhostAnimationId) {
+        window.cancelAnimationFrame(this.batchGhostAnimationId);
+      }
+
+      const animate = () => {
+        if (!this.isBatchRunning) {
+          this.batchGhostAnimationId = null;
+          return;
+        }
+        this.drawBatchGhostFrame();
+        this.batchGhostAnimationId = window.requestAnimationFrame(animate);
+      };
+
+      this.batchGhostAnimationId = window.requestAnimationFrame(animate);
+    }
+
+    drawBatchGhostFrame() {
+      if (!this.batchGhostCanvas || !this.batchGhostContext) return;
+
+      const ctx = this.batchGhostContext;
+      const width = this.batchGhostCanvas.width;
+      const height = this.batchGhostCanvas.height;
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+      ctx.fillRect(0, 0, width, height);
+
+      for (let i = 0; i < this.batchGhostParticles.length; i += 1) {
+        const p = this.batchGhostParticles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+
+        if (p.x <= 6 || p.x >= width - 6) p.vx *= -1;
+        if (p.y <= 6 || p.y >= height - 6) p.vy *= -1;
+
+        p.vx += this.randomFloat(-0.012, 0.012);
+        p.vy += this.randomFloat(-0.012, 0.012);
+        p.vx = this.clamp(p.vx, -0.8, 0.8);
+        p.vy = this.clamp(p.vy, -0.8, 0.8);
+      }
+
+      for (let i = 0; i < this.batchGhostParticles.length; i += 1) {
+        const a = this.batchGhostParticles[i];
+        for (let j = i + 1; j < this.batchGhostParticles.length; j += 1) {
+          const b = this.batchGhostParticles[j];
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 26) continue;
+          const alpha = (1 - dist / 26) * 0.55;
+          ctx.strokeStyle = "rgba(15, 118, 110, " + alpha.toFixed(3) + ")";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+
+      this.batchGhostParticles.forEach((p) => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2.6, 0, Math.PI * 2);
+        ctx.fillStyle = p.tint === "teal" ? "rgba(15, 118, 110, 0.9)" : "rgba(185, 130, 54, 0.88)";
+        ctx.fill();
+      });
+    }
+
+    stopBatchGhostAnimation() {
+      if (this.batchGhostAnimationId) {
+        window.cancelAnimationFrame(this.batchGhostAnimationId);
+        this.batchGhostAnimationId = null;
+      }
+    }
+
+    formatBatchDuration(ms) {
+      if (!isFinite(ms) || ms <= 0) return "0.0s";
+      if (ms < 1000) return (ms / 1000).toFixed(1) + "s";
+      const seconds = Math.round(ms / 1000);
+      if (seconds < 60) return seconds + "s";
+      const minutes = Math.floor(seconds / 60);
+      const remSeconds = seconds % 60;
+      return minutes + "m " + remSeconds + "s";
+    }
+
+    updateBatchProgress({ phase, processed, total, batchStartMs, metricsList, recentInteractions }) {
+      if (!this.batchProgress) return;
+
+      const safeTotal = total > 0 ? total : 1;
+      const clampedProcessed = this.clamp(processed, 0, safeTotal);
+      const ratio = clampedProcessed / safeTotal;
+      const nowMs = performance.now ? performance.now() : Date.now();
+      const elapsedMs = Math.max(0, nowMs - batchStartMs);
+      const etaMs = clampedProcessed > 0 ? (elapsedMs / clampedProcessed) * (safeTotal - clampedProcessed) : 0;
+      const rollingPairs = metricsList.length
+        ? metricsList.reduce((sum, metric) => sum + metric.pairCount, 0) / metricsList.length
+        : 0;
+      const rollingStrength = metricsList.length
+        ? metricsList.reduce((sum, metric) => sum + metric.matchingStrength, 0) / metricsList.length
+        : 0;
+      const rollingSearch = metricsList.length
+        ? metricsList.reduce((sum, metric) => sum + metric.averageSearchSteps, 0) / metricsList.length
+        : 0;
+
+      if (this.batchProgressLabel) {
+        this.batchProgressLabel.textContent = clampedProcessed >= safeTotal ? "Batch complete" : "Batch progress";
+      }
+      if (this.batchProgressCount) {
+        this.batchProgressCount.textContent = clampedProcessed + "/" + safeTotal;
+      }
+      if (this.batchProgressPhase) {
+        this.batchProgressPhase.textContent = phase;
+      }
+      if (this.batchProgressFill) {
+        this.batchProgressFill.style.width = (ratio * 100).toFixed(1) + "%";
+      }
+      if (this.batchProgressEta) {
+        if (clampedProcessed >= safeTotal) {
+          this.batchProgressEta.textContent = "Elapsed " + this.formatBatchDuration(elapsedMs);
+        } else {
+          this.batchProgressEta.textContent =
+            "Elapsed " +
+            this.formatBatchDuration(elapsedMs) +
+            " | ETA " +
+            this.formatBatchDuration(etaMs);
+        }
+      }
+      if (this.batchProgressInteractions) {
+        this.batchProgressInteractions.textContent = "Sampled interactions: " + recentInteractions;
+      }
+      if (this.batchProgressPairs) {
+        this.batchProgressPairs.textContent =
+          "Rolling pairs mean: " + (metricsList.length ? rollingPairs.toFixed(1) : "-");
+      }
+      if (this.batchProgressStrength) {
+        this.batchProgressStrength.textContent =
+          "Rolling strength mean: " + (metricsList.length ? rollingStrength.toFixed(2) : "-");
+      }
+      if (this.batchProgressSearch) {
+        this.batchProgressSearch.textContent =
+          "Rolling search mean: " + (metricsList.length ? rollingSearch.toFixed(1) : "-");
+      }
     }
 
     computeBatchStats(values) {
