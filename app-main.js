@@ -346,7 +346,8 @@ class MateChoiceSimulation {
       }
 
       const rect = this.canvas.getBoundingClientRect();
-      const size = Math.max(320, Math.floor(Math.min(rect.width || 0, rect.height || rect.width || 0)));
+      const measuredSize = Math.floor(Math.min(rect.width || 0, rect.height || rect.width || 0));
+      const size = Math.max(220, measuredSize || 0);
       const ratio = window.devicePixelRatio || 1;
 
       this.canvas.width = size * ratio;
@@ -1124,39 +1125,19 @@ class MateChoiceSimulation {
       if (!this.batchSummary) return;
 
       this.batchSummary.innerHTML =
-        "Batch n=" +
-        runCount +
-        " | Pairs mean=" +
-        pairStats.mean.toFixed(1) +
-        " (95% CI " +
-        pairStats.ciLow.toFixed(1) +
-        " to " +
-        pairStats.ciHigh.toFixed(1) +
-        ") | Strength mean=" +
-        strengthStats.mean.toFixed(2) +
-        " (95% CI " +
-        strengthStats.ciLow.toFixed(2) +
-        " to " +
-        strengthStats.ciHigh.toFixed(2) +
-        ") | Avg search mean=" +
-        searchStats.mean.toFixed(1) +
-        " (95% CI " +
-        searchStats.ciLow.toFixed(1) +
-        " to " +
-        searchStats.ciHigh.toFixed(1) +
-        ") | Spatial r=" +
-        spatialStats.mean.toFixed(2) +
-        " (95% CI " +
-        spatialStats.ciLow.toFixed(2) +
-        " to " +
-        spatialStats.ciHigh.toFixed(2) +
-        ") | Non-spatial r=" +
-        nonSpatialStats.mean.toFixed(2) +
-        " (95% CI " +
-        nonSpatialStats.ciLow.toFixed(2) +
-        " to " +
-        nonSpatialStats.ciHigh.toFixed(2) +
-        ").";
+        "<ul class=\"batch-summary-list\">" +
+        "<li><strong>Batch n=" + runCount + "</strong></li>" +
+        "<li>Pairs mean: " + pairStats.mean.toFixed(1) +
+        " (95% CI " + pairStats.ciLow.toFixed(1) + " to " + pairStats.ciHigh.toFixed(1) + ")</li>" +
+        "<li>Strength mean: " + strengthStats.mean.toFixed(2) +
+        " (95% CI " + strengthStats.ciLow.toFixed(2) + " to " + strengthStats.ciHigh.toFixed(2) + ")</li>" +
+        "<li>Avg search mean: " + searchStats.mean.toFixed(1) +
+        " (95% CI " + searchStats.ciLow.toFixed(1) + " to " + searchStats.ciHigh.toFixed(1) + ")</li>" +
+        "<li>Spatial r: " + spatialStats.mean.toFixed(2) +
+        " (95% CI " + spatialStats.ciLow.toFixed(2) + " to " + spatialStats.ciHigh.toFixed(2) + ")</li>" +
+        "<li>Non-spatial r: " + nonSpatialStats.mean.toFixed(2) +
+        " (95% CI " + nonSpatialStats.ciLow.toFixed(2) + " to " + nonSpatialStats.ciHigh.toFixed(2) + ")</li>" +
+        "</ul>";
       this.batchSummary.classList.add("is-visible");
     }
 
