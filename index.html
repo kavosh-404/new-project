@@ -332,63 +332,6 @@
                 </div>
               </div>
             </div>
-            <div class="report-builder-modal" id="report-builder-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Report builder">
-              <div class="report-builder-backdrop" id="report-builder-close-backdrop"></div>
-              <section class="report-builder-sheet" aria-labelledby="report-builder-title">
-                <div class="report-builder-header">
-                  <h3 id="report-builder-title">Build Experiment Report</h3>
-                  <button class="secondary-button report-builder-close" id="report-builder-close" type="button">Close</button>
-                </div>
-                <p class="report-builder-subtitle">
-                  Choose what to include from available simulation outputs, then download a formal experiment report.
-                </p>
-                <form class="report-builder-form" id="report-builder-form">
-                  <label class="report-field" for="report-scope">
-                    <span>Data scope</span>
-                    <select id="report-scope" name="report-scope">
-                      <option value="latest-run" selected>Latest simulation run</option>
-                      <option value="latest-batch">Latest batch experiment</option>
-                      <option value="history">Recent run history</option>
-                      <option value="all">All available session outputs</option>
-                    </select>
-                  </label>
-                  <label class="report-field" for="report-format">
-                    <span>Format</span>
-                    <select id="report-format" name="report-format">
-                      <option value="html" selected>Styled HTML report</option>
-                      <option value="md">Markdown report</option>
-                    </select>
-                  </label>
-                  <fieldset class="report-sections">
-                    <legend>Include sections</legend>
-                    <label><input type="checkbox" name="report-section" value="settings" checked /> Simulation settings</label>
-                    <label><input type="checkbox" name="report-section" value="latest-metrics" checked /> Latest run metrics</label>
-                    <label><input type="checkbox" name="report-section" value="batch-stats" checked /> Batch statistics and confidence intervals</label>
-                    <label><input type="checkbox" name="report-section" value="comparison" checked /> Run comparison history</label>
-                    <label><input type="checkbox" name="report-section" value="findings" checked /> Key findings and interpretation</label>
-                    <label><input type="checkbox" name="report-section" value="citation" checked /> Citation text</label>
-                    <label><input type="checkbox" name="report-section" value="repro" checked /> Reproducibility metadata</label>
-                  </fieldset>
-                  <div class="report-builder-actions">
-                    <button class="secondary-button" id="report-builder-preview" type="button">Preview</button>
-                    <button class="secondary-button export-primary" id="report-builder-download" type="submit">Generate and Download</button>
-                  </div>
-                </form>
-              </section>
-            </div>
-            <div class="report-preview-modal" id="report-preview-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Report preview">
-              <div class="report-preview-backdrop" id="report-preview-close-backdrop"></div>
-              <section class="report-preview-sheet" aria-labelledby="report-preview-title">
-                <div class="report-preview-header">
-                  <h3 id="report-preview-title">Report Preview</h3>
-                  <div class="report-preview-actions">
-                    <button class="secondary-button" id="report-preview-download" type="button">Download</button>
-                    <button class="secondary-button" id="report-preview-close" type="button">Close</button>
-                  </div>
-                </div>
-                <iframe id="report-preview-frame" title="Report preview frame"></iframe>
-              </section>
-            </div>
             <div class="run-summary" id="run-summary">
               <span class="summary-label">Last run:</span>
               <span class="summary-metric" id="summary-pairs">— pairs</span>
@@ -777,6 +720,63 @@
           </section>
         </section>
       </main>
+    </div>
+    <div class="report-builder-modal" id="report-builder-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Report builder">
+      <div class="report-builder-backdrop" id="report-builder-close-backdrop"></div>
+      <section class="report-builder-sheet" aria-labelledby="report-builder-title">
+        <div class="report-builder-header">
+          <h3 id="report-builder-title">Build Experiment Report</h3>
+          <button class="secondary-button report-builder-close" id="report-builder-close" type="button">Close</button>
+        </div>
+        <p class="report-builder-subtitle">
+          Choose what to include from available simulation outputs, then download a formal experiment report.
+        </p>
+        <form class="report-builder-form" id="report-builder-form">
+          <label class="report-field" for="report-scope">
+            <span>Data scope</span>
+            <select id="report-scope" name="report-scope">
+              <option value="latest-run" selected>Latest simulation run</option>
+              <option value="latest-batch">Latest batch experiment</option>
+              <option value="history">Recent run history</option>
+              <option value="all">All available session outputs</option>
+            </select>
+          </label>
+          <label class="report-field" for="report-format">
+            <span>Format</span>
+            <select id="report-format" name="report-format">
+              <option value="html" selected>Styled HTML report</option>
+              <option value="md">Markdown report</option>
+            </select>
+          </label>
+          <fieldset class="report-sections">
+            <legend>Include sections</legend>
+            <label><input type="checkbox" name="report-section" value="settings" checked /> Simulation settings</label>
+            <label><input type="checkbox" name="report-section" value="latest-metrics" checked /> Latest run metrics</label>
+            <label><input type="checkbox" name="report-section" value="batch-stats" checked /> Batch statistics and confidence intervals</label>
+            <label><input type="checkbox" name="report-section" value="comparison" checked /> Run comparison history</label>
+            <label><input type="checkbox" name="report-section" value="findings" checked /> Key findings and interpretation</label>
+            <label><input type="checkbox" name="report-section" value="citation" checked /> Citation text</label>
+            <label><input type="checkbox" name="report-section" value="repro" checked /> Reproducibility metadata</label>
+          </fieldset>
+          <div class="report-builder-actions">
+            <button class="secondary-button" id="report-builder-preview" type="button">Preview</button>
+            <button class="secondary-button export-primary" id="report-builder-download" type="submit">Generate and Download</button>
+          </div>
+        </form>
+      </section>
+    </div>
+    <div class="report-preview-modal" id="report-preview-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Report preview">
+      <div class="report-preview-backdrop" id="report-preview-close-backdrop"></div>
+      <section class="report-preview-sheet" aria-labelledby="report-preview-title">
+        <div class="report-preview-header">
+          <h3 id="report-preview-title">Report Preview</h3>
+          <div class="report-preview-actions">
+            <button class="secondary-button" id="report-preview-download" type="button">Download</button>
+            <button class="secondary-button" id="report-preview-close" type="button">Close</button>
+          </div>
+        </div>
+        <iframe id="report-preview-frame" title="Report preview frame"></iframe>
+      </section>
     </div>
     <script src="app-main.js?v=20260405"></script>
     <script src="script.js?v=20260405"></script>
