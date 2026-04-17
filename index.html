@@ -670,10 +670,17 @@
         function attachDepthEffect(selector, xVar, yVar) {
           const el = document.querySelector(selector);
           if (!el) return;
+          const clampPercent = function (value, min, max) {
+            return Math.max(min, Math.min(max, value));
+          };
           el.addEventListener('mousemove', function (e) {
             const rect = el.getBoundingClientRect();
-            el.style.setProperty(xVar, ((e.clientX - rect.left) / rect.width * 100).toFixed(1) + '%');
-            el.style.setProperty(yVar, ((e.clientY - rect.top) / rect.height * 100).toFixed(1) + '%');
+            const rawX = ((e.clientX - rect.left) / rect.width) * 100;
+            const rawY = ((e.clientY - rect.top) / rect.height) * 100;
+            const boundedX = clampPercent(rawX, 8, 92);
+            const boundedY = clampPercent(rawY, 8, 92);
+            el.style.setProperty(xVar, boundedX.toFixed(1) + '%');
+            el.style.setProperty(yVar, boundedY.toFixed(1) + '%');
           });
           el.addEventListener('mouseleave', function () {
             el.style.setProperty(xVar, '50%');

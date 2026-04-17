@@ -319,12 +319,13 @@ body.intro-open {
 .workspace-grid::before {
   content: "";
   position: absolute;
-  inset: -16% -10%;
+  inset: -20% -18%;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.96;
-  filter: blur(8px);
+  opacity: 0.94;
+  filter: blur(10px);
   background:
+    radial-gradient(72% 84% at 20% 52%, rgba(15, 118, 110, 0.09) 0%, transparent 78%),
     radial-gradient(circle at var(--wx) var(--wy), rgba(15, 118, 110, 0.16) 0%, rgba(15, 118, 110, 0.08) 32%, transparent 66%),
     radial-gradient(circle at calc(100% - var(--wx)) calc(100% - var(--wy)), rgba(185, 130, 54, 0.12) 0%, rgba(185, 130, 54, 0.06) 36%, transparent 68%);
 }
