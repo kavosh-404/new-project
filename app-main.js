@@ -109,6 +109,7 @@ class MateChoiceSimulation {
       this.lessonPresetStatus = document.getElementById("lesson-preset-status");
       this.lessonPresetButtons = Array.from(document.querySelectorAll("[data-preset]"));
       this.controlHelpButtons = Array.from(document.querySelectorAll(".control-help"));
+      this.mobileCollapsibleSections = Array.from(document.querySelectorAll(".mobile-collapsible"));
 
       this.state = {
         agents: [],
@@ -164,6 +165,7 @@ class MateChoiceSimulation {
       this.postStartScrollTimer = null;
       this.rngState = null;
       this.baseSeed = null;
+      this.wasDesktopLayout = null;
 
       this.bindEvents();
       this.handleResize();
@@ -315,6 +317,18 @@ class MateChoiceSimulation {
     }
 
     handleResize() {
+      const isDesktopLayout = (window.innerWidth || 0) > 900;
+      if (this.wasDesktopLayout !== isDesktopLayout && this.mobileCollapsibleSections.length) {
+        this.mobileCollapsibleSections.forEach((section) => {
+          if (isDesktopLayout) {
+            section.setAttribute("open", "open");
+          } else {
+            section.removeAttribute("open");
+          }
+        });
+        this.wasDesktopLayout = isDesktopLayout;
+      }
+
       const rect = this.canvas.getBoundingClientRect();
       const size = Math.max(320, Math.floor(Math.min(rect.width || 0, rect.height || rect.width || 0)));
       const ratio = window.devicePixelRatio || 1;
