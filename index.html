@@ -758,6 +758,15 @@
             <label><input type="checkbox" name="report-section" value="citation" checked /> Citation text</label>
             <label><input type="checkbox" name="report-section" value="repro" checked /> Reproducibility metadata</label>
           </fieldset>
+          <fieldset class="report-charts">
+            <legend>Include figures</legend>
+            <label><input type="checkbox" name="report-chart" value="chart-metrics-bar" checked /> Fig 1 — Run metrics bar chart</label>
+            <label><input type="checkbox" name="report-chart" value="chart-strength-trend" checked /> Fig 2 — Matching strength trend</label>
+            <label><input type="checkbox" name="report-chart" value="chart-correlation" checked /> Fig 3 — Pairs vs Strength scatter (correlation)</label>
+            <label><input type="checkbox" name="report-chart" value="chart-batch-ci" checked /> Fig 4 — Batch CI comparison bars</label>
+            <label><input type="checkbox" name="report-chart" value="chart-grid-snapshot" checked /> Fig 5 — Simulation grid snapshot</label>
+            <label><input type="checkbox" name="report-chart" value="chart-heatmap-snapshot" checked /> Fig 6 — Batch pairing heatmap snapshot</label>
+          </fieldset>
           <div class="report-builder-actions">
             <button class="secondary-button" id="report-builder-preview" type="button">Preview</button>
             <button class="secondary-button export-primary" id="report-builder-download" type="submit">Generate and Download</button>

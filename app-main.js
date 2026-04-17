@@ -3796,7 +3796,9 @@ class MateChoiceSimulation {
         this.addChatMessage("Assistant", "Select at least one report section.");
         return null;
       }
-      return { scope, format, sections };
+      const selectedChartInputs = Array.from(this.reportBuilderForm.querySelectorAll("input[name=\"report-chart\"]:checked"));
+      const charts = selectedChartInputs.map((input) => input.value);
+      return { scope, format, sections, charts };
     }
 
     generateReportText(reportOptions) {
@@ -3919,9 +3921,92 @@ class MateChoiceSimulation {
       );
     }
 
+    buildCorrelationScatterSvg() {
+      if (!this.runHistory || this.runHistory.length < 2) return "";
+      const W = 360, H = 220, padL = 44, padR = 16, padT = 16, padB = 36;
+      const pts = this.runHistory.map(e => ({ x: e.pairCount, y: e.strength }));
+      const maxX = Math.max(1, ...pts.map(p => p.x));
+      const maxY = Math.max(0.01, ...pts.map(p => p.y));
+      const toSvgX = x => padL + (x / maxX) * (W - padL - padR);
+      const toSvgY = y => H - padB - (y / maxY) * (H - padT - padB);
+      const n = pts.length;
+      const meanX = pts.reduce((s, p) => s + p.x, 0) / n;
+      const meanY = pts.reduce((s, p) => s + p.y, 0) / n;
+      const num = pts.reduce((s, p) => s + (p.x - meanX) * (p.y - meanY), 0);
+      const den = pts.reduce((s, p) => s + (p.x - meanX) ** 2, 0) || 1;
+      const slope = num / den;
+      const intercept = meanY - slope * meanX;
+      const x0 = 0, x1 = maxX;
+      const y0 = intercept + slope * x0;
+      const y1 = intercept + slope * x1;
+      const r = (num / Math.sqrt(den * (pts.reduce((s, p) => s + (p.y - meanY) ** 2, 0) || 1))).toFixed(2);
+      const dots = pts.map(p =>
+        "<circle cx=\"" + toSvgX(p.x).toFixed(1) + "\" cy=\"" + toSvgY(p.y).toFixed(1) + "\" r=\"4.5\" fill=\"#0f766e\" fill-opacity=\"0.75\" />"
+      ).join("");
+      return (
+        "<svg viewBox=\"0 0 " + W + " " + H + "\" width=\"100%\" height=\"" + H + "\" role=\"img\" aria-label=\"Correlation scatter: pairs vs strength\">" +
+        "<rect x=\"0\" y=\"0\" width=\"" + W + "\" height=\"" + H + "\" fill=\"#fffdf9\" />" +
+        "<line x1=\"" + padL + "\" y1=\"" + padT + "\" x2=\"" + padL + "\" y2=\"" + (H - padB) + "\" stroke=\"#d9ccba\" />" +
+        "<line x1=\"" + padL + "\" y1=\"" + (H - padB) + "\" x2=\"" + (W - padR) + "\" y2=\"" + (H - padB) + "\" stroke=\"#d9ccba\" />" +
+        "<line x1=\"" + toSvgX(x0).toFixed(1) + "\" y1=\"" + toSvgY(y0).toFixed(1) + "\" x2=\"" + toSvgX(x1).toFixed(1) + "\" y2=\"" + toSvgY(y1).toFixed(1) + "\" stroke=\"#b45309\" stroke-width=\"1.6\" stroke-dasharray=\"5,3\" />" +
+        dots +
+        "<text x=\"" + (padL + (W - padL - padR) / 2) + "\" y=\"" + (H - 6) + "\" text-anchor=\"middle\" font-size=\"11\" fill=\"#5a4a3a\">Pairs formed</text>" +
+        "<text x=\"12\" y=\"" + (padT + (H - padT - padB) / 2) + "\" text-anchor=\"middle\" font-size=\"11\" fill=\"#5a4a3a\" transform=\"rotate(-90,12," + (padT + (H - padT - padB) / 2) + ")\">Matching strength</text>" +
+        "<text x=\"" + (W - padR - 4) + "\" y=\"" + (padT + 12) + "\" text-anchor=\"end\" font-size=\"10\" fill=\"#b45309\">r = " + r + "</text>" +
+        "</svg>"
+      );
+    }
+
+    buildBatchCiBarSvg() {
+      if (!this.lastBatchReport) return "";
+      const batch = this.lastBatchReport;
+      const W = 360, H = 200, padL = 48, padR = 16, padT = 20, padB = 36;
+      const drawH = H - padT - padB;
+      const metrics = [
+        { label: "Pairs", mean: batch.pairStats.mean, ci: batch.pairStats.ciHigh - batch.pairStats.mean, color: "#0f766e" },
+        { label: "Strength \xd7100", mean: batch.strengthStats.mean * 100, ci: (batch.strengthStats.ciHigh - batch.strengthStats.mean) * 100, color: "#b45309" },
+        { label: "Search steps", mean: batch.searchStats.mean, ci: batch.searchStats.ciHigh - batch.searchStats.mean, color: "#334155" },
+      ];
+      const maxVal = Math.max(1, ...metrics.map(m => m.mean + m.ci)) * 1.1;
+      const barW = 72, gap = 28, startX = padL + 10;
+      const bars = metrics.map((m, i) => {
+        const x = startX + i * (barW + gap);
+        const barH = (m.mean / maxVal) * drawH;
+        const barY = H - padB - barH;
+        const ciPx = (m.ci / maxVal) * drawH;
+        const midX = x + barW / 2;
+        return (
+          "<rect x=\"" + x + "\" y=\"" + barY.toFixed(1) + "\" width=\"" + barW + "\" height=\"" + barH.toFixed(1) + "\" fill=\"" + m.color + "\" rx=\"5\" fill-opacity=\"0.85\" />" +
+          "<line x1=\"" + midX + "\" y1=\"" + (barY - ciPx).toFixed(1) + "\" x2=\"" + midX + "\" y2=\"" + (barY + ciPx).toFixed(1) + "\" stroke=\"#1f1a17\" stroke-width=\"1.8\" />" +
+          "<line x1=\"" + (midX - 8) + "\" y1=\"" + (barY - ciPx).toFixed(1) + "\" x2=\"" + (midX + 8) + "\" y2=\"" + (barY - ciPx).toFixed(1) + "\" stroke=\"#1f1a17\" stroke-width=\"1.8\" />" +
+          "<line x1=\"" + (midX - 8) + "\" y1=\"" + (barY + ciPx).toFixed(1) + "\" x2=\"" + (midX + 8) + "\" y2=\"" + (barY + ciPx).toFixed(1) + "\" stroke=\"#1f1a17\" stroke-width=\"1.8\" />" +
+          "<text x=\"" + midX + "\" y=\"" + (H - padB + 14) + "\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#3f3329\">" + m.label + "</text>" +
+          "<text x=\"" + midX + "\" y=\"" + (barY - ciPx - 5).toFixed(1) + "\" text-anchor=\"middle\" font-size=\"9.5\" fill=\"#1f1a17\">" + m.mean.toFixed(1) + "</text>"
+        );
+      }).join("");
+      return (
+        "<svg viewBox=\"0 0 " + W + " " + H + "\" width=\"100%\" height=\"" + H + "\" role=\"img\" aria-label=\"Batch CI bar chart\">" +
+        "<rect x=\"0\" y=\"0\" width=\"" + W + "\" height=\"" + H + "\" fill=\"#fffdf9\" />" +
+        "<line x1=\"" + padL + "\" y1=\"" + padT + "\" x2=\"" + padL + "\" y2=\"" + (H - padB) + "\" stroke=\"#d9ccba\" />" +
+        "<line x1=\"" + padL + "\" y1=\"" + (H - padB) + "\" x2=\"" + (W - padR) + "\" y2=\"" + (H - padB) + "\" stroke=\"#d9ccba\" />" +
+        bars +
+        "<text x=\"" + (W / 2) + "\" y=\"" + (padT - 4) + "\" text-anchor=\"middle\" font-size=\"10\" fill=\"#7a5a3a\">Error bars = 95% CI</text>" +
+        "</svg>"
+      );
+    }
+
+    buildGridSnapshotDataUrl() {
+      try { return this.canvas ? this.canvas.toDataURL("image/png") : null; } catch (e) { return null; }
+    }
+
+    buildBatchHeatmapSnapshotDataUrl() {
+      try { return this.batchHeatmapCanvas ? this.batchHeatmapCanvas.toDataURL("image/png") : null; } catch (e) { return null; }
+    }
+
     buildHtmlExperimentReport(options) {
-      const { scope, sections } = options;
+      const { scope, sections, charts = [] } = options;
       const include = (section) => sections.includes(section) && this.scopeAllowsSection(scope, section);
+      const includeChart = (key) => charts.includes(key);
       const title = "Human Mate Choice Models - Experiment Report";
       const now = new Date();
       const reportData = this.buildPreviewReportData();
@@ -3958,8 +4043,12 @@ class MateChoiceSimulation {
         .map((node) => (node ? node.textContent : ""))
         .filter((text) => !!text)
         .join(" ");
-      const latestChartSvg = run && run.metrics ? this.buildLatestMetricsChartSvg(run.metrics) : "";
-      const trendChartSvg = this.buildRunHistoryTrendSvg();
+      const latestChartSvg = (includeChart("chart-metrics-bar") && run && run.metrics) ? this.buildLatestMetricsChartSvg(run.metrics) : "";
+      const trendChartSvg = includeChart("chart-strength-trend") ? this.buildRunHistoryTrendSvg() : "";
+      const correlationSvg = includeChart("chart-correlation") ? this.buildCorrelationScatterSvg() : "";
+      const batchCiSvg = includeChart("chart-batch-ci") ? this.buildBatchCiBarSvg() : "";
+      const gridSnapshotUrl = includeChart("chart-grid-snapshot") ? this.buildGridSnapshotDataUrl() : null;
+      const heatmapSnapshotUrl = includeChart("chart-heatmap-snapshot") ? this.buildBatchHeatmapSnapshotDataUrl() : null;
 
       return (
         "<!DOCTYPE html><html><head><meta charset=\"UTF-8\" /><title>" +
@@ -4111,6 +4200,14 @@ class MateChoiceSimulation {
             scope +
             "</td></tr></tbody></table></section>"
           : "") +
+        (() => {
+          const figs = [];
+          if (correlationSvg) figs.push("<div class=\"chart-card\"><p class=\"chart-title\">Figure 3. Pairs formed vs. Matching strength &mdash; scatter plot with OLS regression line (dashed). Each point represents one tracked run; <em>r</em> is the Pearson correlation.</p>" + correlationSvg + "</div>");
+          if (batchCiSvg) figs.push("<div class=\"chart-card\"><p class=\"chart-title\">Figure 4. Batch experiment key metrics with 95% confidence intervals.</p>" + batchCiSvg + "</div>");
+          if (gridSnapshotUrl) figs.push("<div class=\"chart-card\"><p class=\"chart-title\">Figure 5. Simulation grid &mdash; snapshot at last run state.</p><img src=\"" + gridSnapshotUrl + "\" style=\"max-width:100%;border-radius:6px;margin-top:6px\" alt=\"Simulation grid snapshot\" /></div>");
+          if (heatmapSnapshotUrl) figs.push("<div class=\"chart-card\"><p class=\"chart-title\">Figure 6. Batch pairing hotspot heatmap &mdash; accumulated pairing frequency across batch runs.</p><img src=\"" + heatmapSnapshotUrl + "\" style=\"max-width:100%;border-radius:6px;margin-top:6px\" alt=\"Batch heatmap snapshot\" /></div>");
+          return figs.length ? "<section><h2>Supplemental Figures</h2>" + figs.join("") + "</section>" : "";
+        })() +
         "</body></html>"
       );
     }
