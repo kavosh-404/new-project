@@ -3964,15 +3964,75 @@ class MateChoiceSimulation {
       return (
         "<!DOCTYPE html><html><head><meta charset=\"UTF-8\" /><title>" +
         title +
-        "</title><style>body{font-family:Georgia,\"Times New Roman\",serif;margin:34px;color:#1f1a17;line-height:1.45}h1{font-size:28px;margin:0 0 8px}h2{font-size:18px;margin:22px 0 8px;border-bottom:1px solid #d9ccba;padding-bottom:4px}p{margin:8px 0}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #dccfbd;padding:6px 8px;font-size:13px;text-align:left}th{background:#f5eee4}header{margin-bottom:14px}.meta{color:#4b3b2e;font-size:13px}.abstract{background:#f8f2e9;border:1px solid #e3d8c8;padding:10px 12px;border-radius:8px}.chart-card{border:1px solid #e0d2bf;background:#fff;border-radius:10px;padding:10px 12px;margin-top:10px}.chart-title{margin:0 0 6px;font-size:14px;color:#3f3329}</style></head><body>" +
-        "<header><h1>" +
-        title +
-        "</h1><p class=\"meta\">Generated: " +
-        now.toLocaleString() +
-        " | Scope: " +
-        scope +
-        "</p></header>" +
-        "<section class=\"abstract\"><strong>Abstract.</strong> This report summarizes simulation outcomes for human mate-choice dynamics, including spatial constraints, preference rules, and comparative run evidence captured in this session.</section>" +
+        "</title><style>" +
+        "body{font-family:Georgia,\"Times New Roman\",serif;margin:40px auto;max-width:820px;color:#1f1a17;line-height:1.6;padding:0 20px}" +
+        "h1{font-size:26px;margin:0 0 6px;line-height:1.3}" +
+        "h2{font-size:16px;font-variant:small-caps;letter-spacing:.04em;margin:28px 0 8px;border-bottom:1px solid #d9ccba;padding-bottom:4px;color:#3a2a1e}" +
+        "p{margin:8px 0}" +
+        "table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}" +
+        "th,td{border:1px solid #dccfbd;padding:6px 10px;text-align:left}" +
+        "th{background:#f5eee4;font-weight:600}" +
+        "header{border-bottom:2px solid #c8b89a;margin-bottom:18px;padding-bottom:14px}" +
+        ".authors{font-style:italic;font-size:14px;color:#5a4a3a;margin:4px 0}" +
+        ".meta{color:#7a6a5a;font-size:12px;margin-top:6px}" +
+        ".abstract-box{background:#fdfaf5;border-left:4px solid #b8905a;padding:14px 18px;border-radius:0 6px 6px 0;margin:18px 0 24px}" +
+        ".abstract-box h2{border:none;margin:0 0 12px;font-size:14px;text-transform:uppercase;letter-spacing:.1em;color:#7a5a3a}" +
+        ".abstract-row{display:grid;grid-template-columns:118px 1fr;gap:4px 10px;margin:6px 0;font-size:13.5px;line-height:1.55}" +
+        ".abstract-label{font-weight:700;color:#5a3a1e;padding-top:1px}" +
+        ".abstract-kw{margin-top:12px;font-size:12.5px;color:#5a4a3a;border-top:1px solid #e0d0bb;padding-top:8px}" +
+        ".chart-card{border:1px solid #e0d2bf;background:#fff;border-radius:8px;padding:10px 14px;margin-top:12px}" +
+        ".chart-title{margin:0 0 6px;font-size:13px;font-style:italic;color:#3f3329}" +
+        "</style></head><body>" +
+        (() => {
+          // Build dynamic abstract text from real simulation data
+          const agentCount = (settingsRows.find(r => r[0].toLowerCase().includes("agent")) || [])[1] || "N";
+          const modeLabel = (settingsRows.find(r => r[0].toLowerCase().includes("mode")) || [])[1] || "configured";
+          const prefLabel = (settingsRows.find(r => r[0].toLowerCase().includes("preference")) || [])[1] || "specified";
+          const runCount = this.runHistory.length;
+          const hasLatest = run && run.metrics;
+          const hasBatch = !!batch;
+
+          const background = "Agent-based computational models provide tractable frameworks for investigating the population-level consequences of individual-level mate-choice rules. This experiment uses a spatially explicit simulation platform to explore how preference specificity, agent density, and mobility constraints shape assortative pairing outcomes.";
+
+          let methods = `A mate-choice simulation was configured with ${agentCount} agents operating under a <em>${modeLabel}</em> placement mode with <em>${prefLabel}</em> preference rules.`;
+          if (hasLatest) {
+            methods += ` A total of ${runCount} run${runCount !== 1 ? "s" : ""} were recorded in this session.`;
+          }
+          if (hasBatch) {
+            methods += ` A batch of <em>n</em> = ${batch.runCount} paired simulations was conducted to estimate parameter distributions.`;
+          }
+
+          let results = "No run metrics are currently available.";
+          if (hasLatest) {
+            results = `The latest run produced ${run.metrics.pairCount} paired agents (matching strength = ${run.metrics.matchingStrength.toFixed(3)}; average search steps = ${run.metrics.averageSearchSteps.toFixed(2)}).`;
+            if (hasBatch) {
+              results += ` Across the batch, mean pair count was ${batch.pairStats.mean.toFixed(1)} (95% CI: ${batch.pairStats.ciLow.toFixed(1)}–${batch.pairStats.ciHigh.toFixed(1)}) and mean matching strength was ${batch.strengthStats.mean.toFixed(3)} (95% CI: ${batch.strengthStats.ciLow.toFixed(3)}–${batch.strengthStats.ciHigh.toFixed(3)}).`;
+              const delta = (batch.spatialStats.mean - batch.nonSpatialStats.mean);
+              const dir = delta > 0 ? "higher" : "lower";
+              results += ` Spatial placement yielded ${Math.abs(delta).toFixed(3)} ${dir} mean strength than non-spatial placement.`;
+            }
+          }
+
+          const conclusions = "These findings demonstrate how spatial and preference parameters interact to constrain partner availability and assortative matching efficiency. The simulation results are consistent with theoretical predictions from evolutionary mate-choice models and may inform classroom discussion of sexual selection, search costs, and assortative mating in human populations.";
+
+          const keywords = [modeLabel, prefLabel, "mate choice", "agent-based model", "assortative mating", "spatial constraint"].filter(Boolean).join("; ");
+
+          return (
+            "<header>" +
+            "<h1>" + title + "</h1>" +
+            "<p class=\"authors\">Simulation Report &mdash; Interactive Human Mate Choice Platform</p>" +
+            "<p class=\"meta\">Generated: " + now.toLocaleString() + "&ensp;|&ensp;Scope: " + scope + "&ensp;|&ensp;Session runs: " + runCount + "</p>" +
+            "</header>" +
+            "<div class=\"abstract-box\">" +
+            "<h2>Abstract</h2>" +
+            "<div class=\"abstract-row\"><span class=\"abstract-label\">Background:</span><span>" + background + "</span></div>" +
+            "<div class=\"abstract-row\"><span class=\"abstract-label\">Methods:</span><span>" + methods + "</span></div>" +
+            "<div class=\"abstract-row\"><span class=\"abstract-label\">Results:</span><span>" + results + "</span></div>" +
+            "<div class=\"abstract-row\"><span class=\"abstract-label\">Conclusions:</span><span>" + conclusions + "</span></div>" +
+            "<p class=\"abstract-kw\"><strong>Keywords:</strong> " + keywords + "</p>" +
+            "</div>"
+          );
+        })() +
         (include("settings")
           ? "<section><h2>Methods - Simulation Settings</h2><table><tbody>" + settingsTable + "</tbody></table></section>"
           : "") +
