@@ -73,6 +73,7 @@ class MateChoiceSimulation {
       this.batchSnapshotNote = document.getElementById("batch-snapshot-note");
       this.batchHeatmapCanvas = document.getElementById("batch-heatmap-canvas");
       this.batchHeatmapNote = document.getElementById("batch-heatmap-note");
+      this.batchHeatmapTooltip = document.getElementById("batch-heatmap-tooltip");
       this.csvPreview = document.getElementById("csv-preview");
       this.csvPreviewContent = document.getElementById("csv-preview-content");
       this.previewIntroText = document.getElementById("preview-intro-text");
@@ -172,6 +173,7 @@ class MateChoiceSimulation {
       this.debounceTimer = null;
       this.ruleHazardHoverData = null;
       this.ruleHazardZoomHoverData = null;
+      this.batchHeatmapHoverData = null;
       this.lastRuleAnalyticsRows = null;
       this.hazardSeriesSelection = {};
       this.autoHighlightedSeriesLabels = [];
@@ -251,6 +253,7 @@ class MateChoiceSimulation {
         this.runBatchButton.addEventListener("click", this.handleBatchRun);
       }
       this.bindHazardTooltipEvents();
+      this.bindBatchHeatmapTooltipEvents();
       this.bindHazardExplorerEvents();
       this.bindControlHelpTooltips();
       if (this.canvas) {
@@ -1240,6 +1243,8 @@ class MateChoiceSimulation {
           this.batchHeatmapNote.textContent =
             "Pairing hotspot map: no matched-pair events accumulated yet.";
         }
+        this.batchHeatmapHoverData = null;
+        this.hideHazardTooltip(this.batchHeatmapTooltip);
         return;
       }
 
@@ -1271,12 +1276,76 @@ class MateChoiceSimulation {
 
       const processed = meta && typeof meta.processed === "number" ? meta.processed : accumulator.samples;
       const total = meta && typeof meta.total === "number" ? meta.total : accumulator.samples;
+
+      this.batchHeatmapHoverData = {
+        pad,
+        innerWidth,
+        innerHeight,
+        cellW,
+        cellH,
+        rows: accumulator.rows,
+        columns: accumulator.columns,
+        grid: accumulator.grid,
+        pairEvents: accumulator.pairEvents,
+        maxCellCount,
+      };
+
       if (this.batchHeatmapNote) {
         this.batchHeatmapNote.textContent =
           "Pairing hotspots from " + processed + "/" + total +
           " sampled runs, based on " + accumulator.pairEvents +
           " matched-pair events. Brighter cells mark stronger concentration of pair formation.";
       }
+    }
+
+    bindBatchHeatmapTooltipEvents() {
+      if (!this.batchHeatmapCanvas || !this.batchHeatmapTooltip) return;
+
+      this.batchHeatmapCanvas.addEventListener("mousemove", (event) => this.handleBatchHeatmapTooltipMove(event));
+      this.batchHeatmapCanvas.addEventListener("mouseleave", () => this.hideHazardTooltip(this.batchHeatmapTooltip));
+    }
+
+    handleBatchHeatmapTooltipMove(event) {
+      if (!this.batchHeatmapCanvas || !this.batchHeatmapTooltip || !this.batchHeatmapHoverData) {
+        return;
+      }
+
+      const hoverData = this.batchHeatmapHoverData;
+      const rect = this.batchHeatmapCanvas.getBoundingClientRect();
+      const localX = event.clientX - rect.left;
+      const localY = event.clientY - rect.top;
+
+      const inBounds =
+        localX >= hoverData.pad &&
+        localX <= hoverData.pad + hoverData.innerWidth &&
+        localY >= hoverData.pad &&
+        localY <= hoverData.pad + hoverData.innerHeight;
+
+      if (!inBounds) {
+        this.hideHazardTooltip(this.batchHeatmapTooltip);
+        return;
+      }
+
+      const col = this.clamp(Math.floor((localX - hoverData.pad) / hoverData.cellW), 0, hoverData.columns - 1);
+      const row = this.clamp(Math.floor((localY - hoverData.pad) / hoverData.cellH), 0, hoverData.rows - 1);
+      const count = hoverData.grid[row][col] || 0;
+      const sharePercent = hoverData.pairEvents > 0 ? (count / hoverData.pairEvents) * 100 : 0;
+      const intensityPercent = hoverData.maxCellCount > 0 ? (count / hoverData.maxCellCount) * 100 : 0;
+
+      this.batchHeatmapTooltip.innerHTML =
+        "Cell r" + (row + 1) + ", c" + (col + 1) + "<br>" +
+        "Pair events: " + count + "<br>" +
+        "Share of events: " + sharePercent.toFixed(2) + "%<br>" +
+        "Relative intensity: " + intensityPercent.toFixed(1) + "%";
+
+      const parentRect = this.batchHeatmapCanvas.parentElement
+        ? this.batchHeatmapCanvas.parentElement.getBoundingClientRect()
+        : rect;
+      const tooltipX = event.clientX - parentRect.left + 12;
+      const tooltipY = event.clientY - parentRect.top - 8;
+      this.batchHeatmapTooltip.style.left = Math.min(tooltipX, parentRect.width - 240) + "px";
+      this.batchHeatmapTooltip.style.top = Math.max(tooltipY, 24) + "px";
+      this.batchHeatmapTooltip.classList.add("is-visible");
     }
 
     stopBatchGhostAnimation() {

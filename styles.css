@@ -1107,6 +1107,7 @@ input[type="range"]:disabled {
 }
 
 .batch-heatmap {
+  position: relative;
   margin-top: 0.2rem;
   padding: 0.45rem 0.55rem 0.55rem;
   border: 1px solid rgba(79, 57, 36, 0.14);
