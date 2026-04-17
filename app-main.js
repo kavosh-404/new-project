@@ -807,6 +807,7 @@ class MateChoiceSimulation {
         this.renderInsightQuestions();
         this.draw();
         this.showBatchSummary(runCount, pairStats, strengthStats, searchStats, spatialStats, nonSpatialStats);
+        this.recordBatchForComparison(runCount, pairStats, strengthStats, searchStats, spatialStats, nonSpatialStats);
 
         this.status.textContent =
           "Batch complete: " +
@@ -1137,6 +1138,7 @@ class MateChoiceSimulation {
         " (95% CI " + spatialStats.ciLow.toFixed(2) + " to " + spatialStats.ciHigh.toFixed(2) + ")</li>" +
         "<li>Non-spatial r: " + nonSpatialStats.mean.toFixed(2) +
         " (95% CI " + nonSpatialStats.ciLow.toFixed(2) + " to " + nonSpatialStats.ciHigh.toFixed(2) + ")</li>" +
+        "<li><strong>Note:</strong> Batch values are aggregate statistics and are not added to Run Comparison rows.</li>" +
         "</ul>";
       this.batchSummary.classList.add("is-visible");
     }
@@ -3842,6 +3844,7 @@ class MateChoiceSimulation {
       const run = this.state.lastRun;
       this.runHistory.push({
         id: this.nextRunId,
+        entryType: "single",
         mode: modeLabel,
         density: run.densityLevel,
         mobility: run.mobilityLevel,
@@ -3850,6 +3853,31 @@ class MateChoiceSimulation {
         pairCount: run.metrics.pairCount,
         strength: run.metrics.matchingStrength,
         search: run.metrics.averageSearchSteps,
+      });
+      this.nextRunId += 1;
+
+      if (this.runHistory.length > this.maxRunHistory) {
+        this.runHistory = this.runHistory.slice(this.runHistory.length - this.maxRunHistory);
+      }
+
+      this.renderRunComparison();
+    }
+
+    recordBatchForComparison(runCount, pairStats, strengthStats, searchStats, spatialStats, nonSpatialStats) {
+      this.runHistory.push({
+        id: this.nextRunId,
+        entryType: "batch",
+        mode: "Batch",
+        density: "Mixed",
+        mobility: "Mixed",
+        preference: "Aggregate",
+        radiusMultiplier: 1,
+        batchN: runCount,
+        pairCount: pairStats.mean,
+        strength: strengthStats.mean,
+        search: searchStats.mean,
+        spatialStrength: spatialStats.mean,
+        nonSpatialStrength: nonSpatialStats.mean,
       });
       this.nextRunId += 1;
 
@@ -3870,10 +3898,10 @@ class MateChoiceSimulation {
       if (!this.runComparisonBody) return;
 
       if (!this.runHistory.length) {
-        this.runComparisonBody.innerHTML = "<tr><td colspan=\"6\">No completed runs yet. Run once to set a baseline, then change one setting and rerun.</td></tr>";
+        this.runComparisonBody.innerHTML = "<tr><td colspan=\"6\">No completed runs yet. Run once to set a baseline, then change one setting and rerun. Batch entries are labeled.</td></tr>";
         if (this.runComparisonSummary) {
           this.runComparisonSummary.textContent =
-            "Start with one baseline run. Your next run will show clear deltas in pairs, strength, and search.";
+            "Start with one baseline run. Batch rows are labeled and summarize aggregate means.";
         }
         return;
       }
@@ -3883,9 +3911,20 @@ class MateChoiceSimulation {
           const prev = index > 0 ? this.runHistory[index - 1] : null;
           const deltaPairs = prev ? run.pairCount - prev.pairCount : 0;
           const deltaStrength = prev ? run.strength - prev.strength : 0;
+          const pairsText = run.entryType === "batch" ? run.pairCount.toFixed(1) : String(run.pairCount);
+          const searchText = run.search.toFixed(1);
+          const scenarioText = run.entryType === "batch"
+            ? "Batch n=" + run.batchN + " (aggregate means)"
+            : run.density +
+              " / " +
+              run.mobility +
+              " / " +
+              run.preference +
+              " / R x" +
+              run.radiusMultiplier.toFixed(1);
           const deltaText = prev
             ? (deltaPairs >= 0 ? "+" : "") +
-              deltaPairs +
+              deltaPairs.toFixed(1) +
               " pairs, " +
               (deltaStrength >= 0 ? "+" : "") +
               deltaStrength.toFixed(2) +
@@ -3894,19 +3933,11 @@ class MateChoiceSimulation {
 
           return (
             "<tr>" +
-            "<td>#" + run.id + "</td>" +
-            "<td>" +
-            run.density +
-            " / " +
-            run.mobility +
-            " / " +
-            run.preference +
-            " / R x" +
-            run.radiusMultiplier.toFixed(1) +
-            "</td>" +
-            "<td>" + run.pairCount + "</td>" +
+            "<td>#" + run.id + (run.entryType === "batch" ? " [Batch]" : "") + "</td>" +
+            "<td>" + scenarioText + "</td>" +
+            "<td>" + pairsText + "</td>" +
             "<td>" + run.strength.toFixed(2) + "</td>" +
-            "<td>" + run.search.toFixed(1) + "</td>" +
+            "<td>" + searchText + "</td>" +
             "<td>" + deltaText + "</td>" +
             "</tr>"
           );

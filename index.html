@@ -360,7 +360,7 @@
                     <button class="secondary-button" id="clear-run-comparison" type="button">Clear history</button>
                   </div>
                   <p class="run-comparison-summary" id="run-comparison-summary">
-                    Run at least two simulations to compare outcomes side-by-side.
+                    Compare completed runs side-by-side. Batch entries are labeled and show aggregate means.
                   </p>
                   <div class="run-comparison-table-wrap">
                     <table class="run-comparison-table" aria-label="Comparison of recent simulation runs">
@@ -376,7 +376,7 @@
                       </thead>
                       <tbody id="run-comparison-body">
                         <tr>
-                          <td colspan="6">No completed runs yet. Run once to set a baseline, then change one setting and rerun.</td>
+                          <td colspan="6">No completed runs yet. Run once to set a baseline, then change one setting and rerun. Batch entries are labeled.</td>
                         </tr>
                       </tbody>
                     </table>
@@ -397,6 +397,7 @@
                       <option>100</option>
                     </select>
                     <small class="control-hint">Repeats the simulation many times to estimate means and 95% confidence intervals.</small>
+                    <small class="control-hint">Batch output is aggregate; a labeled summary row is also added to Run Comparison.</small>
                   </label>
                   <button class="secondary-button" id="run-batch" type="button">Run batch experiment</button>
                 </div>
