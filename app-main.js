@@ -61,6 +61,12 @@ class MateChoiceSimulation {
       this.reportBuilderFormatSelect = document.getElementById("report-format");
       this.reportBuilderCloseButton = document.getElementById("report-builder-close");
       this.reportBuilderCloseBackdrop = document.getElementById("report-builder-close-backdrop");
+      this.reportBuilderPreviewButton = document.getElementById("report-builder-preview");
+      this.reportPreviewModal = document.getElementById("report-preview-modal");
+      this.reportPreviewFrame = document.getElementById("report-preview-frame");
+      this.reportPreviewCloseButton = document.getElementById("report-preview-close");
+      this.reportPreviewCloseBackdrop = document.getElementById("report-preview-close-backdrop");
+      this.reportPreviewDownloadButton = document.getElementById("report-preview-download");
       this.batchRunCountSelect = document.getElementById("batch-run-count");
       this.runBatchButton = document.getElementById("run-batch");
       this.batchSummary = document.getElementById("batch-summary");
@@ -213,6 +219,7 @@ class MateChoiceSimulation {
       this.batchAbortRequested = false;
       this.batchRestartRequested = false;
       this.lastBatchReport = null;
+      this.lastGeneratedReport = null;
 
       this.bindEvents();
       this.handleResize();
@@ -365,6 +372,18 @@ class MateChoiceSimulation {
       }
       if (this.reportBuilderForm) {
         this.reportBuilderForm.addEventListener("submit", (event) => this.handleReportBuilderDownload(event));
+      }
+      if (this.reportBuilderPreviewButton) {
+        this.reportBuilderPreviewButton.addEventListener("click", () => this.handleReportBuilderPreview());
+      }
+      if (this.reportPreviewCloseButton) {
+        this.reportPreviewCloseButton.addEventListener("click", () => this.closeReportPreview());
+      }
+      if (this.reportPreviewCloseBackdrop) {
+        this.reportPreviewCloseBackdrop.addEventListener("click", () => this.closeReportPreview());
+      }
+      if (this.reportPreviewDownloadButton) {
+        this.reportPreviewDownloadButton.addEventListener("click", () => this.downloadLastGeneratedReport());
       }
       this.bindLessonPresets();
     }
@@ -3705,41 +3724,94 @@ class MateChoiceSimulation {
       if (!this.reportBuilderModal) return;
       this.reportBuilderModal.classList.add("is-open");
       this.reportBuilderModal.setAttribute("aria-hidden", "false");
+      document.body.style.overflow = "hidden";
     }
 
     closeReportBuilder() {
       if (!this.reportBuilderModal) return;
       this.reportBuilderModal.classList.remove("is-open");
       this.reportBuilderModal.setAttribute("aria-hidden", "true");
+      if (!this.reportPreviewModal || !this.reportPreviewModal.classList.contains("is-open")) {
+        document.body.style.overflow = "";
+      }
     }
 
     handleReportBuilderDownload(event) {
       if (event && event.preventDefault) event.preventDefault();
-      if (!this.reportBuilderForm) return;
+      const reportOptions = this.getReportOptionsFromBuilder();
+      if (!reportOptions) return;
+      this.lastGeneratedReport = {
+        options: reportOptions,
+        text: this.generateReportText(reportOptions),
+      };
+      this.downloadLastGeneratedReport();
+      this.closeReportBuilder();
+      this.addChatMessage("Assistant", "Experiment report downloaded.");
+    }
 
+    handleReportBuilderPreview() {
+      const reportOptions = this.getReportOptionsFromBuilder();
+      if (!reportOptions) return;
+
+      const reportText = this.generateReportText(reportOptions);
+      this.lastGeneratedReport = {
+        options: reportOptions,
+        text: reportText,
+      };
+
+      if (!this.reportPreviewModal || !this.reportPreviewFrame) return;
+      const previewDoc = this.wrapReportForPreview(reportText, reportOptions.format);
+      this.reportPreviewFrame.srcdoc = previewDoc;
+      this.reportPreviewModal.classList.add("is-open");
+      this.reportPreviewModal.setAttribute("aria-hidden", "false");
+      document.body.style.overflow = "hidden";
+    }
+
+    closeReportPreview() {
+      if (!this.reportPreviewModal) return;
+      this.reportPreviewModal.classList.remove("is-open");
+      this.reportPreviewModal.setAttribute("aria-hidden", "true");
+      if (!this.reportBuilderModal || !this.reportBuilderModal.classList.contains("is-open")) {
+        document.body.style.overflow = "";
+      }
+    }
+
+    downloadLastGeneratedReport() {
+      if (!this.lastGeneratedReport) return;
+      const format = this.lastGeneratedReport.options.format;
+      const stamp = new Date().toISOString().slice(0, 10);
+      const extension = format === "md" ? "md" : "html";
+      const mime = format === "md" ? "text/markdown;charset=utf-8;" : "text/html;charset=utf-8;";
+      const blob = new Blob([this.lastGeneratedReport.text], { type: mime });
+      ExportEngine.triggerDownload(blob, "mate-choice-experiment-report-" + stamp + "." + extension);
+    }
+
+    getReportOptionsFromBuilder() {
+      if (!this.reportBuilderForm) return null;
       const scope = this.reportBuilderScopeSelect ? this.reportBuilderScopeSelect.value : "latest-run";
       const format = this.reportBuilderFormatSelect ? this.reportBuilderFormatSelect.value : "html";
       const selectedSectionInputs = Array.from(this.reportBuilderForm.querySelectorAll("input[name=\"report-section\"]:checked"));
       const sections = selectedSectionInputs.map((input) => input.value);
+      if (!sections.length) {
+        this.addChatMessage("Assistant", "Select at least one report section.");
+        return null;
+      }
+      return { scope, format, sections };
+    }
 
-      const reportOptions = {
-        scope,
-        format,
-        sections,
-      };
-
-      const reportText = format === "md"
+    generateReportText(reportOptions) {
+      return reportOptions.format === "md"
         ? this.buildMarkdownExperimentReport(reportOptions)
         : this.buildHtmlExperimentReport(reportOptions);
+    }
 
-      const stamp = new Date().toISOString().slice(0, 10);
-      const extension = format === "md" ? "md" : "html";
-      const mime = format === "md" ? "text/markdown;charset=utf-8;" : "text/html;charset=utf-8;";
-      const blob = new Blob([reportText], { type: mime });
-      ExportEngine.triggerDownload(blob, "mate-choice-experiment-report-" + stamp + "." + extension);
-
-      this.closeReportBuilder();
-      this.addChatMessage("Assistant", "Experiment report downloaded.");
+    wrapReportForPreview(reportText, format) {
+      if (format === "html") return reportText;
+      return (
+        "<!DOCTYPE html><html><head><meta charset=\"UTF-8\" /><title>Markdown Report Preview</title>" +
+        "<style>body{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin:20px;background:#fffdf9;color:#1f1a17}pre{white-space:pre-wrap;line-height:1.45;font-size:13px}</style>" +
+        "</head><body><pre>" + this.escapeHtml(reportText) + "</pre></body></html>"
+      );
     }
 
     scopeAllowsSection(scope, section) {
@@ -3768,6 +3840,83 @@ class MateChoiceSimulation {
         ["Exploration", source.explorationLevel || (this.explorationSelect ? this.explorationSelect.value : "Balanced")],
         ["Agent count", String(source.agentCount || this.getActiveAgentCount())],
       ];
+    }
+
+    escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    buildLatestMetricsChartSvg(runMetrics) {
+      if (!runMetrics) return "";
+      const bars = [
+        { label: "Pairs", value: runMetrics.pairCount, color: "#0f766e" },
+        { label: "Strength", value: runMetrics.matchingStrength * 100, color: "#b45309" },
+        { label: "Search", value: runMetrics.averageSearchSteps, color: "#334155" },
+      ];
+      const maxValue = Math.max(1, ...bars.map((bar) => bar.value));
+      const baseY = 156;
+      const barW = 88;
+      const chartLeft = 44;
+      const gap = 34;
+      const h = 118;
+
+      const rects = bars
+        .map((bar, idx) => {
+          const x = chartLeft + idx * (barW + gap);
+          const barH = (bar.value / maxValue) * h;
+          const y = baseY - barH;
+          return (
+            "<rect x=\"" + x + "\" y=\"" + y.toFixed(1) + "\" width=\"" + barW + "\" height=\"" + barH.toFixed(1) + "\" fill=\"" + bar.color + "\" rx=\"8\" />" +
+            "<text x=\"" + (x + barW / 2) + "\" y=\"174\" text-anchor=\"middle\" font-size=\"11\" fill=\"#3f3329\">" + bar.label + "</text>" +
+            "<text x=\"" + (x + barW / 2) + "\" y=\"" + (y - 6).toFixed(1) + "\" text-anchor=\"middle\" font-size=\"11\" fill=\"#1f1a17\">" + bar.value.toFixed(1) + "</text>"
+          );
+        })
+        .join("");
+
+      return (
+        "<svg viewBox=\"0 0 360 190\" width=\"100%\" height=\"190\" role=\"img\" aria-label=\"Latest run metric chart\">" +
+        "<rect x=\"0\" y=\"0\" width=\"360\" height=\"190\" fill=\"#fffdf9\" />" +
+        "<line x1=\"36\" y1=\"156\" x2=\"334\" y2=\"156\" stroke=\"#d9ccba\" />" +
+        rects +
+        "</svg>"
+      );
+    }
+
+    buildRunHistoryTrendSvg() {
+      if (!this.runHistory || this.runHistory.length < 2) return "";
+      const points = this.runHistory.map((entry, index) => ({
+        x: 34 + index * ((360 - 68) / Math.max(1, this.runHistory.length - 1)),
+        yValue: entry.strength,
+      }));
+      let max = 0;
+      points.forEach((p) => {
+        max = Math.max(max, p.yValue);
+      });
+      const safeMax = Math.max(0.05, max);
+      const poly = points
+        .map((p) => {
+          const y = 156 - (p.yValue / safeMax) * 108;
+          return p.x.toFixed(1) + "," + y.toFixed(1);
+        })
+        .join(" ");
+      return (
+        "<svg viewBox=\"0 0 360 190\" width=\"100%\" height=\"190\" role=\"img\" aria-label=\"Run strength trend\">" +
+        "<rect x=\"0\" y=\"0\" width=\"360\" height=\"190\" fill=\"#fffdf9\" />" +
+        "<line x1=\"30\" y1=\"156\" x2=\"334\" y2=\"156\" stroke=\"#d9ccba\" />" +
+        "<polyline fill=\"none\" stroke=\"#0f766e\" stroke-width=\"2.4\" points=\"" + poly + "\" />" +
+        points
+          .map((p) => {
+            const y = 156 - (p.yValue / safeMax) * 108;
+            return "<circle cx=\"" + p.x.toFixed(1) + "\" cy=\"" + y.toFixed(1) + "\" r=\"3.2\" fill=\"#0f766e\" />";
+          })
+          .join("") +
+        "</svg>"
+      );
     }
 
     buildHtmlExperimentReport(options) {
@@ -3809,11 +3958,13 @@ class MateChoiceSimulation {
         .map((node) => (node ? node.textContent : ""))
         .filter((text) => !!text)
         .join(" ");
+      const latestChartSvg = run && run.metrics ? this.buildLatestMetricsChartSvg(run.metrics) : "";
+      const trendChartSvg = this.buildRunHistoryTrendSvg();
 
       return (
         "<!DOCTYPE html><html><head><meta charset=\"UTF-8\" /><title>" +
         title +
-        "</title><style>body{font-family:Georgia,\"Times New Roman\",serif;margin:34px;color:#1f1a17;line-height:1.45}h1{font-size:28px;margin:0 0 8px}h2{font-size:18px;margin:22px 0 8px;border-bottom:1px solid #d9ccba;padding-bottom:4px}p{margin:8px 0}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #dccfbd;padding:6px 8px;font-size:13px;text-align:left}th{background:#f5eee4}header{margin-bottom:14px}.meta{color:#4b3b2e;font-size:13px}.abstract{background:#f8f2e9;border:1px solid #e3d8c8;padding:10px 12px;border-radius:8px}</style></head><body>" +
+        "</title><style>body{font-family:Georgia,\"Times New Roman\",serif;margin:34px;color:#1f1a17;line-height:1.45}h1{font-size:28px;margin:0 0 8px}h2{font-size:18px;margin:22px 0 8px;border-bottom:1px solid #d9ccba;padding-bottom:4px}p{margin:8px 0}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #dccfbd;padding:6px 8px;font-size:13px;text-align:left}th{background:#f5eee4}header{margin-bottom:14px}.meta{color:#4b3b2e;font-size:13px}.abstract{background:#f8f2e9;border:1px solid #e3d8c8;padding:10px 12px;border-radius:8px}.chart-card{border:1px solid #e0d2bf;background:#fff;border-radius:10px;padding:10px 12px;margin-top:10px}.chart-title{margin:0 0 6px;font-size:14px;color:#3f3329}</style></head><body>" +
         "<header><h1>" +
         title +
         "</h1><p class=\"meta\">Generated: " +
@@ -3836,7 +3987,8 @@ class MateChoiceSimulation {
                 run.metrics.averageSearchSteps.toFixed(2) +
                 "</td></tr><tr><th>Matched agents</th><td>" +
                 run.metrics.matchedCount +
-                "</td></tr></tbody></table>"
+                "</td></tr></tbody></table>" +
+                (latestChartSvg ? "<div class=\"chart-card\"><p class=\"chart-title\">Figure 1. Core run metrics</p>" + latestChartSvg + "</div>" : "")
               : "<p>No latest run metrics are available.</p>") +
             "</section>"
           : "") +
@@ -3874,7 +4026,9 @@ class MateChoiceSimulation {
         (include("comparison")
           ? "<section><h2>Run Comparison History</h2><table><thead><tr><th>Run</th><th>Scenario</th><th>Pairs</th><th>Strength</th><th>Avg search</th></tr></thead><tbody>" +
             comparisonRows +
-            "</tbody></table></section>"
+            "</tbody></table>" +
+            (trendChartSvg ? "<div class=\"chart-card\"><p class=\"chart-title\">Figure 2. Matching-strength trend across tracked runs</p>" + trendChartSvg + "</div>" : "") +
+            "</section>"
           : "") +
         (include("findings")
           ? "<section><h2>Interpretation and Findings</h2><p>" +
