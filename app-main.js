@@ -31,6 +31,8 @@ class MateChoiceSimulation {
       this.runButton = document.getElementById("run-simulation");
       this.stepButton = document.getElementById("step-simulation");
       this.resetButton = document.getElementById("reset-simulation");
+      this.runStateChip = document.getElementById("run-state-chip");
+      this.runStepChip = document.getElementById("run-step-chip");
       this.status = document.getElementById("simulation-status");
       this.decisionStatus = document.getElementById("decision-status");
       this.barBothAccept = document.getElementById("bar-both-accept");
@@ -174,6 +176,7 @@ class MateChoiceSimulation {
       this.initChat();
       this.renderRunComparison();
       this.updateRunInterpretation(null);
+      this.updateRunStateChips();
     }
 
     bindEvents() {
@@ -524,6 +527,7 @@ class MateChoiceSimulation {
       this.runButton.textContent = "Pause Simulation";
       if (this.stepButton) this.stepButton.disabled = true;
       this.status.textContent = "Simulation started. Agents are interacting now.";
+      this.updateRunStateChips();
       this.draw();
       this.scheduleSummaryScrollAfterStart();
       this.animate(true);
@@ -1226,6 +1230,8 @@ class MateChoiceSimulation {
       const pairCount = this.state.pairs.length;
       const modelType = this.modelTypeSelect ? this.modelTypeSelect.value : "Spatial";
 
+      this.updateRunStateChips(isComplete);
+
       if (isComplete) {
         this.status.textContent =
           "Simulation complete: " +
@@ -1265,6 +1271,28 @@ class MateChoiceSimulation {
         ", speed x" +
         this.getSpeedMultiplier().toFixed(1) +
         ").";
+    }
+
+    updateRunStateChips(isComplete = false) {
+      if (!this.runStateChip || !this.runStepChip) return;
+
+      let stateLabel = "Idle";
+      let stateClass = "idle";
+
+      if (isComplete || this.state.step >= STEP_COUNT) {
+        stateLabel = "Complete";
+        stateClass = "complete";
+      } else if (this.state.isRunning) {
+        stateLabel = "Running";
+        stateClass = "running";
+      } else if (this.state.step > 0) {
+        stateLabel = "Paused";
+        stateClass = "paused";
+      }
+
+      this.runStateChip.textContent = stateLabel;
+      this.runStateChip.className = "run-meta-chip run-meta-state " + stateClass;
+      this.runStepChip.textContent = this.state.step + "/" + STEP_COUNT;
     }
 
     updateDecisionStatus() {

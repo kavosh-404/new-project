@@ -619,6 +619,59 @@ input[type="range"]:disabled {
   padding: 0.55rem 0.7rem;
 }
 
+.run-meta {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.run-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  padding: 0.32rem 0.62rem;
+  border-radius: 999px;
+  border: 1px solid rgba(79, 57, 36, 0.14);
+  background: rgba(255, 253, 249, 0.84);
+  color: #3b2f25;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.run-meta-state.idle {
+  background: rgba(107, 114, 128, 0.12);
+  border-color: rgba(107, 114, 128, 0.2);
+  color: #4b5563;
+}
+
+.run-meta-state.running {
+  background: rgba(15, 118, 110, 0.14);
+  border-color: rgba(15, 118, 110, 0.28);
+  color: #0f4f4a;
+}
+
+.run-meta-state.paused {
+  background: rgba(185, 130, 54, 0.16);
+  border-color: rgba(185, 130, 54, 0.26);
+  color: #8a5a10;
+}
+
+.run-meta-state.complete {
+  background: rgba(22, 163, 74, 0.14);
+  border-color: rgba(22, 163, 74, 0.25);
+  color: #166534;
+}
+
+.run-meta-step {
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-size: 0.8rem;
+}
+
 .run-button {
   position: relative;
   z-index: 1;
@@ -1670,6 +1723,12 @@ input[type="range"]:disabled {
   .site-shell {
     width: min(100% - 1.25rem, 1200px);
     padding-top: 2rem;
+  }
+
+  .run-meta {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
   }
 }
 
