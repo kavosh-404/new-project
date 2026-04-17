@@ -4203,12 +4203,39 @@ class MateChoiceSimulation {
           : "") +
         (() => {
           const figs = [];
-          if (correlationSvg) figs.push("<div class=\"chart-card\"><p class=\"chart-title\">Figure 3. Pairs formed vs. Matching strength &mdash; scatter plot with OLS regression line (dashed). Each point represents one tracked run; <em>r</em> is the Pearson correlation.</p>" + correlationSvg + "</div>");
-          if (batchCiSvg) figs.push("<div class=\"chart-card\"><p class=\"chart-title\">Figure 4. Batch experiment key metrics with 95% confidence intervals.</p>" + batchCiSvg + "</div>");
-          if (gridSnapshotUrl) figs.push("<div class=\"chart-card\"><p class=\"chart-title\">Figure 5. Simulation grid &mdash; snapshot at last run state.</p><img src=\"" + gridSnapshotUrl + "\" style=\"max-width:100%;border-radius:6px;margin-top:6px\" alt=\"Simulation grid snapshot\" /></div>");
-          if (heatmapSnapshotUrl) figs.push("<div class=\"chart-card\"><p class=\"chart-title\">Figure 6. Batch pairing hotspot heatmap &mdash; accumulated pairing frequency across batch runs.</p><img src=\"" + heatmapSnapshotUrl + "\" style=\"max-width:100%;border-radius:6px;margin-top:6px\" alt=\"Batch heatmap snapshot\" /></div>");
-          if (fieldSnapshotUrl) figs.push("<div class=\"chart-card\"><p class=\"chart-title\">Figure 7. Batch 3D / field view &mdash; statistical average field rendered at the end of the batch experiment.</p><img src=\"" + fieldSnapshotUrl + "\" style=\"max-width:100%;border-radius:6px;margin-top:6px\" alt=\"Batch 3D field snapshot\" /></div>");
-          return figs.length ? "<section><h2>Supplemental Figures</h2>" + figs.join("") + "</section>" : "";
+          if (correlationSvg) figs.push(
+            "<div class=\"chart-card\">" +
+            "<p class=\"chart-title\">Figure 3. Pairs formed vs. Matching strength &mdash; Pearson correlation scatter plot.</p>" +
+            "<p style=\"font-size:12.5px;color:#5a4a3a;margin:4px 0 8px\">Each point represents one tracked simulation run. The dashed orange line is the ordinary least-squares regression line. The Pearson <em>r</em> coefficient (top-right) quantifies the linear association between the number of pairs formed and the matching strength achieved; values closer to &plusmn;1 indicate a stronger relationship, while values near 0 suggest no linear trend. A positive <em>r</em> implies that conditions producing more pairs also tend to yield higher assortative matching quality.</p>" +
+            correlationSvg + "</div>"
+          );
+          if (batchCiSvg) figs.push(
+            "<div class=\"chart-card\">" +
+            "<p class=\"chart-title\">Figure 4. Batch experiment key metrics with 95% confidence intervals.</p>" +
+            "<p style=\"font-size:12.5px;color:#5a4a3a;margin:4px 0 8px\">Bar heights represent the mean value for each metric across all batch runs. The vertical error bars (whiskers) denote the 95% confidence interval estimated as &plusmn;1.96 &times; (SD / &radic;<em>n</em>), providing a measure of the precision of each mean estimate. Strength is scaled &times;100 for visual comparability. Narrow CI bars indicate high reproducibility across repeated runs under the same parameter set.</p>" +
+            batchCiSvg + "</div>"
+          );
+          if (gridSnapshotUrl) figs.push(
+            "<div class=\"chart-card\">" +
+            "<p class=\"chart-title\">Figure 5. Simulation grid &mdash; snapshot at last run state.</p>" +
+            "<p style=\"font-size:12.5px;color:#5a4a3a;margin:4px 0 8px\">This image captures the spatial layout of agents at the conclusion of the most recent simulation run. Paired agents are shown in their final positions; unpaired agents remain distributed across the grid. The spatial arrangement reflects the combined effect of mobility, density, and placement mode on partner search outcomes. Areas of higher agent clustering may correspond to elevated pairing rates visible in the heatmap (Figure 6).</p>" +
+            "<img src=\"" + gridSnapshotUrl + "\" style=\"max-width:100%;border-radius:6px;margin-top:6px\" alt=\"Simulation grid snapshot\" /></div>"
+          );
+          if (heatmapSnapshotUrl) figs.push(
+            "<div class=\"chart-card\">" +
+            "<p class=\"chart-title\">Figure 6. Batch pairing hotspot heatmap &mdash; accumulated pairing frequency across batch runs.</p>" +
+            "<p style=\"font-size:12.5px;color:#5a4a3a;margin:4px 0 8px\">The heatmap overlays the grid with a colour-coded frequency surface representing how often each spatial cell was the site of a pairing event across all batch runs. Warmer colours indicate cells where pairings were repeatedly observed, revealing spatial hotspots driven by agent density and movement patterns. This cumulative view helps identify whether pairing is spatially homogeneous or concentrated in specific zones of the simulation environment.</p>" +
+            "<img src=\"" + heatmapSnapshotUrl + "\" style=\"max-width:100%;border-radius:6px;margin-top:6px\" alt=\"Batch heatmap snapshot\" /></div>"
+          );
+          if (fieldSnapshotUrl) figs.push(
+            "<div class=\"chart-card\">" +
+            "<p class=\"chart-title\">Figure 7. Batch 3D / field view &mdash; statistical average field rendered at end of batch.</p>" +
+            "<p style=\"font-size:12.5px;color:#5a4a3a;margin:4px 0 8px\">This figure shows the batch-averaged field rendered in the 3D isometric view. Each column height encodes the mean occupancy or pairing activity at that grid cell across all sampled batch runs, providing a topographic representation of spatial density. Elevated columns correspond to zones of high cumulative agent activity. The perspective projection aids intuitive interpretation of the spatial distribution compared to the flat heatmap in Figure 6.</p>" +
+            "<img src=\"" + fieldSnapshotUrl + "\" style=\"max-width:100%;border-radius:6px;margin-top:6px\" alt=\"Batch 3D field snapshot\" /></div>"
+          );
+          return figs.length
+            ? "<section><h2>Supplemental Figures</h2><p style=\"font-size:13px;color:#5a4a3a;margin:0 0 14px\">The following figures provide visual representations of simulation output selected at report generation time. Each caption describes the data source, rendering method, and interpretive guidance for the displayed content.</p>" + figs.join("") + "</section>"
+            : "";
         })() +
         "</body></html>"
       );
