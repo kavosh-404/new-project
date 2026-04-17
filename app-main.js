@@ -981,13 +981,11 @@ class MateChoiceSimulation {
     scheduleBatchProgressAutoHide() {
       if (this.batchProgressHideTimer) {
         window.clearTimeout(this.batchProgressHideTimer);
-      }
-      this.batchProgressHideTimer = window.setTimeout(() => {
         this.batchProgressHideTimer = null;
-        if (!this.isBatchRunning) {
-          this.setBatchProgressVisible(false);
-        }
-      }, 2400);
+      }
+      if (!this.isBatchRunning) {
+        this.setBatchProgressVisible(true);
+      }
     }
 
     startBatchGhostAnimation() {
