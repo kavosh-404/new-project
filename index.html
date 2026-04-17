@@ -736,6 +736,9 @@
         <p class="report-builder-subtitle">
           Choose what to include from available simulation outputs, then download a formal experiment report.
         </p>
+        <p class="report-builder-selection-summary" id="report-builder-selection-summary" aria-live="polite">
+          7 sections selected • 7 figures selected
+        </p>
         <form class="report-builder-form" id="report-builder-form">
           <label class="report-field" for="report-scope">
             <span>Data scope</span>
@@ -755,6 +758,10 @@
           </label>
           <fieldset class="report-sections">
             <legend>Include sections</legend>
+            <div class="report-picker-actions" role="group" aria-label="Section selection shortcuts">
+              <button type="button" class="report-picker-action" id="report-sections-all">All sections</button>
+              <button type="button" class="report-picker-action" id="report-sections-none">None</button>
+            </div>
             <label><input type="checkbox" name="report-section" value="settings" checked /> Simulation settings</label>
             <label><input type="checkbox" name="report-section" value="latest-metrics" checked /> Latest run metrics</label>
             <label><input type="checkbox" name="report-section" value="batch-stats" checked /> Batch statistics and confidence intervals</label>
@@ -765,6 +772,10 @@
           </fieldset>
           <fieldset class="report-charts">
             <legend>Include figures</legend>
+            <div class="report-picker-actions" role="group" aria-label="Figure selection shortcuts">
+              <button type="button" class="report-picker-action" id="report-figures-all">All figures</button>
+              <button type="button" class="report-picker-action" id="report-figures-none">None</button>
+            </div>
             <label><input type="checkbox" name="report-chart" value="chart-metrics-bar" checked /> Fig 1 — Run metrics bar chart</label>
             <label><input type="checkbox" name="report-chart" value="chart-strength-trend" checked /> Fig 2 — Matching strength trend</label>
             <label><input type="checkbox" name="report-chart" value="chart-correlation" checked /> Fig 3 — Pairs vs Strength scatter (correlation)</label>

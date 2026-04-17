@@ -59,9 +59,14 @@ class MateChoiceSimulation {
       this.reportBuilderForm = document.getElementById("report-builder-form");
       this.reportBuilderScopeSelect = document.getElementById("report-scope");
       this.reportBuilderFormatSelect = document.getElementById("report-format");
+      this.reportBuilderSelectionSummary = document.getElementById("report-builder-selection-summary");
       this.reportBuilderCloseButton = document.getElementById("report-builder-close");
       this.reportBuilderCloseBackdrop = document.getElementById("report-builder-close-backdrop");
       this.reportBuilderPreviewButton = document.getElementById("report-builder-preview");
+      this.reportSectionsAllButton = document.getElementById("report-sections-all");
+      this.reportSectionsNoneButton = document.getElementById("report-sections-none");
+      this.reportFiguresAllButton = document.getElementById("report-figures-all");
+      this.reportFiguresNoneButton = document.getElementById("report-figures-none");
       this.reportPreviewModal = document.getElementById("report-preview-modal");
       this.reportPreviewFrame = document.getElementById("report-preview-frame");
       this.reportPreviewCloseButton = document.getElementById("report-preview-close");
@@ -372,9 +377,22 @@ class MateChoiceSimulation {
       }
       if (this.reportBuilderForm) {
         this.reportBuilderForm.addEventListener("submit", (event) => this.handleReportBuilderDownload(event));
+        this.reportBuilderForm.addEventListener("change", () => this.updateReportBuilderSelectionSummary());
       }
       if (this.reportBuilderPreviewButton) {
         this.reportBuilderPreviewButton.addEventListener("click", () => this.handleReportBuilderPreview());
+      }
+      if (this.reportSectionsAllButton) {
+        this.reportSectionsAllButton.addEventListener("click", () => this.setReportBuilderSelections("report-section", true));
+      }
+      if (this.reportSectionsNoneButton) {
+        this.reportSectionsNoneButton.addEventListener("click", () => this.setReportBuilderSelections("report-section", false));
+      }
+      if (this.reportFiguresAllButton) {
+        this.reportFiguresAllButton.addEventListener("click", () => this.setReportBuilderSelections("report-chart", true));
+      }
+      if (this.reportFiguresNoneButton) {
+        this.reportFiguresNoneButton.addEventListener("click", () => this.setReportBuilderSelections("report-chart", false));
       }
       if (this.reportPreviewCloseButton) {
         this.reportPreviewCloseButton.addEventListener("click", () => this.closeReportPreview());
@@ -3727,7 +3745,26 @@ class MateChoiceSimulation {
       if (!this.reportBuilderModal) return;
       this.reportBuilderModal.classList.add("is-open");
       this.reportBuilderModal.setAttribute("aria-hidden", "false");
+      this.updateReportBuilderSelectionSummary();
       document.body.style.overflow = "hidden";
+    }
+
+    setReportBuilderSelections(name, checked) {
+      if (!this.reportBuilderForm) return;
+      const inputs = this.reportBuilderForm.querySelectorAll("input[name=\"" + name + "\"]");
+      inputs.forEach((input) => {
+        input.checked = checked;
+      });
+      this.updateReportBuilderSelectionSummary();
+    }
+
+    updateReportBuilderSelectionSummary() {
+      if (!this.reportBuilderForm || !this.reportBuilderSelectionSummary) return;
+      const sectionTotal = this.reportBuilderForm.querySelectorAll("input[name=\"report-section\"]").length;
+      const chartTotal = this.reportBuilderForm.querySelectorAll("input[name=\"report-chart\"]").length;
+      const sectionSelected = this.reportBuilderForm.querySelectorAll("input[name=\"report-section\"]:checked").length;
+      const chartSelected = this.reportBuilderForm.querySelectorAll("input[name=\"report-chart\"]:checked").length;
+      this.reportBuilderSelectionSummary.textContent = sectionSelected + "/" + sectionTotal + " sections selected • " + chartSelected + "/" + chartTotal + " figures selected";
     }
 
     closeReportBuilder() {

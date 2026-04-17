@@ -831,6 +831,17 @@ input[type="range"]:disabled {
   line-height: 1.4;
 }
 
+.report-builder-selection-summary {
+  margin: -0.2rem 0 0.65rem;
+  padding: 0.38rem 0.55rem;
+  border: 1px solid rgba(79, 57, 36, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.68);
+  color: #4b3b2e;
+  font-size: 0.79rem;
+  font-weight: 600;
+}
+
 .report-builder-form {
   display: grid;
   gap: 0.65rem;
@@ -876,6 +887,36 @@ input[type="range"]:disabled {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+
+.report-picker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  margin: -0.18rem 0 0.14rem;
+}
+
+.report-picker-action {
+  border: 1px solid rgba(79, 57, 36, 0.22);
+  background: rgba(255, 255, 255, 0.82);
+  color: #2f271f;
+  border-radius: 999px;
+  padding: 0.18rem 0.58rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+
+.report-picker-action:hover {
+  background: rgba(15, 118, 110, 0.1);
+  border-color: rgba(15, 118, 110, 0.5);
+  transform: translateY(-1px);
+}
+
+.report-picker-action:focus-visible {
+  outline: 2px solid rgba(15, 118, 110, 0.55);
+  outline-offset: 2px;
 }
 
 .report-sections label {
