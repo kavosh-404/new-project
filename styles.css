@@ -927,6 +927,24 @@ input[type="range"]:disabled {
   font-size: 0.88rem;
 }
 
+.report-sections label.is-disabled {
+  opacity: 0.48;
+}
+
+.report-sections label.is-disabled input {
+  cursor: not-allowed;
+}
+
+.report-scope-hint {
+  margin: 0.1rem 0 0.2rem;
+  font-size: 0.75rem;
+  color: #6a5746;
+}
+
+.report-scope-hint.is-hidden {
+  display: none;
+}
+
 .report-charts {
   margin: 0;
   padding: 0.62rem 0.7rem;

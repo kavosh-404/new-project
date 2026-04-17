@@ -60,6 +60,7 @@ class MateChoiceSimulation {
       this.reportBuilderScopeSelect = document.getElementById("report-scope");
       this.reportBuilderFormatSelect = document.getElementById("report-format");
       this.reportBuilderSelectionSummary = document.getElementById("report-builder-selection-summary");
+      this.reportSectionScopeHint = document.getElementById("report-section-scope-hint");
       this.reportBuilderCloseButton = document.getElementById("report-builder-close");
       this.reportBuilderCloseBackdrop = document.getElementById("report-builder-close-backdrop");
       this.reportBuilderPreviewButton = document.getElementById("report-builder-preview");
@@ -377,7 +378,10 @@ class MateChoiceSimulation {
       }
       if (this.reportBuilderForm) {
         this.reportBuilderForm.addEventListener("submit", (event) => this.handleReportBuilderDownload(event));
-        this.reportBuilderForm.addEventListener("change", () => this.updateReportBuilderSelectionSummary());
+        this.reportBuilderForm.addEventListener("change", () => {
+          this.syncReportBuilderScopeSections();
+          this.updateReportBuilderSelectionSummary();
+        });
       }
       if (this.reportBuilderPreviewButton) {
         this.reportBuilderPreviewButton.addEventListener("click", () => this.handleReportBuilderPreview());
@@ -3745,6 +3749,7 @@ class MateChoiceSimulation {
       if (!this.reportBuilderModal) return;
       this.reportBuilderModal.classList.add("is-open");
       this.reportBuilderModal.setAttribute("aria-hidden", "false");
+      this.syncReportBuilderScopeSections();
       this.updateReportBuilderSelectionSummary();
       document.body.style.overflow = "hidden";
     }
@@ -3753,16 +3758,54 @@ class MateChoiceSimulation {
       if (!this.reportBuilderForm) return;
       const inputs = this.reportBuilderForm.querySelectorAll("input[name=\"" + name + "\"]");
       inputs.forEach((input) => {
-        input.checked = checked;
+        if (!input.disabled) {
+          input.checked = checked;
+        }
       });
       this.updateReportBuilderSelectionSummary();
     }
 
+    syncReportBuilderScopeSections() {
+      if (!this.reportBuilderForm) return;
+      const scope = this.reportBuilderScopeSelect ? this.reportBuilderScopeSelect.value : "latest-run";
+      const sectionInputs = Array.from(this.reportBuilderForm.querySelectorAll("input[name=\"report-section\"]"));
+      let disabledCount = 0;
+
+      sectionInputs.forEach((input) => {
+        const allowed = this.scopeAllowsSection(scope, input.value);
+        input.disabled = !allowed;
+        if (!allowed) {
+          input.checked = false;
+          disabledCount += 1;
+        }
+        const label = input.closest("label");
+        if (label) {
+          label.classList.toggle("is-disabled", !allowed);
+        }
+      });
+
+      const hasSelectedEnabled = sectionInputs.some((input) => !input.disabled && input.checked);
+      if (!hasSelectedEnabled) {
+        const firstEnabled = sectionInputs.find((input) => !input.disabled);
+        if (firstEnabled) firstEnabled.checked = true;
+      }
+
+      if (this.reportSectionScopeHint) {
+        if (disabledCount > 0) {
+          this.reportSectionScopeHint.textContent = disabledCount + " section(s) are unavailable for this scope.";
+          this.reportSectionScopeHint.classList.remove("is-hidden");
+        } else {
+          this.reportSectionScopeHint.textContent = "All sections are available for this scope.";
+          this.reportSectionScopeHint.classList.add("is-hidden");
+        }
+      }
+    }
+
     updateReportBuilderSelectionSummary() {
       if (!this.reportBuilderForm || !this.reportBuilderSelectionSummary) return;
-      const sectionTotal = this.reportBuilderForm.querySelectorAll("input[name=\"report-section\"]").length;
+      const sectionTotal = this.reportBuilderForm.querySelectorAll("input[name=\"report-section\"]:not(:disabled)").length;
       const chartTotal = this.reportBuilderForm.querySelectorAll("input[name=\"report-chart\"]").length;
-      const sectionSelected = this.reportBuilderForm.querySelectorAll("input[name=\"report-section\"]:checked").length;
+      const sectionSelected = this.reportBuilderForm.querySelectorAll("input[name=\"report-section\"]:not(:disabled):checked").length;
       const chartSelected = this.reportBuilderForm.querySelectorAll("input[name=\"report-chart\"]:checked").length;
       this.reportBuilderSelectionSummary.textContent = sectionSelected + "/" + sectionTotal + " sections selected • " + chartSelected + "/" + chartTotal + " figures selected";
     }
