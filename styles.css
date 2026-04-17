@@ -417,6 +417,25 @@ body.intro-open {
   gap: 1.25rem;
 }
 
+.flow-stage {
+  margin: 0;
+  width: fit-content;
+  padding: 0.24rem 0.58rem;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 118, 110, 0.22);
+  background: rgba(15, 118, 110, 0.08);
+  color: #0f4f4a;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.flow-stage-run {
+  background: rgba(15, 118, 110, 0.14);
+  border-color: rgba(15, 118, 110, 0.32);
+}
+
 .controls-grid {
   position: relative;
   z-index: 1;
@@ -579,6 +598,10 @@ input[type="range"]:disabled {
   flex-wrap: wrap;
   gap: 0.6rem;
   align-items: center;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid rgba(15, 118, 110, 0.2);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.08) 0%, rgba(255, 253, 249, 0.88) 100%);
 }
 
 .speed-field {
@@ -600,15 +623,16 @@ input[type="range"]:disabled {
   position: relative;
   z-index: 1;
   width: fit-content;
-  padding: 0.95rem 1.35rem;
+  padding: 0.98rem 1.45rem;
   border: 0;
   border-radius: 999px;
   background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
   color: #f7fffe;
   font: inherit;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.01em;
   cursor: pointer;
+  box-shadow: 0 10px 22px rgba(15, 118, 110, 0.24);
 }
 
 .run-button:disabled {
@@ -649,6 +673,10 @@ input[type="range"]:disabled {
   align-items: center;
   color: var(--text);
   font-weight: 600;
+}
+
+.flow-stage-read {
+  margin-top: -0.1rem;
 }
 
 .summary-label {
