@@ -190,9 +190,10 @@ body.intro-open {
 }
 
 .hero {
-  padding: 1rem 0 2rem;
+  padding: clamp(0.95rem, 1.8vw, 1.35rem) clamp(1rem, 3.2vw, 2.1rem) 2rem;
   position: relative;
   border-radius: var(--radius-lg);
+  border: 1px solid rgba(79, 57, 36, 0.1);
   overflow: hidden;
   transition: background 0.15s ease;
   --mx: 50%;
@@ -285,8 +286,8 @@ body.intro-open {
   margin: 0;
   max-width: 12ch;
   font-size: clamp(2.8rem, 5vw, 4.9rem);
-  line-height: 0.96;
-  letter-spacing: -0.04em;
+  line-height: 0.98;
+  letter-spacing: -0.03em;
 }
 
 .subtitle {
@@ -1617,6 +1618,10 @@ input[type="range"]:disabled {
 }
 
 @media (max-width: 640px) {
+  .hero {
+    padding: 0.9rem 0.95rem 1.2rem;
+  }
+
   .panel {
     padding: 1.2rem;
     border-radius: 22px;
