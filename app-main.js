@@ -4049,6 +4049,7 @@ class MateChoiceSimulation {
       const batchCiSvg = includeChart("chart-batch-ci") ? this.buildBatchCiBarSvg() : "";
       const gridSnapshotUrl = includeChart("chart-grid-snapshot") ? this.buildGridSnapshotDataUrl() : null;
       const heatmapSnapshotUrl = includeChart("chart-heatmap-snapshot") ? this.buildBatchHeatmapSnapshotDataUrl() : null;
+      const fieldSnapshotUrl = includeChart("chart-3d-snapshot") ? (() => { try { return this.batchSnapshotCanvas ? this.batchSnapshotCanvas.toDataURL("image/png") : null; } catch(e) { return null; } })() : null;
 
       return (
         "<!DOCTYPE html><html><head><meta charset=\"UTF-8\" /><title>" +
@@ -4206,6 +4207,7 @@ class MateChoiceSimulation {
           if (batchCiSvg) figs.push("<div class=\"chart-card\"><p class=\"chart-title\">Figure 4. Batch experiment key metrics with 95% confidence intervals.</p>" + batchCiSvg + "</div>");
           if (gridSnapshotUrl) figs.push("<div class=\"chart-card\"><p class=\"chart-title\">Figure 5. Simulation grid &mdash; snapshot at last run state.</p><img src=\"" + gridSnapshotUrl + "\" style=\"max-width:100%;border-radius:6px;margin-top:6px\" alt=\"Simulation grid snapshot\" /></div>");
           if (heatmapSnapshotUrl) figs.push("<div class=\"chart-card\"><p class=\"chart-title\">Figure 6. Batch pairing hotspot heatmap &mdash; accumulated pairing frequency across batch runs.</p><img src=\"" + heatmapSnapshotUrl + "\" style=\"max-width:100%;border-radius:6px;margin-top:6px\" alt=\"Batch heatmap snapshot\" /></div>");
+          if (fieldSnapshotUrl) figs.push("<div class=\"chart-card\"><p class=\"chart-title\">Figure 7. Batch 3D / field view &mdash; statistical average field rendered at the end of the batch experiment.</p><img src=\"" + fieldSnapshotUrl + "\" style=\"max-width:100%;border-radius:6px;margin-top:6px\" alt=\"Batch 3D field snapshot\" /></div>");
           return figs.length ? "<section><h2>Supplemental Figures</h2>" + figs.join("") + "</section>" : "";
         })() +
         "</body></html>"
