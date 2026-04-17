@@ -36,7 +36,7 @@
     <div class="site-shell">
       <header class="hero">
         <div class="hero-top">
-          <p class="eyebrow">Teaching Website Structure</p>
+          <p class="eyebrow">Interactive Research Experience</p>
           <div class="hero-actions">
             <a class="pill-link outline" href="#how-to">How to use</a>
             <a class="pill-link" href="paper.html" target="_blank" rel="noopener">View Research PDF</a>
@@ -60,8 +60,8 @@
             <span>Explanations cite Smaldino &amp; Schank (2012).</span>
           </div>
           <div class="step-card">
-            <strong>4. Export</strong>
-            <span>Download a CSV summary or PNG of the grid.</span>
+            <strong>4. Export &amp; Report</strong>
+            <span>Build a full experiment report, download CSV, PNG, or copy a citation.</span>
           </div>
         </div>
       </header>
@@ -70,7 +70,7 @@
         <section class="workspace-grid" aria-label="Main teaching interface">
           <aside class="panel panel-overview">
             <div class="panel-header">
-              <p class="panel-kicker">Left Column</p>
+              <p class="panel-kicker">Background</p>
               <h2>Model Overview</h2>
             </div>
 
@@ -103,12 +103,13 @@
 
           <section class="panel panel-simulation">
             <div class="panel-header">
-              <p class="panel-kicker">Right Column</p>
+              <p class="panel-kicker">Interactive Experiment</p>
               <h2>Simulation Controls</h2>
             </div>
 
             <p class="flow-stage flow-stage-config">1. Configure settings</p>
             <form class="controls-grid" id="simulation-controls" aria-label="Simulation controls">
+                            <p class="controls-group-label" aria-hidden="true">Core Rules</p>
               <label class="control-field">
                 <span class="control-label">Preference Rule
                   <span class="control-help" tabindex="0" role="button" aria-expanded="false" aria-label="Preference Rule: Attractiveness-based prefers higher-attractiveness partners; similarity-based prefers partners with similar attractiveness.">?
@@ -162,6 +163,7 @@
                 </select>
               </label>
 
+              <p class="controls-group-label" aria-hidden="true">Behaviour</p>
               <label class="control-field">
                 <span class="control-label">Patience
                   <span class="control-help" tabindex="0" role="button" aria-expanded="false" aria-label="Patience: Controls how quickly acceptance relaxes with continued searching.">?
@@ -200,6 +202,7 @@
                 </select>
               </label>
 
+              <p class="controls-group-label" aria-hidden="true">Setup &amp; Reproducibility</p>
               <label class="control-field">
                 <span class="control-label">Active Agents
                   <span class="control-help" tabindex="0" role="button" aria-expanded="false" aria-label="Active Agents: Directly set the number of agents shown in the live simulation, independent of batch runs.">?
@@ -316,6 +319,7 @@
               </div>
             </section>
 
+            <p class="export-unlock-hint" id="export-unlock-hint" aria-live="polite">Run a simulation first to unlock export options.</p>
             <div class="export-row" aria-label="Export and share actions">
               <div class="export-group" aria-label="Report actions">
                 <p class="export-group-title">Report</p>
@@ -332,8 +336,9 @@
                 </div>
               </div>
             </div>
-            <div class="run-summary" id="run-summary">
-              <span class="summary-label">Last run:</span>
+            <div class="run-summary" id="run-summary" aria-live="polite">
+              <span class="summary-label">Last run</span>
+              <span class="summary-divider" aria-hidden="true"></span>
               <span class="summary-metric" id="summary-pairs">— pairs</span>
               <span class="summary-metric" id="summary-strength">Strength —</span>
               <span class="summary-metric" id="summary-search">Avg search —</span>

@@ -3661,6 +3661,9 @@ class MateChoiceSimulation {
       });
 
       this.resetExportButtonLabels();
+
+        const hint = document.getElementById("export-unlock-hint");
+        if (hint) hint.classList.toggle("is-hidden", isEnabled);
       
       if (isEnabled && this.state.lastRun) {
         this.lastCitation = this.buildRunCitationMessage(
