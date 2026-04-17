@@ -708,7 +708,6 @@ class MateChoiceSimulation {
         this.batchProgressHideTimer = null;
       }
       this.setBatchProgressVisible(true);
-      this.startBatchGhostAnimation();
       this.updateBatchProgress({
         phase: "Preparing batch runs...",
         processed: 0,
@@ -718,7 +717,7 @@ class MateChoiceSimulation {
         recentInteractions: 0,
       });
       this.resetBatchSnapshot("Preparing representative snapshot...");
-      this.resetBatchHeatmap("Preparing occupancy heatmap...");
+      this.resetBatchHeatmap("Preparing pairing-hotspot heatmap...");
 
       const preservedState = {
         ...this.state,
@@ -904,7 +903,7 @@ class MateChoiceSimulation {
         }
         if (this.batchHeatmapNote) {
           this.batchHeatmapNote.textContent =
-            "Statistical heatmap across sampled runs. Cell intensity represents end-state occupancy probability.";
+            "Statistical hotspot heatmap across sampled runs. Cell intensity reflects where matched pairs concentrate.";
         }
       } catch (error) {
         console.error("Batch run failed", error);
@@ -920,7 +919,6 @@ class MateChoiceSimulation {
         this.draw();
         this.updateStatus();
         this.updateDecisionStatus();
-        this.stopBatchGhostAnimation();
         this.scheduleBatchProgressAutoHide();
         this.runButton.disabled = false;
         if (this.runBatchButton) this.runBatchButton.disabled = false;
@@ -1081,10 +1079,10 @@ class MateChoiceSimulation {
       const ctx = this.batchSnapshotCanvas.getContext("2d");
       if (!ctx) return;
 
-      const chartSize = this.prepareHiDPICanvas(this.batchSnapshotCanvas, 170);
-      ctx.clearRect(0, 0, chartSize.width, chartSize.height);
+      const chartSize = this.prepareSquareCanvas(this.batchSnapshotCanvas, 420);
+      ctx.clearRect(0, 0, chartSize.size, chartSize.size);
       ctx.fillStyle = "rgba(255, 252, 246, 0.9)";
-      ctx.fillRect(0, 0, chartSize.width, chartSize.height);
+      ctx.fillRect(0, 0, chartSize.size, chartSize.size);
 
       ctx.fillStyle = "#5e4d3f";
       ctx.font = "12px Instrument Sans, sans-serif";
@@ -1104,9 +1102,9 @@ class MateChoiceSimulation {
       const ctx = this.batchSnapshotContext;
       if (!ctx) return;
 
-      const chartSize = this.prepareHiDPICanvas(this.batchSnapshotCanvas, 170);
-      const width = chartSize.width;
-      const height = chartSize.height;
+      const chartSize = this.prepareSquareCanvas(this.batchSnapshotCanvas, 420);
+      const width = chartSize.size;
+      const height = chartSize.size;
       const pad = 10;
 
       ctx.clearRect(0, 0, width, height);
@@ -1129,10 +1127,9 @@ class MateChoiceSimulation {
         ctx.stroke();
       }
 
-      const maxX = snapshot.agents.reduce((maxValue, agent) => Math.max(maxValue, agent.x), 1);
-      const maxY = snapshot.agents.reduce((maxValue, agent) => Math.max(maxValue, agent.y), 1);
-      const mapX = (x) => pad + (x / Math.max(1, maxX)) * (width - pad * 2);
-      const mapY = (y) => pad + (y / Math.max(1, maxY)) * (height - pad * 2);
+      const size = Math.max(1, snapshot.canvasSize || 1);
+      const mapX = (x) => pad + this.clamp(x / size, 0, 1) * (width - pad * 2);
+      const mapY = (y) => pad + this.clamp(y / size, 0, 1) * (height - pad * 2);
 
       ctx.strokeStyle = "rgba(185, 28, 28, 0.35)";
       ctx.lineWidth = 1.1;
@@ -1159,7 +1156,7 @@ class MateChoiceSimulation {
       if (this.batchSnapshotNote) {
         this.batchSnapshotNote.textContent =
           "Representative " + model + " snapshot from batch sample " + runLabel +
-          ". This is illustrative and not a mean grid.";
+          ". Rendered with true square proportions; this is illustrative and not a mean grid.";
       }
     }
 
@@ -1169,6 +1166,7 @@ class MateChoiceSimulation {
         rows,
         grid: Array.from({ length: rows }, () => Array(columns).fill(0)),
         samples: 0,
+        pairEvents: 0,
       };
     }
 
@@ -1184,7 +1182,7 @@ class MateChoiceSimulation {
       ctx.fillStyle = "#5e4d3f";
       ctx.font = "12px Instrument Sans, sans-serif";
       ctx.textAlign = "left";
-      ctx.fillText("Heatmap will appear after first sampled run.", 10, 18);
+      ctx.fillText("Pairing hotspot map will appear after sampled runs.", 10, 18);
 
       if (this.batchHeatmapNote && noteText) {
         this.batchHeatmapNote.textContent = noteText;
@@ -1198,12 +1196,18 @@ class MateChoiceSimulation {
       const rows = accumulator.rows;
       const size = snapshot.canvasSize || 1;
 
-      snapshot.agents.forEach((agent) => {
-        const xNorm = this.clamp(agent.x / Math.max(1, size), 0, 0.9999);
-        const yNorm = this.clamp(agent.y / Math.max(1, size), 0, 0.9999);
+      snapshot.pairs.forEach((pair) => {
+        const first = snapshot.agents[pair.agent1];
+        const second = snapshot.agents[pair.agent2];
+        if (!first || !second) return;
+        const midpointX = (first.x + second.x) / 2;
+        const midpointY = (first.y + second.y) / 2;
+        const xNorm = this.clamp(midpointX / Math.max(1, size), 0, 0.9999);
+        const yNorm = this.clamp(midpointY / Math.max(1, size), 0, 0.9999);
         const col = Math.floor(xNorm * columns);
         const row = Math.floor(yNorm * rows);
         accumulator.grid[row][col] += 1;
+        accumulator.pairEvents += 1;
       });
 
       accumulator.samples += 1;
@@ -1225,12 +1229,26 @@ class MateChoiceSimulation {
       const innerHeight = height - pad * 2;
       const cellW = innerWidth / accumulator.columns;
       const cellH = innerHeight / accumulator.rows;
-      const denom = Math.max(1, accumulator.samples * this.getActiveAgentCount());
 
-      let maxProbability = 0;
+      if (!accumulator.pairEvents) {
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = "rgba(255, 252, 246, 0.94)";
+        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = "#5e4d3f";
+        ctx.font = "12px Instrument Sans, sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText("No pair hotspots yet (few or no matches in sampled runs).", 10, 18);
+        if (this.batchHeatmapNote) {
+          this.batchHeatmapNote.textContent =
+            "Pairing hotspot map: no matched-pair events accumulated yet.";
+        }
+        return;
+      }
+
+      let maxCellCount = 0;
       accumulator.grid.forEach((row) => {
         row.forEach((count) => {
-          maxProbability = Math.max(maxProbability, count / denom);
+          maxCellCount = Math.max(maxCellCount, count);
         });
       });
 
@@ -1240,12 +1258,11 @@ class MateChoiceSimulation {
 
       for (let row = 0; row < accumulator.rows; row += 1) {
         for (let col = 0; col < accumulator.columns; col += 1) {
-          const probability = accumulator.grid[row][col] / denom;
-          const intensity = maxProbability > 0 ? probability / maxProbability : 0;
+          const intensity = maxCellCount > 0 ? accumulator.grid[row][col] / maxCellCount : 0;
           const alpha = 0.08 + 0.85 * intensity;
           const x = pad + col * cellW;
           const y = pad + row * cellH;
-          ctx.fillStyle = "rgba(15, 118, 110, " + alpha.toFixed(3) + ")";
+          ctx.fillStyle = "rgba(185, 130, 54, " + alpha.toFixed(3) + ")";
           ctx.fillRect(x, y, cellW, cellH);
         }
       }
@@ -1258,8 +1275,9 @@ class MateChoiceSimulation {
       const total = meta && typeof meta.total === "number" ? meta.total : accumulator.samples;
       if (this.batchHeatmapNote) {
         this.batchHeatmapNote.textContent =
-          "Statistical occupancy from " + processed + "/" + total +
-          " sampled runs. Brighter cells indicate higher end-state occupancy probability.";
+          "Pairing hotspots from " + processed + "/" + total +
+          " sampled runs, based on " + accumulator.pairEvents +
+          " matched-pair events. Brighter cells mark stronger concentration of pair formation.";
       }
     }
 
@@ -3914,6 +3932,27 @@ class MateChoiceSimulation {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(ratio, ratio);
       return { width, height };
+    }
+
+    prepareSquareCanvas(canvas, maxSize) {
+      const parentWidth = canvas.parentElement ? canvas.parentElement.clientWidth : 0;
+      const target = Math.floor(parentWidth || canvas.clientWidth || maxSize || 360);
+      const size = this.clamp(target, 240, maxSize || 420);
+      const ratio = window.devicePixelRatio || 1;
+
+      canvas.width = Math.floor(size * ratio);
+      canvas.height = Math.floor(size * ratio);
+      canvas.style.width = size + "px";
+      canvas.style.height = size + "px";
+      canvas.style.maxWidth = "100%";
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        return { size };
+      }
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(ratio, ratio);
+      return { size };
     }
 
     drawBarChart(ctx, width, height, values, labels, colors) {
