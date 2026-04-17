@@ -697,6 +697,7 @@ class MateChoiceSimulation {
       const metricsList = [];
       const spatialStrength = [];
       const nonSpatialStrength = [];
+      const batchFieldAccumulator = this.createBatchFieldAccumulator(16, 16);
       const batchHeatAccumulator = this.createBatchHeatAccumulator(18, 10);
       const totalSamples = runCount * 2;
       const batchStartMs = performance.now ? performance.now() : Date.now();
@@ -719,7 +720,7 @@ class MateChoiceSimulation {
         metricsList,
         recentInteractions: 0,
       });
-      this.resetBatchSnapshot("Preparing representative snapshot...");
+      this.resetBatchSnapshot("Preparing statistical average field...");
       this.resetBatchHeatmap("Preparing pairing-hotspot heatmap...");
 
       const preservedState = {
@@ -758,10 +759,13 @@ class MateChoiceSimulation {
             metricsList,
             recentInteractions: primaryResult.interactions,
           });
-          this.drawBatchSnapshot(primaryResult.snapshot, {
+          this.accumulateBatchField(batchFieldAccumulator, primaryResult.snapshot);
+          this.drawBatchField(batchFieldAccumulator, {
             modelName: currentModel,
             runIndex: runIndex + 1,
             runCount,
+            processed: processedSamples,
+            total: totalSamples,
           });
           this.accumulateBatchHeatmap(batchHeatAccumulator, primaryResult.snapshot);
           this.drawBatchHeatmap(batchHeatAccumulator, {
@@ -789,10 +793,13 @@ class MateChoiceSimulation {
             metricsList,
             recentInteractions: compareResult.interactions,
           });
-          this.drawBatchSnapshot(compareResult.snapshot, {
+          this.accumulateBatchField(batchFieldAccumulator, compareResult.snapshot);
+          this.drawBatchField(batchFieldAccumulator, {
             modelName: compareModel,
             runIndex: runIndex + 1,
             runCount,
+            processed: processedSamples,
+            total: totalSamples,
           });
           this.accumulateBatchHeatmap(batchHeatAccumulator, compareResult.snapshot);
           this.drawBatchHeatmap(batchHeatAccumulator, {
@@ -902,7 +909,7 @@ class MateChoiceSimulation {
         });
         if (this.batchSnapshotNote) {
           this.batchSnapshotNote.textContent =
-            "Representative snapshot from the latest sampled run. Useful for intuition, but not a statistical average field.";
+            "Statistical average field completed. Color encodes matched-rate; opacity encodes relative occupancy concentration.";
         }
         if (this.batchHeatmapNote) {
           this.batchHeatmapNote.textContent =
@@ -1088,10 +1095,99 @@ class MateChoiceSimulation {
       ctx.fillStyle = "#5e4d3f";
       ctx.font = "12px Instrument Sans, sans-serif";
       ctx.textAlign = "left";
-      ctx.fillText("Snapshot will appear during batch sampling.", 10, 18);
+      ctx.fillText("Average field will appear during batch sampling.", 10, 18);
 
       if (this.batchSnapshotNote && noteText) {
         this.batchSnapshotNote.textContent = noteText;
+      }
+    }
+
+    createBatchFieldAccumulator(columns, rows) {
+      return {
+        columns,
+        rows,
+        occupancy: Array.from({ length: rows }, () => Array(columns).fill(0)),
+        matched: Array.from({ length: rows }, () => Array(columns).fill(0)),
+        samples: 0,
+      };
+    }
+
+    accumulateBatchField(accumulator, snapshot) {
+      if (!accumulator || !snapshot || !snapshot.agents || !snapshot.agents.length) return;
+
+      const columns = accumulator.columns;
+      const rows = accumulator.rows;
+      const size = Math.max(1, snapshot.canvasSize || 1);
+
+      snapshot.agents.forEach((agent) => {
+        const xNorm = this.clamp(agent.x / size, 0, 0.9999);
+        const yNorm = this.clamp(agent.y / size, 0, 0.9999);
+        const col = Math.floor(xNorm * columns);
+        const row = Math.floor(yNorm * rows);
+        accumulator.occupancy[row][col] += 1;
+        if (agent.matched) {
+          accumulator.matched[row][col] += 1;
+        }
+      });
+
+      accumulator.samples += 1;
+    }
+
+    drawBatchField(accumulator, meta) {
+      if (!this.batchSnapshotCanvas || !accumulator || !accumulator.samples) return;
+      if (!this.batchSnapshotContext) {
+        this.batchSnapshotContext = this.batchSnapshotCanvas.getContext("2d");
+      }
+      const ctx = this.batchSnapshotContext;
+      if (!ctx) return;
+
+      const chartSize = this.prepareSquareCanvas(this.batchSnapshotCanvas, 420);
+      const width = chartSize.size;
+      const height = chartSize.size;
+      const pad = 10;
+      const innerWidth = width - pad * 2;
+      const innerHeight = height - pad * 2;
+      const cellW = innerWidth / accumulator.columns;
+      const cellH = innerHeight / accumulator.rows;
+
+      let maxOccupancy = 0;
+      for (let row = 0; row < accumulator.rows; row += 1) {
+        for (let col = 0; col < accumulator.columns; col += 1) {
+          maxOccupancy = Math.max(maxOccupancy, accumulator.occupancy[row][col]);
+        }
+      }
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "rgba(255, 252, 246, 0.94)";
+      ctx.fillRect(0, 0, width, height);
+
+      for (let row = 0; row < accumulator.rows; row += 1) {
+        for (let col = 0; col < accumulator.columns; col += 1) {
+          const occ = accumulator.occupancy[row][col];
+          const matched = accumulator.matched[row][col];
+          const matchedRate = occ > 0 ? matched / occ : 0;
+          const occIntensity = maxOccupancy > 0 ? occ / maxOccupancy : 0;
+
+          const hue = 18 + matchedRate * 115;
+          const alpha = 0.10 + 0.80 * occIntensity;
+          const x = pad + col * cellW;
+          const y = pad + row * cellH;
+
+          ctx.fillStyle = "hsla(" + hue.toFixed(1) + " 62% 48% / " + alpha.toFixed(3) + ")";
+          ctx.fillRect(x, y, cellW, cellH);
+        }
+      }
+
+      ctx.strokeStyle = "rgba(79, 57, 36, 0.22)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(pad, pad, innerWidth, innerHeight);
+
+      const processed = meta && typeof meta.processed === "number" ? meta.processed : accumulator.samples;
+      const total = meta && typeof meta.total === "number" ? meta.total : accumulator.samples;
+      if (this.batchSnapshotNote) {
+        this.batchSnapshotNote.textContent =
+          "Average field from " + processed + "/" + total + " sampled runs. " +
+          "Color: matched-rate in each cell. Opacity: relative occupancy concentration.";
       }
     }
 
