@@ -501,7 +501,8 @@ class MateChoiceSimulation {
         this.stopStepping();
       }
 
-      const needsFreshStart = forceRestart || (this.state.step === 0 && this.state.pairs.length === 0);
+      const runAlreadyComplete = this.state.step >= STEP_COUNT;
+      const needsFreshStart = forceRestart || runAlreadyComplete || (this.state.step === 0 && this.state.pairs.length === 0);
 
       this.scrollToSimulationGrid();
 
