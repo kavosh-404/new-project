@@ -69,6 +69,10 @@ class MateChoiceSimulation {
       this.batchProgressStrength = document.getElementById("batch-progress-strength");
       this.batchProgressSearch = document.getElementById("batch-progress-search");
       this.batchGhostCanvas = document.getElementById("batch-ghost-canvas");
+      this.batchSnapshotCanvas = document.getElementById("batch-snapshot-canvas");
+      this.batchSnapshotNote = document.getElementById("batch-snapshot-note");
+      this.batchHeatmapCanvas = document.getElementById("batch-heatmap-canvas");
+      this.batchHeatmapNote = document.getElementById("batch-heatmap-note");
       this.csvPreview = document.getElementById("csv-preview");
       this.csvPreviewContent = document.getElementById("csv-preview-content");
       this.previewIntroText = document.getElementById("preview-intro-text");
@@ -179,6 +183,8 @@ class MateChoiceSimulation {
       this.wasDesktopLayout = null;
       this.isBatchRunning = false;
       this.batchGhostContext = null;
+      this.batchSnapshotContext = null;
+      this.batchHeatmapContext = null;
       this.batchGhostParticles = [];
       this.batchGhostAnimationId = null;
       this.batchProgressHideTimer = null;
@@ -688,6 +694,7 @@ class MateChoiceSimulation {
       const metricsList = [];
       const spatialStrength = [];
       const nonSpatialStrength = [];
+      const batchHeatAccumulator = this.createBatchHeatAccumulator(18, 10);
       const totalSamples = runCount * 2;
       const batchStartMs = performance.now ? performance.now() : Date.now();
       let processedSamples = 0;
@@ -710,6 +717,8 @@ class MateChoiceSimulation {
         metricsList,
         recentInteractions: 0,
       });
+      this.resetBatchSnapshot("Preparing representative snapshot...");
+      this.resetBatchHeatmap("Preparing occupancy heatmap...");
 
       const preservedState = {
         ...this.state,
@@ -747,6 +756,16 @@ class MateChoiceSimulation {
             metricsList,
             recentInteractions: primaryResult.interactions,
           });
+          this.drawBatchSnapshot(primaryResult.snapshot, {
+            modelName: currentModel,
+            runIndex: runIndex + 1,
+            runCount,
+          });
+          this.accumulateBatchHeatmap(batchHeatAccumulator, primaryResult.snapshot);
+          this.drawBatchHeatmap(batchHeatAccumulator, {
+            processed: processedSamples,
+            total: totalSamples,
+          });
           await this.waitForNextFrame();
 
           const compareSeed = typeof runSeed === "number" ? runSeed + 53 : null;
@@ -767,6 +786,16 @@ class MateChoiceSimulation {
             batchStartMs,
             metricsList,
             recentInteractions: compareResult.interactions,
+          });
+          this.drawBatchSnapshot(compareResult.snapshot, {
+            modelName: compareModel,
+            runIndex: runIndex + 1,
+            runCount,
+          });
+          this.accumulateBatchHeatmap(batchHeatAccumulator, compareResult.snapshot);
+          this.drawBatchHeatmap(batchHeatAccumulator, {
+            processed: processedSamples,
+            total: totalSamples,
           });
           await this.waitForNextFrame();
         }
@@ -869,6 +898,14 @@ class MateChoiceSimulation {
           metricsList,
           recentInteractions: 0,
         });
+        if (this.batchSnapshotNote) {
+          this.batchSnapshotNote.textContent =
+            "Representative snapshot from the latest sampled run. Useful for intuition, but not a statistical average field.";
+        }
+        if (this.batchHeatmapNote) {
+          this.batchHeatmapNote.textContent =
+            "Statistical heatmap across sampled runs. Cell intensity represents end-state occupancy probability.";
+        }
       } catch (error) {
         console.error("Batch run failed", error);
         this.status.textContent = "Batch run failed. Please try again.";
@@ -910,9 +947,24 @@ class MateChoiceSimulation {
         this.state.step = stepIndex + 1;
       }
 
+      const snapshot = {
+        agents: this.state.agents.map((agent) => ({
+          x: agent.x,
+          y: agent.y,
+          matched: !!agent.matched,
+          attractiveness: agent.attractiveness,
+        })),
+        pairs: this.state.pairs.map((pair) => ({
+          agent1: pair.agent1,
+          agent2: pair.agent2,
+        })),
+        canvasSize: this.getCanvasSize(),
+      };
+
       return {
         metrics: this.getSimulationMetrics(),
         interactions: this.state.interactionEvents.length,
+        snapshot,
       };
     }
 
@@ -1022,6 +1074,193 @@ class MateChoiceSimulation {
         ctx.fillStyle = p.tint === "teal" ? "rgba(15, 118, 110, 0.9)" : "rgba(185, 130, 54, 0.88)";
         ctx.fill();
       });
+    }
+
+    resetBatchSnapshot(noteText) {
+      if (!this.batchSnapshotCanvas) return;
+      const ctx = this.batchSnapshotCanvas.getContext("2d");
+      if (!ctx) return;
+
+      const chartSize = this.prepareHiDPICanvas(this.batchSnapshotCanvas, 170);
+      ctx.clearRect(0, 0, chartSize.width, chartSize.height);
+      ctx.fillStyle = "rgba(255, 252, 246, 0.9)";
+      ctx.fillRect(0, 0, chartSize.width, chartSize.height);
+
+      ctx.fillStyle = "#5e4d3f";
+      ctx.font = "12px Instrument Sans, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("Snapshot will appear during batch sampling.", 10, 18);
+
+      if (this.batchSnapshotNote && noteText) {
+        this.batchSnapshotNote.textContent = noteText;
+      }
+    }
+
+    drawBatchSnapshot(snapshot, meta) {
+      if (!this.batchSnapshotCanvas || !snapshot || !snapshot.agents || !snapshot.agents.length) return;
+      if (!this.batchSnapshotContext) {
+        this.batchSnapshotContext = this.batchSnapshotCanvas.getContext("2d");
+      }
+      const ctx = this.batchSnapshotContext;
+      if (!ctx) return;
+
+      const chartSize = this.prepareHiDPICanvas(this.batchSnapshotCanvas, 170);
+      const width = chartSize.width;
+      const height = chartSize.height;
+      const pad = 10;
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "rgba(255, 252, 246, 0.94)";
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.strokeStyle = "rgba(15, 118, 110, 0.09)";
+      ctx.lineWidth = 1;
+      const spacing = Math.max(16, Math.floor((height - pad * 2) / 7));
+      for (let position = pad; position <= height - pad; position += spacing) {
+        ctx.beginPath();
+        ctx.moveTo(pad, position);
+        ctx.lineTo(width - pad, position);
+        ctx.stroke();
+      }
+      for (let position = pad; position <= width - pad; position += spacing) {
+        ctx.beginPath();
+        ctx.moveTo(position, pad);
+        ctx.lineTo(position, height - pad);
+        ctx.stroke();
+      }
+
+      const maxX = snapshot.agents.reduce((maxValue, agent) => Math.max(maxValue, agent.x), 1);
+      const maxY = snapshot.agents.reduce((maxValue, agent) => Math.max(maxValue, agent.y), 1);
+      const mapX = (x) => pad + (x / Math.max(1, maxX)) * (width - pad * 2);
+      const mapY = (y) => pad + (y / Math.max(1, maxY)) * (height - pad * 2);
+
+      ctx.strokeStyle = "rgba(185, 28, 28, 0.35)";
+      ctx.lineWidth = 1.1;
+      snapshot.pairs.forEach((pair) => {
+        const first = snapshot.agents[pair.agent1];
+        const second = snapshot.agents[pair.agent2];
+        if (!first || !second) return;
+        ctx.beginPath();
+        ctx.moveTo(mapX(first.x), mapY(first.y));
+        ctx.lineTo(mapX(second.x), mapY(second.y));
+        ctx.stroke();
+      });
+
+      const radius = Math.max(1.7, Math.min(3.8, (height - pad * 2) / 46));
+      snapshot.agents.forEach((agent) => {
+        ctx.beginPath();
+        ctx.arc(mapX(agent.x), mapY(agent.y), radius, 0, Math.PI * 2);
+        ctx.fillStyle = agent.matched ? "#22c55e" : this.getAgentColor(agent.attractiveness);
+        ctx.fill();
+      });
+
+      const model = meta && meta.modelName ? meta.modelName : "Unknown";
+      const runLabel = meta ? meta.runIndex + "/" + meta.runCount : "-";
+      if (this.batchSnapshotNote) {
+        this.batchSnapshotNote.textContent =
+          "Representative " + model + " snapshot from batch sample " + runLabel +
+          ". This is illustrative and not a mean grid.";
+      }
+    }
+
+    createBatchHeatAccumulator(columns, rows) {
+      return {
+        columns,
+        rows,
+        grid: Array.from({ length: rows }, () => Array(columns).fill(0)),
+        samples: 0,
+      };
+    }
+
+    resetBatchHeatmap(noteText) {
+      if (!this.batchHeatmapCanvas) return;
+      const ctx = this.batchHeatmapCanvas.getContext("2d");
+      if (!ctx) return;
+
+      const chartSize = this.prepareHiDPICanvas(this.batchHeatmapCanvas, 170);
+      ctx.clearRect(0, 0, chartSize.width, chartSize.height);
+      ctx.fillStyle = "rgba(255, 252, 246, 0.92)";
+      ctx.fillRect(0, 0, chartSize.width, chartSize.height);
+      ctx.fillStyle = "#5e4d3f";
+      ctx.font = "12px Instrument Sans, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("Heatmap will appear after first sampled run.", 10, 18);
+
+      if (this.batchHeatmapNote && noteText) {
+        this.batchHeatmapNote.textContent = noteText;
+      }
+    }
+
+    accumulateBatchHeatmap(accumulator, snapshot) {
+      if (!accumulator || !snapshot || !snapshot.agents || !snapshot.agents.length) return;
+
+      const columns = accumulator.columns;
+      const rows = accumulator.rows;
+      const size = snapshot.canvasSize || 1;
+
+      snapshot.agents.forEach((agent) => {
+        const xNorm = this.clamp(agent.x / Math.max(1, size), 0, 0.9999);
+        const yNorm = this.clamp(agent.y / Math.max(1, size), 0, 0.9999);
+        const col = Math.floor(xNorm * columns);
+        const row = Math.floor(yNorm * rows);
+        accumulator.grid[row][col] += 1;
+      });
+
+      accumulator.samples += 1;
+    }
+
+    drawBatchHeatmap(accumulator, meta) {
+      if (!this.batchHeatmapCanvas || !accumulator) return;
+      if (!this.batchHeatmapContext) {
+        this.batchHeatmapContext = this.batchHeatmapCanvas.getContext("2d");
+      }
+      const ctx = this.batchHeatmapContext;
+      if (!ctx) return;
+
+      const chartSize = this.prepareHiDPICanvas(this.batchHeatmapCanvas, 170);
+      const width = chartSize.width;
+      const height = chartSize.height;
+      const pad = 10;
+      const innerWidth = width - pad * 2;
+      const innerHeight = height - pad * 2;
+      const cellW = innerWidth / accumulator.columns;
+      const cellH = innerHeight / accumulator.rows;
+      const denom = Math.max(1, accumulator.samples * this.getActiveAgentCount());
+
+      let maxProbability = 0;
+      accumulator.grid.forEach((row) => {
+        row.forEach((count) => {
+          maxProbability = Math.max(maxProbability, count / denom);
+        });
+      });
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "rgba(255, 252, 246, 0.94)";
+      ctx.fillRect(0, 0, width, height);
+
+      for (let row = 0; row < accumulator.rows; row += 1) {
+        for (let col = 0; col < accumulator.columns; col += 1) {
+          const probability = accumulator.grid[row][col] / denom;
+          const intensity = maxProbability > 0 ? probability / maxProbability : 0;
+          const alpha = 0.08 + 0.85 * intensity;
+          const x = pad + col * cellW;
+          const y = pad + row * cellH;
+          ctx.fillStyle = "rgba(15, 118, 110, " + alpha.toFixed(3) + ")";
+          ctx.fillRect(x, y, cellW, cellH);
+        }
+      }
+
+      ctx.strokeStyle = "rgba(79, 57, 36, 0.22)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(pad, pad, innerWidth, innerHeight);
+
+      const processed = meta && typeof meta.processed === "number" ? meta.processed : accumulator.samples;
+      const total = meta && typeof meta.total === "number" ? meta.total : accumulator.samples;
+      if (this.batchHeatmapNote) {
+        this.batchHeatmapNote.textContent =
+          "Statistical occupancy from " + processed + "/" + total +
+          " sampled runs. Brighter cells indicate higher end-state occupancy probability.";
+      }
     }
 
     stopBatchGhostAnimation() {

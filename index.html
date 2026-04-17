@@ -420,6 +420,20 @@
                   <div class="batch-ghost" aria-hidden="true">
                     <canvas id="batch-ghost-canvas" width="220" height="86"></canvas>
                   </div>
+                  <div class="batch-representative" aria-live="polite">
+                    <p class="batch-representative-title">Representative sampled grid</p>
+                    <p class="batch-representative-note" id="batch-snapshot-note">
+                      Illustrative snapshot from the most recent sampled run (not an average grid).
+                    </p>
+                    <canvas id="batch-snapshot-canvas" width="320" height="180" aria-label="Representative batch simulation snapshot"></canvas>
+                  </div>
+                  <div class="batch-heatmap" aria-live="polite">
+                    <p class="batch-heatmap-title">Batch occupancy heatmap (statistical)</p>
+                    <p class="batch-heatmap-note" id="batch-heatmap-note">
+                      Aggregated across sampled runs. Brighter cells indicate higher end-state occupancy probability.
+                    </p>
+                    <canvas id="batch-heatmap-canvas" width="320" height="180" aria-label="Batch occupancy heatmap across sampled runs"></canvas>
+                  </div>
                 </div>
                 <div class="batch-summary" id="batch-summary" aria-live="polite"></div>
               </div>
