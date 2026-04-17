@@ -55,6 +55,12 @@ class MateChoiceSimulation {
       this.downloadCsvButton = document.getElementById("download-csv");
       this.downloadPngButton = document.getElementById("download-png");
       this.copyCitationButton = document.getElementById("copy-citation");
+      this.reportBuilderModal = document.getElementById("report-builder-modal");
+      this.reportBuilderForm = document.getElementById("report-builder-form");
+      this.reportBuilderScopeSelect = document.getElementById("report-scope");
+      this.reportBuilderFormatSelect = document.getElementById("report-format");
+      this.reportBuilderCloseButton = document.getElementById("report-builder-close");
+      this.reportBuilderCloseBackdrop = document.getElementById("report-builder-close-backdrop");
       this.batchRunCountSelect = document.getElementById("batch-run-count");
       this.runBatchButton = document.getElementById("run-batch");
       this.batchSummary = document.getElementById("batch-summary");
@@ -206,6 +212,7 @@ class MateChoiceSimulation {
       this.batchProgressHideTimer = null;
       this.batchAbortRequested = false;
       this.batchRestartRequested = false;
+      this.lastBatchReport = null;
 
       this.bindEvents();
       this.handleResize();
@@ -330,7 +337,7 @@ class MateChoiceSimulation {
         this.previewCsvButton.addEventListener("click", () => {
           const ok = this.previewCsv();
           if (ok) {
-            this.flashExportButton(this.previewCsvButton, "Opened", 850);
+            this.flashExportButton(this.previewCsvButton, "Options", 850);
           }
         });
       }
@@ -349,6 +356,15 @@ class MateChoiceSimulation {
       }
       if (this.clearRunComparisonButton) {
         this.clearRunComparisonButton.addEventListener("click", () => this.clearRunComparison());
+      }
+      if (this.reportBuilderCloseButton) {
+        this.reportBuilderCloseButton.addEventListener("click", () => this.closeReportBuilder());
+      }
+      if (this.reportBuilderCloseBackdrop) {
+        this.reportBuilderCloseBackdrop.addEventListener("click", () => this.closeReportBuilder());
+      }
+      if (this.reportBuilderForm) {
+        this.reportBuilderForm.addEventListener("submit", (event) => this.handleReportBuilderDownload(event));
       }
       this.bindLessonPresets();
     }
@@ -924,6 +940,15 @@ class MateChoiceSimulation {
         this.setExportEnabled(true);
         this.renderInsightQuestions();
         this.draw();
+        this.lastBatchReport = {
+          runCount,
+          pairStats,
+          strengthStats,
+          searchStats,
+          spatialStats,
+          nonSpatialStats,
+          timestamp: new Date().toISOString(),
+        };
         this.updateBatchKeyFindings(pairStats, spatialStats, nonSpatialStats, batchFieldAccumulator);
         this.showBatchSummary(runCount, pairStats, strengthStats, searchStats, spatialStats, nonSpatialStats);
         this.recordBatchForComparison(runCount, pairStats, strengthStats, searchStats, spatialStats, nonSpatialStats);
@@ -1097,6 +1122,7 @@ class MateChoiceSimulation {
     handleBatchReset() {
       this.batchAbortRequested = true;
       this.batchRestartRequested = true;
+      this.lastBatchReport = null;
       this.updateBatchActionButtons({ running: this.isBatchRunning, resetting: true });
 
       if (this.batchFieldTiltInput) {
@@ -3666,13 +3692,300 @@ class MateChoiceSimulation {
     }
 
     previewCsv() {
-      const csv = this.buildRunCsvText();
-      if (!csv) {
-        this.addChatMessage("Assistant", "Run first, then preview the summary.");
+      const hasAnyData = !!this.state.lastRun || !!this.lastBatchReport || !!this.runHistory.length;
+      if (!hasAnyData) {
+        this.addChatMessage("Assistant", "Run a simulation or batch first, then build a report.");
         return false;
       }
-      this.showCsvPreview(csv);
+      this.openReportBuilder();
       return true;
+    }
+
+    openReportBuilder() {
+      if (!this.reportBuilderModal) return;
+      this.reportBuilderModal.classList.add("is-open");
+      this.reportBuilderModal.setAttribute("aria-hidden", "false");
+    }
+
+    closeReportBuilder() {
+      if (!this.reportBuilderModal) return;
+      this.reportBuilderModal.classList.remove("is-open");
+      this.reportBuilderModal.setAttribute("aria-hidden", "true");
+    }
+
+    handleReportBuilderDownload(event) {
+      if (event && event.preventDefault) event.preventDefault();
+      if (!this.reportBuilderForm) return;
+
+      const scope = this.reportBuilderScopeSelect ? this.reportBuilderScopeSelect.value : "latest-run";
+      const format = this.reportBuilderFormatSelect ? this.reportBuilderFormatSelect.value : "html";
+      const selectedSectionInputs = Array.from(this.reportBuilderForm.querySelectorAll("input[name=\"report-section\"]:checked"));
+      const sections = selectedSectionInputs.map((input) => input.value);
+
+      const reportOptions = {
+        scope,
+        format,
+        sections,
+      };
+
+      const reportText = format === "md"
+        ? this.buildMarkdownExperimentReport(reportOptions)
+        : this.buildHtmlExperimentReport(reportOptions);
+
+      const stamp = new Date().toISOString().slice(0, 10);
+      const extension = format === "md" ? "md" : "html";
+      const mime = format === "md" ? "text/markdown;charset=utf-8;" : "text/html;charset=utf-8;";
+      const blob = new Blob([reportText], { type: mime });
+      ExportEngine.triggerDownload(blob, "mate-choice-experiment-report-" + stamp + "." + extension);
+
+      this.closeReportBuilder();
+      this.addChatMessage("Assistant", "Experiment report downloaded.");
+    }
+
+    scopeAllowsSection(scope, section) {
+      if (scope === "all") return true;
+      if (scope === "latest-run") {
+        return ["settings", "latest-metrics", "findings", "citation", "repro"].includes(section);
+      }
+      if (scope === "latest-batch") {
+        return ["settings", "batch-stats", "findings", "citation", "repro"].includes(section);
+      }
+      if (scope === "history") {
+        return ["settings", "comparison", "findings", "citation", "repro"].includes(section);
+      }
+      return true;
+    }
+
+    buildReportSettingsRows() {
+      const source = this.state.lastRun || {};
+      return [
+        ["Model", source.modelType || (this.modelTypeSelect ? this.modelTypeSelect.value : "Spatial")],
+        ["Preference rule", source.preferenceRule || (this.preferenceSelect ? this.preferenceSelect.value : "Attractiveness-based")],
+        ["Mobility", source.mobilityLevel || (this.mobilitySelect ? this.mobilitySelect.value : "Medium")],
+        ["Density", source.densityLevel || (this.densitySelect ? this.densitySelect.value : "Normal")],
+        ["Selectivity", source.selectivityLevel || (this.selectivitySelect ? this.selectivitySelect.value : "Medium")],
+        ["Patience", source.patienceLevel || (this.patienceSelect ? this.patienceSelect.value : "Normal")],
+        ["Exploration", source.explorationLevel || (this.explorationSelect ? this.explorationSelect.value : "Balanced")],
+        ["Agent count", String(source.agentCount || this.getActiveAgentCount())],
+      ];
+    }
+
+    buildHtmlExperimentReport(options) {
+      const { scope, sections } = options;
+      const include = (section) => sections.includes(section) && this.scopeAllowsSection(scope, section);
+      const title = "Human Mate Choice Models - Experiment Report";
+      const now = new Date();
+      const reportData = this.buildPreviewReportData();
+      const settingsRows = this.buildReportSettingsRows();
+      const run = this.state.lastRun;
+      const batch = this.lastBatchReport;
+      const citation = this.lastCitation || "No citation available for current scope.";
+      const seedText = this.randomSeedInput && this.randomSeedInput.value ? this.randomSeedInput.value : "not set";
+
+      const settingsTable = settingsRows
+        .map((row) => "<tr><th>" + row[0] + "</th><td>" + row[1] + "</td></tr>")
+        .join("");
+
+      const comparisonRows = this.runHistory.length
+        ? this.runHistory
+            .map(
+              (entry) =>
+                "<tr><td>#" +
+                entry.id +
+                "</td><td>" +
+                (entry.entryType === "batch" ? "Batch n=" + entry.batchN : entry.mode + " / " + entry.density + " / " + entry.mobility + " / " + entry.preference) +
+                "</td><td>" +
+                entry.pairCount.toFixed(1) +
+                "</td><td>" +
+                entry.strength.toFixed(2) +
+                "</td><td>" +
+                entry.search.toFixed(1) +
+                "</td></tr>"
+            )
+            .join("")
+        : "<tr><td colspan=\"5\">No run history available.</td></tr>";
+
+      const findingsText = [this.runInterpretationWhat, this.runInterpretationWhy, this.runInterpretationNext]
+        .map((node) => (node ? node.textContent : ""))
+        .filter((text) => !!text)
+        .join(" ");
+
+      return (
+        "<!DOCTYPE html><html><head><meta charset=\"UTF-8\" /><title>" +
+        title +
+        "</title><style>body{font-family:Georgia,\"Times New Roman\",serif;margin:34px;color:#1f1a17;line-height:1.45}h1{font-size:28px;margin:0 0 8px}h2{font-size:18px;margin:22px 0 8px;border-bottom:1px solid #d9ccba;padding-bottom:4px}p{margin:8px 0}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #dccfbd;padding:6px 8px;font-size:13px;text-align:left}th{background:#f5eee4}header{margin-bottom:14px}.meta{color:#4b3b2e;font-size:13px}.abstract{background:#f8f2e9;border:1px solid #e3d8c8;padding:10px 12px;border-radius:8px}</style></head><body>" +
+        "<header><h1>" +
+        title +
+        "</h1><p class=\"meta\">Generated: " +
+        now.toLocaleString() +
+        " | Scope: " +
+        scope +
+        "</p></header>" +
+        "<section class=\"abstract\"><strong>Abstract.</strong> This report summarizes simulation outcomes for human mate-choice dynamics, including spatial constraints, preference rules, and comparative run evidence captured in this session.</section>" +
+        (include("settings")
+          ? "<section><h2>Methods - Simulation Settings</h2><table><tbody>" + settingsTable + "</tbody></table></section>"
+          : "") +
+        (include("latest-metrics")
+          ? "<section><h2>Results - Latest Run Metrics</h2>" +
+            (run && run.metrics
+              ? "<table><tbody><tr><th>Pairs formed</th><td>" +
+                run.metrics.pairCount +
+                "</td></tr><tr><th>Matching strength</th><td>" +
+                run.metrics.matchingStrength.toFixed(3) +
+                "</td></tr><tr><th>Average search steps</th><td>" +
+                run.metrics.averageSearchSteps.toFixed(2) +
+                "</td></tr><tr><th>Matched agents</th><td>" +
+                run.metrics.matchedCount +
+                "</td></tr></tbody></table>"
+              : "<p>No latest run metrics are available.</p>") +
+            "</section>"
+          : "") +
+        (include("batch-stats")
+          ? "<section><h2>Batch Analysis</h2>" +
+            (batch
+              ? "<p>Batch size: n=" +
+                batch.runCount +
+                " paired simulations.</p><table><tbody><tr><th>Pairs mean (95% CI)</th><td>" +
+                batch.pairStats.mean.toFixed(1) +
+                " (" +
+                batch.pairStats.ciLow.toFixed(1) +
+                " to " +
+                batch.pairStats.ciHigh.toFixed(1) +
+                ")</td></tr><tr><th>Strength mean (95% CI)</th><td>" +
+                batch.strengthStats.mean.toFixed(2) +
+                " (" +
+                batch.strengthStats.ciLow.toFixed(2) +
+                " to " +
+                batch.strengthStats.ciHigh.toFixed(2) +
+                ")</td></tr><tr><th>Average search mean (95% CI)</th><td>" +
+                batch.searchStats.mean.toFixed(1) +
+                " (" +
+                batch.searchStats.ciLow.toFixed(1) +
+                " to " +
+                batch.searchStats.ciHigh.toFixed(1) +
+                ")</td></tr><tr><th>Spatial vs Non-spatial</th><td>" +
+                batch.spatialStats.mean.toFixed(2) +
+                " vs " +
+                batch.nonSpatialStats.mean.toFixed(2) +
+                "</td></tr></tbody></table>"
+              : "<p>No batch report is available.</p>") +
+            "</section>"
+          : "") +
+        (include("comparison")
+          ? "<section><h2>Run Comparison History</h2><table><thead><tr><th>Run</th><th>Scenario</th><th>Pairs</th><th>Strength</th><th>Avg search</th></tr></thead><tbody>" +
+            comparisonRows +
+            "</tbody></table></section>"
+          : "") +
+        (include("findings")
+          ? "<section><h2>Interpretation and Findings</h2><p>" +
+            (findingsText || "No interpretation text is currently available.") +
+            "</p>" +
+            (reportData ? "<p>Assortative structure summary: " + reportData.structureLabel + ".</p>" : "") +
+            "</section>"
+          : "") +
+        (include("citation")
+          ? "<section><h2>Citation</h2><p>" + citation.replace(/\n/g, "<br />") + "</p></section>"
+          : "") +
+        (include("repro")
+          ? "<section><h2>Reproducibility Metadata</h2><table><tbody><tr><th>Timestamp</th><td>" +
+            now.toISOString() +
+            "</td></tr><tr><th>Seed</th><td>" +
+            seedText +
+            "</td></tr><tr><th>Total tracked runs</th><td>" +
+            this.runHistory.length +
+            "</td></tr><tr><th>Scope</th><td>" +
+            scope +
+            "</td></tr></tbody></table></section>"
+          : "") +
+        "</body></html>"
+      );
+    }
+
+    buildMarkdownExperimentReport(options) {
+      const { scope, sections } = options;
+      const include = (section) => sections.includes(section) && this.scopeAllowsSection(scope, section);
+      const now = new Date();
+      const run = this.state.lastRun;
+      const batch = this.lastBatchReport;
+      const settingsRows = this.buildReportSettingsRows();
+      const citation = this.lastCitation || "No citation available for current scope.";
+
+      const lines = [];
+      lines.push("# Human Mate Choice Models - Experiment Report");
+      lines.push("");
+      lines.push("Generated: " + now.toISOString());
+      lines.push("Scope: " + scope);
+      lines.push("");
+      lines.push("This document summarizes available session evidence and selected report sections.");
+
+      if (include("settings")) {
+        lines.push("");
+        lines.push("## Methods - Simulation Settings");
+        settingsRows.forEach((row) => lines.push("- **" + row[0] + "**: " + row[1]));
+      }
+
+      if (include("latest-metrics")) {
+        lines.push("");
+        lines.push("## Results - Latest Run Metrics");
+        if (run && run.metrics) {
+          lines.push("- Pairs formed: " + run.metrics.pairCount);
+          lines.push("- Matching strength: " + run.metrics.matchingStrength.toFixed(3));
+          lines.push("- Average search steps: " + run.metrics.averageSearchSteps.toFixed(2));
+          lines.push("- Matched agents: " + run.metrics.matchedCount);
+        } else {
+          lines.push("- No latest run metrics are available.");
+        }
+      }
+
+      if (include("batch-stats")) {
+        lines.push("");
+        lines.push("## Batch Analysis");
+        if (batch) {
+          lines.push("- Batch size: n=" + batch.runCount);
+          lines.push("- Pairs mean (95% CI): " + batch.pairStats.mean.toFixed(1) + " (" + batch.pairStats.ciLow.toFixed(1) + " to " + batch.pairStats.ciHigh.toFixed(1) + ")");
+          lines.push("- Strength mean (95% CI): " + batch.strengthStats.mean.toFixed(2) + " (" + batch.strengthStats.ciLow.toFixed(2) + " to " + batch.strengthStats.ciHigh.toFixed(2) + ")");
+          lines.push("- Avg search mean (95% CI): " + batch.searchStats.mean.toFixed(1) + " (" + batch.searchStats.ciLow.toFixed(1) + " to " + batch.searchStats.ciHigh.toFixed(1) + ")");
+        } else {
+          lines.push("- No batch report is available.");
+        }
+      }
+
+      if (include("comparison")) {
+        lines.push("");
+        lines.push("## Run Comparison History");
+        if (!this.runHistory.length) {
+          lines.push("- No run history available.");
+        } else {
+          this.runHistory.forEach((entry) => {
+            lines.push("- #" + entry.id + ": pairs=" + entry.pairCount.toFixed(1) + ", strength=" + entry.strength.toFixed(2) + ", search=" + entry.search.toFixed(1));
+          });
+        }
+      }
+
+      if (include("findings")) {
+        lines.push("");
+        lines.push("## Interpretation and Findings");
+        lines.push("- " + (this.runInterpretationWhat ? this.runInterpretationWhat.textContent : "No interpretation available."));
+        lines.push("- " + (this.runInterpretationWhy ? this.runInterpretationWhy.textContent : ""));
+        lines.push("- " + (this.runInterpretationNext ? this.runInterpretationNext.textContent : ""));
+      }
+
+      if (include("citation")) {
+        lines.push("");
+        lines.push("## Citation");
+        lines.push(citation);
+      }
+
+      if (include("repro")) {
+        lines.push("");
+        lines.push("## Reproducibility Metadata");
+        lines.push("- Timestamp: " + now.toISOString());
+        lines.push("- Seed: " + (this.randomSeedInput && this.randomSeedInput.value ? this.randomSeedInput.value : "not set"));
+        lines.push("- Total tracked runs: " + this.runHistory.length);
+      }
+
+      lines.push("");
+      return lines.join("\n");
     }
 
     downloadCsv() {
@@ -5640,6 +5953,7 @@ class MateChoiceSimulation {
         this.batchSummary.textContent = "";
         this.batchSummary.classList.remove("is-visible");
       }
+      this.lastBatchReport = null;
       if (this.csvPreview) {
         this.csvPreview.classList.remove("is-visible");
       }
