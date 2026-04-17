@@ -316,11 +316,21 @@
               </div>
             </section>
 
-            <div class="export-row">
-              <button class="secondary-button" id="preview-csv" type="button" disabled>Preview run summary (CSV)</button>
-              <button class="secondary-button" id="download-csv" type="button" disabled>Download run summary (CSV)</button>
-              <button class="secondary-button" id="download-png" type="button" disabled>Save canvas (PNG)</button>
-              <button class="secondary-button" id="copy-citation" type="button" disabled>Copy citation text</button>
+            <div class="export-row" aria-label="Export and share actions">
+              <div class="export-group" aria-label="Report actions">
+                <p class="export-group-title">Report</p>
+                <div class="export-group-actions">
+                  <button class="secondary-button export-button export-primary" id="preview-csv" type="button" disabled data-default-label="Preview CSV">Preview CSV</button>
+                  <button class="secondary-button export-button" id="download-csv" type="button" disabled data-default-label="Download CSV">Download CSV</button>
+                </div>
+              </div>
+              <div class="export-group" aria-label="Share actions">
+                <p class="export-group-title">Share</p>
+                <div class="export-group-actions">
+                  <button class="secondary-button export-button" id="download-png" type="button" disabled data-default-label="Save PNG">Save PNG</button>
+                  <button class="secondary-button export-button" id="copy-citation" type="button" disabled data-default-label="Copy Citation">Copy Citation</button>
+                </div>
+              </div>
             </div>
             <div class="run-summary" id="run-summary">
               <span class="summary-label">Last run:</span>

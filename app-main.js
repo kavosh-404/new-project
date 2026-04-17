@@ -319,16 +319,33 @@ class MateChoiceSimulation {
         });
       }
       if (this.downloadCsvButton) {
-        this.downloadCsvButton.addEventListener("click", () => this.downloadCsv());
+        this.downloadCsvButton.addEventListener("click", () => {
+          const ok = this.downloadCsv();
+          if (ok) {
+            this.flashExportButton(this.downloadCsvButton, "Downloading...", 900);
+          }
+        });
       }
       if (this.previewCsvButton) {
-        this.previewCsvButton.addEventListener("click", () => this.previewCsv());
+        this.previewCsvButton.addEventListener("click", () => {
+          const ok = this.previewCsv();
+          if (ok) {
+            this.flashExportButton(this.previewCsvButton, "Opened", 850);
+          }
+        });
       }
       if (this.downloadPngButton) {
-        this.downloadPngButton.addEventListener("click", () => this.downloadPng());
+        this.downloadPngButton.addEventListener("click", () => {
+          const ok = this.downloadPng();
+          if (ok) {
+            this.flashExportButton(this.downloadPngButton, "Saved", 1000);
+          }
+        });
       }
       if (this.copyCitationButton) {
-        this.copyCitationButton.addEventListener("click", () => this.copyCitation());
+        this.copyCitationButton.addEventListener("click", () => {
+          this.copyCitation();
+        });
       }
       if (this.clearRunComparisonButton) {
         this.clearRunComparisonButton.addEventListener("click", () => this.clearRunComparison());
@@ -3597,6 +3614,8 @@ class MateChoiceSimulation {
         downloadPngButton: this.downloadPngButton,
         copyCitationButton: this.copyCitationButton,
       });
+
+      this.resetExportButtonLabels();
       
       if (isEnabled && this.state.lastRun) {
         this.lastCitation = this.buildRunCitationMessage(
@@ -3650,15 +3669,16 @@ class MateChoiceSimulation {
       const csv = this.buildRunCsvText();
       if (!csv) {
         this.addChatMessage("Assistant", "Run first, then preview the summary.");
-        return;
+        return false;
       }
       this.showCsvPreview(csv);
+      return true;
     }
 
     downloadCsv() {
       if (!this.state.lastRun) {
         this.addChatMessage("Assistant", "Run first, then download the summary.");
-        return;
+        return false;
       }
 
       const normalizeDensity = (level) =>
@@ -3687,6 +3707,7 @@ class MateChoiceSimulation {
       };
 
       ExportEngine.downloadCsv(exportMetrics, exportSettings);
+      return true;
     }
 
     showCsvPreview(csvText) {
@@ -5135,6 +5156,7 @@ class MateChoiceSimulation {
 
     downloadPng() {
       ExportEngine.downloadPng(this.canvas);
+      return true;
     }
 
     bindLessonPresets() {
@@ -5521,19 +5543,52 @@ class MateChoiceSimulation {
         this.addChatMessage("Assistant", "Could not generate citation.");
         return;
       }
+
+      if (this.copyCitationButton) {
+        this.flashExportButton(this.copyCitationButton, "Copying...", 600, false);
+      }
       
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(this.lastCitation)
           .then(() => {
             this.addChatMessage("Assistant", "Citation copied.");
+            if (this.copyCitationButton) {
+              this.flashExportButton(this.copyCitationButton, "Copied", 1100);
+            }
           })
           .catch((err) => {
             console.error("Clipboard error:", err);
             this.addChatMessage("Assistant", "Clipboard blocked—copy manually from the chat.");
+            this.resetExportButtonLabels();
           });
       } else {
         this.addChatMessage("Assistant", this.lastCitation);
+        if (this.copyCitationButton) {
+          this.flashExportButton(this.copyCitationButton, "Copied", 1100);
+        }
       }
+    }
+
+    resetExportButtonLabels() {
+      [this.previewCsvButton, this.downloadCsvButton, this.downloadPngButton, this.copyCitationButton].forEach((button) => {
+        if (!button) return;
+        const label = button.getAttribute("data-default-label") || button.textContent || "";
+        button.textContent = label;
+        button.classList.remove("is-busy");
+      });
+    }
+
+    flashExportButton(button, temporaryLabel, durationMs, markBusy = true) {
+      if (!button) return;
+      const defaultLabel = button.getAttribute("data-default-label") || button.textContent || "";
+      button.textContent = temporaryLabel;
+      if (markBusy) {
+        button.classList.add("is-busy");
+      }
+      window.setTimeout(() => {
+        button.textContent = defaultLabel;
+        button.classList.remove("is-busy");
+      }, Math.max(200, durationMs || 900));
     }
 
     scrollToTeaching() {
