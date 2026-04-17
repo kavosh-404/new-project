@@ -308,14 +308,30 @@ body.intro-open {
   gap: 1.5rem;
   align-items: start;
   position: relative;
+  isolation: isolate;
   border-radius: var(--radius-xl);
   padding: 1rem;
   --wx: 50%;
   --wy: 50%;
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.04) 0%, rgba(185, 130, 54, 0.03) 100%);
+}
+
+.workspace-grid::before {
+  content: "";
+  position: absolute;
+  inset: -16% -10%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.96;
+  filter: blur(8px);
   background:
-    radial-gradient(circle at var(--wx) var(--wy), rgba(15, 118, 110, 0.13) 0%, transparent 55%),
-    radial-gradient(circle at calc(100% - var(--wx)) calc(100% - var(--wy)), rgba(185, 130, 54, 0.10) 0%, transparent 50%),
-    transparent;
+    radial-gradient(circle at var(--wx) var(--wy), rgba(15, 118, 110, 0.16) 0%, rgba(15, 118, 110, 0.08) 32%, transparent 66%),
+    radial-gradient(circle at calc(100% - var(--wx)) calc(100% - var(--wy)), rgba(185, 130, 54, 0.12) 0%, rgba(185, 130, 54, 0.06) 36%, transparent 68%);
+}
+
+.workspace-grid > * {
+  position: relative;
+  z-index: 1;
 }
 
 .panel {
@@ -670,6 +686,7 @@ input[type="range"]:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
+  overflow: visible;
 }
 
 .run-badge {
@@ -687,10 +704,11 @@ input[type="range"]:disabled {
 .run-badge[data-tip]::after {
   content: attr(data-tip);
   position: absolute;
-  left: 50%;
+  left: 0;
   bottom: calc(100% + 0.45rem);
-  transform: translateX(-50%) translateY(0.2rem);
-  width: min(240px, 65vw);
+  transform: translateY(0.2rem);
+  width: max-content;
+  max-width: min(280px, calc(100vw - 2rem));
   padding: 0.5rem 0.6rem;
   border-radius: 10px;
   background: rgba(31, 26, 23, 0.94);
@@ -709,7 +727,16 @@ input[type="range"]:disabled {
 .run-badge[data-tip]:hover::after,
 .run-badge[data-tip]:focus-visible::after {
   opacity: 1;
-  transform: translateX(-50%) translateY(0);
+  transform: translateY(0);
+}
+
+.run-interpretation-badges .run-badge:last-child[data-tip]::after {
+  left: auto;
+  right: 0;
+}
+
+.panel-simulation {
+  overflow: visible;
 }
 
 .run-badge:focus-visible {
