@@ -71,6 +71,7 @@ class MateChoiceSimulation {
       this.batchGhostCanvas = document.getElementById("batch-ghost-canvas");
       this.batchSnapshotCanvas = document.getElementById("batch-snapshot-canvas");
       this.batchSnapshotNote = document.getElementById("batch-snapshot-note");
+      this.batchFieldTooltip = document.getElementById("batch-field-tooltip");
       this.batchHeatmapCanvas = document.getElementById("batch-heatmap-canvas");
       this.batchHeatmapNote = document.getElementById("batch-heatmap-note");
       this.batchHeatmapTooltip = document.getElementById("batch-heatmap-tooltip");
@@ -173,6 +174,7 @@ class MateChoiceSimulation {
       this.debounceTimer = null;
       this.ruleHazardHoverData = null;
       this.ruleHazardZoomHoverData = null;
+      this.batchFieldHoverData = null;
       this.batchHeatmapHoverData = null;
       this.lastRuleAnalyticsRows = null;
       this.hazardSeriesSelection = {};
@@ -253,6 +255,7 @@ class MateChoiceSimulation {
         this.runBatchButton.addEventListener("click", this.handleBatchRun);
       }
       this.bindHazardTooltipEvents();
+      this.bindBatchFieldTooltipEvents();
       this.bindBatchHeatmapTooltipEvents();
       this.bindHazardExplorerEvents();
       this.bindControlHelpTooltips();
@@ -1150,12 +1153,62 @@ class MateChoiceSimulation {
       const cellW = innerWidth / accumulator.columns;
       const cellH = innerHeight / accumulator.rows;
 
+      const occGrid = Array.from({ length: accumulator.rows }, () => Array(accumulator.columns).fill(0));
+      const matchGrid = Array.from({ length: accumulator.rows }, () => Array(accumulator.columns).fill(0));
+
       let maxOccupancy = 0;
+      let minMatchedRate = 1;
+      let maxMatchedRate = 0;
+      let matchedRateSum = 0;
+      let occupiedCellCount = 0;
+      const matchedRates = [];
       for (let row = 0; row < accumulator.rows; row += 1) {
         for (let col = 0; col < accumulator.columns; col += 1) {
-          maxOccupancy = Math.max(maxOccupancy, accumulator.occupancy[row][col]);
+          const occ = accumulator.occupancy[row][col];
+          maxOccupancy = Math.max(maxOccupancy, occ);
+          if (occ > 0) {
+            const matchedRate = accumulator.matched[row][col] / occ;
+            minMatchedRate = Math.min(minMatchedRate, matchedRate);
+            maxMatchedRate = Math.max(maxMatchedRate, matchedRate);
+            matchedRateSum += matchedRate;
+            occupiedCellCount += 1;
+            matchedRates.push(matchedRate);
+            occGrid[row][col] = occ;
+            matchGrid[row][col] = matchedRate;
+          }
         }
       }
+
+      if (!occupiedCellCount) {
+        minMatchedRate = 0;
+        maxMatchedRate = 0;
+      }
+      const meanMatchedRate = occupiedCellCount ? matchedRateSum / occupiedCellCount : 0;
+      const matchedRateRange = maxMatchedRate - minMatchedRate;
+      const smoothOccGrid = this.smoothGrid(occGrid, 1);
+      const smoothMatchGrid = this.smoothGrid(matchGrid, 1);
+      const sortedMatchedRates = matchedRates.slice().sort((a, b) => a - b);
+      const q10 = this.getSortedQuantile(sortedMatchedRates, 0.1);
+      const q50 = this.getSortedQuantile(sortedMatchedRates, 0.5);
+      const q90 = this.getSortedQuantile(sortedMatchedRates, 0.9);
+
+      let maxSmoothedOccupancy = 0;
+      for (let row = 0; row < accumulator.rows; row += 1) {
+        for (let col = 0; col < accumulator.columns; col += 1) {
+          maxSmoothedOccupancy = Math.max(maxSmoothedOccupancy, smoothOccGrid[row][col]);
+        }
+      }
+
+      const normalizeMatchedRate = (rate) => {
+        if (q90 - q10 >= 0.02) {
+          return this.clamp((rate - q10) / (q90 - q10), 0, 1);
+        }
+        if (matchedRateRange >= 0.1) {
+          return this.clamp((rate - minMatchedRate) / matchedRateRange, 0, 1);
+        }
+        // Contrast-stretch narrow ranges around median so subtle differences become visible.
+        return this.clamp(0.5 + (rate - q50) / 0.03, 0, 1);
+      };
 
       ctx.clearRect(0, 0, width, height);
       ctx.fillStyle = "rgba(255, 252, 246, 0.94)";
@@ -1163,18 +1216,30 @@ class MateChoiceSimulation {
 
       for (let row = 0; row < accumulator.rows; row += 1) {
         for (let col = 0; col < accumulator.columns; col += 1) {
-          const occ = accumulator.occupancy[row][col];
-          const matched = accumulator.matched[row][col];
-          const matchedRate = occ > 0 ? matched / occ : 0;
-          const occIntensity = maxOccupancy > 0 ? occ / maxOccupancy : 0;
+          const occ = smoothOccGrid[row][col];
+          const matchedRate = smoothMatchGrid[row][col] || 0;
+          const occIntensity = maxSmoothedOccupancy > 0 ? Math.sqrt(occ / maxSmoothedOccupancy) : 0;
+          const matchedNorm = normalizeMatchedRate(matchedRate);
 
-          const hue = 18 + matchedRate * 115;
-          const alpha = 0.10 + 0.80 * occIntensity;
+          const rgb = this.interpolateDivergingColor(matchedNorm);
+          const alpha = 0.14 + 0.82 * occIntensity;
           const x = pad + col * cellW;
           const y = pad + row * cellH;
 
-          ctx.fillStyle = "hsla(" + hue.toFixed(1) + " 62% 48% / " + alpha.toFixed(3) + ")";
+          ctx.fillStyle =
+            "rgba(" +
+            Math.round(rgb.r) +
+            "," +
+            Math.round(rgb.g) +
+            "," +
+            Math.round(rgb.b) +
+            "," +
+            alpha.toFixed(3) +
+            ")";
           ctx.fillRect(x, y, cellW, cellH);
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
+          ctx.lineWidth = 0.6;
+          ctx.strokeRect(x, y, cellW, cellH);
         }
       }
 
@@ -1182,13 +1247,201 @@ class MateChoiceSimulation {
       ctx.lineWidth = 1;
       ctx.strokeRect(pad, pad, innerWidth, innerHeight);
 
+      const hotspots = this.collectTopFieldCells(smoothOccGrid, smoothMatchGrid, 3);
+      hotspots.forEach((cell, index) => {
+        const cx = pad + (cell.col + 0.5) * cellW;
+        const cy = pad + (cell.row + 0.5) * cellH;
+        const radius = Math.max(4, Math.min(cellW, cellH) * 0.28);
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(31, 26, 23, 0.55)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = "#2a231d";
+        ctx.font = "700 10px Instrument Sans, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(index + 1), cx, cy + 0.5);
+      });
+
+      // Compact legend for matched-rate color scale.
+      const legendX = pad + 6;
+      const legendY = pad + 6;
+      const legendW = 120;
+      const legendH = 10;
+      const legendGradient = ctx.createLinearGradient(legendX, 0, legendX + legendW, 0);
+      legendGradient.addColorStop(0, "rgba(59, 76, 192, 0.95)");
+      legendGradient.addColorStop(0.5, "rgba(244, 244, 244, 0.95)");
+      legendGradient.addColorStop(1, "rgba(180, 4, 38, 0.95)");
+      ctx.fillStyle = "rgba(255,255,255,0.72)";
+      ctx.fillRect(legendX - 4, legendY - 12, legendW + 8, 28);
+      ctx.fillStyle = legendGradient;
+      ctx.fillRect(legendX, legendY, legendW, legendH);
+      ctx.strokeStyle = "rgba(79, 57, 36, 0.25)";
+      ctx.strokeRect(legendX, legendY, legendW, legendH);
+      ctx.fillStyle = "#4b3b2e";
+      ctx.font = "10px Instrument Sans, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("low " + (q10 * 100).toFixed(1) + "%", legendX, legendY + 20);
+      ctx.textAlign = "center";
+      ctx.fillText("mid " + (q50 * 100).toFixed(1) + "%", legendX + legendW / 2, legendY + 20);
+      ctx.textAlign = "right";
+      ctx.fillText("high " + (q90 * 100).toFixed(1) + "%", legendX + legendW, legendY + 20);
+
       const processed = meta && typeof meta.processed === "number" ? meta.processed : accumulator.samples;
       const total = meta && typeof meta.total === "number" ? meta.total : accumulator.samples;
+      this.batchFieldHoverData = {
+        pad,
+        innerWidth,
+        innerHeight,
+        cellW,
+        cellH,
+        rows: accumulator.rows,
+        columns: accumulator.columns,
+        occupancy: accumulator.occupancy,
+        matched: accumulator.matched,
+        samples: accumulator.samples,
+        maxOccupancy,
+      };
+
       if (this.batchSnapshotNote) {
         this.batchSnapshotNote.textContent =
           "Average field from " + processed + "/" + total + " sampled runs. " +
-          "Color: matched-rate in each cell. Opacity: relative occupancy concentration.";
+          "Color: matched-rate in each cell. Opacity: relative occupancy concentration. " +
+          "Observed match-rate range: " + (minMatchedRate * 100).toFixed(1) + "% to " + (maxMatchedRate * 100).toFixed(1) + "%. " +
+          "Top concentration cells are marked 1-3.";
       }
+    }
+
+    smoothGrid(grid, passes) {
+      let current = grid.map((row) => row.slice());
+      const totalPasses = Math.max(1, passes || 1);
+
+      for (let passIndex = 0; passIndex < totalPasses; passIndex += 1) {
+        const next = current.map((row) => row.slice());
+        for (let row = 0; row < current.length; row += 1) {
+          for (let col = 0; col < current[row].length; col += 1) {
+            let sum = 0;
+            let count = 0;
+            for (let dRow = -1; dRow <= 1; dRow += 1) {
+              for (let dCol = -1; dCol <= 1; dCol += 1) {
+                const rr = row + dRow;
+                const cc = col + dCol;
+                if (rr < 0 || rr >= current.length || cc < 0 || cc >= current[row].length) continue;
+                const weight = dRow === 0 && dCol === 0 ? 2 : 1;
+                sum += current[rr][cc] * weight;
+                count += weight;
+              }
+            }
+            next[row][col] = count > 0 ? sum / count : current[row][col];
+          }
+        }
+        current = next;
+      }
+
+      return current;
+    }
+
+    collectTopFieldCells(occGrid, matchGrid, topN) {
+      const cells = [];
+      for (let row = 0; row < occGrid.length; row += 1) {
+        for (let col = 0; col < occGrid[row].length; col += 1) {
+          const occ = occGrid[row][col] || 0;
+          const match = matchGrid[row][col] || 0;
+          if (occ <= 0) continue;
+          cells.push({ row, col, score: occ * (0.35 + 0.65 * match) });
+        }
+      }
+
+      return cells
+        .sort((a, b) => b.score - a.score)
+        .slice(0, Math.max(0, topN || 3));
+    }
+
+    getSortedQuantile(sortedValues, q) {
+      if (!sortedValues || !sortedValues.length) return 0;
+      const clampedQ = this.clamp(q, 0, 1);
+      const index = clampedQ * (sortedValues.length - 1);
+      const low = Math.floor(index);
+      const high = Math.ceil(index);
+      if (low === high) return sortedValues[low];
+      const weight = index - low;
+      return sortedValues[low] * (1 - weight) + sortedValues[high] * weight;
+    }
+
+    interpolateDivergingColor(t) {
+      const value = this.clamp(t, 0, 1);
+      const stops = [
+        { t: 0, r: 59, g: 76, b: 192 },
+        { t: 0.5, r: 244, g: 244, b: 244 },
+        { t: 1, r: 180, g: 4, b: 38 },
+      ];
+
+      for (let i = 0; i < stops.length - 1; i += 1) {
+        const a = stops[i];
+        const b = stops[i + 1];
+        if (value < a.t || value > b.t) continue;
+        const span = Math.max(1e-6, b.t - a.t);
+        const p = (value - a.t) / span;
+        return {
+          r: a.r + (b.r - a.r) * p,
+          g: a.g + (b.g - a.g) * p,
+          b: a.b + (b.b - a.b) * p,
+        };
+      }
+
+      return value <= 0.5 ? { r: 59, g: 76, b: 192 } : { r: 180, g: 4, b: 38 };
+    }
+
+    bindBatchFieldTooltipEvents() {
+      if (!this.batchSnapshotCanvas || !this.batchFieldTooltip) return;
+      this.batchSnapshotCanvas.addEventListener("mousemove", (event) => this.handleBatchFieldTooltipMove(event));
+      this.batchSnapshotCanvas.addEventListener("mouseleave", () => this.hideHazardTooltip(this.batchFieldTooltip));
+    }
+
+    handleBatchFieldTooltipMove(event) {
+      if (!this.batchSnapshotCanvas || !this.batchFieldTooltip || !this.batchFieldHoverData) return;
+
+      const hoverData = this.batchFieldHoverData;
+      const rect = this.batchSnapshotCanvas.getBoundingClientRect();
+      const localX = event.clientX - rect.left;
+      const localY = event.clientY - rect.top;
+
+      const inBounds =
+        localX >= hoverData.pad &&
+        localX <= hoverData.pad + hoverData.innerWidth &&
+        localY >= hoverData.pad &&
+        localY <= hoverData.pad + hoverData.innerHeight;
+
+      if (!inBounds) {
+        this.hideHazardTooltip(this.batchFieldTooltip);
+        return;
+      }
+
+      const col = this.clamp(Math.floor((localX - hoverData.pad) / hoverData.cellW), 0, hoverData.columns - 1);
+      const row = this.clamp(Math.floor((localY - hoverData.pad) / hoverData.cellH), 0, hoverData.rows - 1);
+      const occ = hoverData.occupancy[row][col] || 0;
+      const matched = hoverData.matched[row][col] || 0;
+      const meanAgentsPerRun = hoverData.samples > 0 ? occ / hoverData.samples : 0;
+      const matchedRate = occ > 0 ? (matched / occ) * 100 : 0;
+      const occRel = hoverData.maxOccupancy > 0 ? (occ / hoverData.maxOccupancy) * 100 : 0;
+
+      this.batchFieldTooltip.innerHTML =
+        "Cell r" + (row + 1) + ", c" + (col + 1) + "<br>" +
+        "Avg agents/run: " + meanAgentsPerRun.toFixed(2) + "<br>" +
+        "Matched-rate: " + matchedRate.toFixed(1) + "%<br>" +
+        "Relative occupancy: " + occRel.toFixed(1) + "%";
+
+      const parentRect = this.batchSnapshotCanvas.parentElement
+        ? this.batchSnapshotCanvas.parentElement.getBoundingClientRect()
+        : rect;
+      const tooltipX = event.clientX - parentRect.left + 12;
+      const tooltipY = event.clientY - parentRect.top - 8;
+      this.batchFieldTooltip.style.left = Math.min(tooltipX, parentRect.width - 240) + "px";
+      this.batchFieldTooltip.style.top = Math.max(tooltipY, 24) + "px";
+      this.batchFieldTooltip.classList.add("is-visible");
     }
 
     drawBatchSnapshot(snapshot, meta) {
