@@ -119,6 +119,7 @@
                   <option>Attractiveness-based</option>
                   <option>Similarity-based</option>
                 </select>
+                <small class="control-hint">Attractiveness seeks higher scores; similarity seeks closer scores.</small>
               </label>
 
               <label class="control-field">
@@ -145,6 +146,7 @@
                   <option>Normal</option>
                   <option>Dense</option>
                 </select>
+                <small class="control-hint">Higher density usually creates more encounters and faster pairing.</small>
               </label>
 
               <label class="control-field">
@@ -234,7 +236,7 @@
             </form>
 
             <p class="flow-stage flow-stage-run">2. Start and watch</p>
-            <div class="execution-controls" aria-label="Simulation execution controls">
+            <div class="execution-controls primary-surface" aria-label="Simulation execution controls">
               <button class="run-button" id="run-simulation" type="button">
                 Start Simulation
               </button>
@@ -255,7 +257,7 @@
                 <span class="run-meta-chip run-meta-step" id="run-step-chip">0/50</span>
               </div>
             </div>
-            <section class="simulation-grid" aria-labelledby="simulation-grid-title">
+            <section class="simulation-grid primary-surface" aria-labelledby="simulation-grid-title">
               <div class="simulation-grid-header">
                 <h3 id="simulation-grid-title">Simulation Grid</h3>
                 <p id="simulation-status">
@@ -290,6 +292,7 @@
                       </span>
                     </span>
                     <input id="view-radius" name="view-radius" type="range" min="0.7" max="2.2" step="0.1" value="1" />
+                    <small class="control-hint">Wider radius expands nearby options in Spatial mode.</small>
                     <div class="range-end-labels" aria-hidden="true">
                       <span>Narrow search</span>
                       <span>Wide search</span>
@@ -326,65 +329,80 @@
               <span class="summary-metric" id="summary-search">Avg search —</span>
             </div>
             <p class="flow-stage flow-stage-read">3. Read and cite results</p>
-            <section class="run-interpretation" id="run-interpretation-panel" aria-label="How to read this run">
-              <h3>How to read this run</h3>
-              <div class="run-interpretation-badges" aria-label="Run status badges">
-                <span class="run-badge" id="run-badge-search" tabindex="0" data-tip="Search badge thresholds: fast at 12 or fewer steps, moderate at 12 to 16, slow above 16.">Search: pending</span>
-                <span class="run-badge" id="run-badge-assortment" tabindex="0" data-tip="Assortment thresholds: high at 0.35 or above, medium at 0.20 to 0.34, low below 0.20 matching strength.">Assortment: pending</span>
-                <span class="run-badge" id="run-badge-pair-rate" tabindex="0" data-tip="Pair-rate thresholds: good at 65 percent or above of possible pairs, warning at 40 to 64 percent, risk below 40 percent.">Pair rate: pending</span>
+            <details class="mobile-collapsible mobile-collapsible-secondary" id="interpretation-collapse">
+              <summary class="mobile-collapsible-summary">How to read this run</summary>
+              <div class="mobile-collapsible-content">
+                <section class="run-interpretation secondary-surface" id="run-interpretation-panel" aria-label="How to read this run">
+                  <h3>How to read this run</h3>
+                  <div class="run-interpretation-badges" aria-label="Run status badges">
+                    <span class="run-badge" id="run-badge-search" tabindex="0" data-tip="Search badge thresholds: fast at 12 or fewer steps, moderate at 12 to 16, slow above 16.">Search guide</span>
+                    <span class="run-badge" id="run-badge-assortment" tabindex="0" data-tip="Assortment thresholds: high at 0.35 or above, medium at 0.20 to 0.34, low below 0.20 matching strength.">Assortment guide</span>
+                    <span class="run-badge" id="run-badge-pair-rate" tabindex="0" data-tip="Pair-rate thresholds: good at 65 percent or above of possible pairs, warning at 40 to 64 percent, risk below 40 percent.">Pair-rate guide</span>
+                  </div>
+                  <p class="run-interpretation-line" id="run-interpretation-what">
+                    What you'll learn after a run: how many pairs formed and how quickly matching happened.
+                  </p>
+                  <p class="run-interpretation-line" id="run-interpretation-why">
+                    Why it likely happened: this section links your settings to observed outcomes.
+                  </p>
+                  <p class="run-interpretation-line" id="run-interpretation-next">
+                    Example insight: Dense + high mobility often increases pair counts while lowering average search steps.
+                  </p>
+                </section>
               </div>
-              <p class="run-interpretation-line" id="run-interpretation-what">
-                What happened: run a simulation to generate a guided interpretation.
-              </p>
-              <p class="run-interpretation-line" id="run-interpretation-why">
-                Why it likely happened: this section links your settings to observed outcomes.
-              </p>
-              <p class="run-interpretation-line" id="run-interpretation-next">
-                What to try next: after a run, you will get a concrete next scenario to test.
-              </p>
-            </section>
-            <section class="run-comparison" id="run-comparison-panel" aria-label="Run-to-run comparison">
-              <div class="run-comparison-header">
-                <h3>Run Comparison</h3>
-                <button class="secondary-button" id="clear-run-comparison" type="button">Clear history</button>
+            </details>
+            <details class="mobile-collapsible mobile-collapsible-tertiary" id="comparison-collapse">
+              <summary class="mobile-collapsible-summary">Run comparison</summary>
+              <div class="mobile-collapsible-content">
+                <section class="run-comparison tertiary-surface" id="run-comparison-panel" aria-label="Run-to-run comparison">
+                  <div class="run-comparison-header">
+                    <h3>Run Comparison</h3>
+                    <button class="secondary-button" id="clear-run-comparison" type="button">Clear history</button>
+                  </div>
+                  <p class="run-comparison-summary" id="run-comparison-summary">
+                    Run at least two simulations to compare outcomes side-by-side.
+                  </p>
+                  <div class="run-comparison-table-wrap">
+                    <table class="run-comparison-table" aria-label="Comparison of recent simulation runs">
+                      <thead>
+                        <tr>
+                          <th>Run</th>
+                          <th>Scenario</th>
+                          <th>Pairs</th>
+                          <th>Strength</th>
+                          <th>Avg search</th>
+                          <th>Delta vs prev</th>
+                        </tr>
+                      </thead>
+                      <tbody id="run-comparison-body">
+                        <tr>
+                          <td colspan="6">No completed runs yet. Run once to set a baseline, then change one setting and rerun.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
               </div>
-              <p class="run-comparison-summary" id="run-comparison-summary">
-                Run at least two simulations to compare outcomes side-by-side.
-              </p>
-              <div class="run-comparison-table-wrap">
-                <table class="run-comparison-table" aria-label="Comparison of recent simulation runs">
-                  <thead>
-                    <tr>
-                      <th>Run</th>
-                      <th>Scenario</th>
-                      <th>Pairs</th>
-                      <th>Strength</th>
-                      <th>Avg search</th>
-                      <th>Delta vs prev</th>
-                    </tr>
-                  </thead>
-                  <tbody id="run-comparison-body">
-                    <tr>
-                      <td colspan="6">No completed runs yet.</td>
-                    </tr>
-                  </tbody>
-                </table>
+            </details>
+            <details class="mobile-collapsible mobile-collapsible-tertiary" id="batch-collapse">
+              <summary class="mobile-collapsible-summary">Batch experiment</summary>
+              <div class="mobile-collapsible-content">
+                <div class="batch-tools tertiary-surface" aria-label="Batch experiment controls">
+                  <label class="batch-field" for="batch-run-count">
+                    <span>Batch runs</span>
+                    <select id="batch-run-count" name="batch-run-count">
+                      <option>10</option>
+                      <option selected>30</option>
+                      <option>50</option>
+                      <option>100</option>
+                    </select>
+                    <small class="control-hint">Repeats the simulation many times to estimate means and 95% confidence intervals.</small>
+                  </label>
+                  <button class="secondary-button" id="run-batch" type="button">Run batch experiment</button>
+                </div>
+                <div class="batch-summary" id="batch-summary" aria-live="polite"></div>
               </div>
-            </section>
-            <div class="batch-tools" aria-label="Batch experiment controls">
-              <label class="batch-field" for="batch-run-count">
-                <span>Batch runs</span>
-                <select id="batch-run-count" name="batch-run-count">
-                  <option>10</option>
-                  <option selected>30</option>
-                  <option>50</option>
-                  <option>100</option>
-                </select>
-                <small class="control-hint">Repeats the simulation many times to estimate means and 95% confidence intervals.</small>
-              </label>
-              <button class="secondary-button" id="run-batch" type="button">Run batch experiment</button>
-            </div>
-            <div class="batch-summary" id="batch-summary" aria-live="polite"></div>
+            </details>
             <section class="csv-preview" id="csv-preview" aria-label="Run summary CSV preview">
               <div class="csv-preview-header">
                 <h3>Run Summary Report</h3>

@@ -5,7 +5,7 @@
   --surface-strong: #fffdf9;
   --border: rgba(79, 57, 36, 0.14);
   --text: #1f1a17;
-  --muted: #6d5b4b;
+  --muted: #5e4d3f;
   --accent: #0f766e;
   --accent-soft: rgba(15, 118, 110, 0.1);
   --shadow: 0 24px 80px rgba(66, 45, 23, 0.12);
@@ -396,6 +396,12 @@ body.intro-open {
   background: var(--surface-strong);
 }
 
+.comparison-module {
+  border-color: rgba(79, 57, 36, 0.12);
+  background: linear-gradient(180deg, rgba(255, 253, 249, 0.9) 0%, rgba(246, 239, 230, 0.75) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
 .comparison-module h3,
 .simulation-grid-header h3 {
   margin: 0 0 0.75rem;
@@ -536,7 +542,8 @@ body.intro-open {
 
 .control-help:focus-visible,
 .control-help.is-open {
-  outline: none;
+  outline: 3px solid rgba(15, 118, 110, 0.4);
+  outline-offset: 2px;
   border-color: rgba(15, 118, 110, 0.45);
   background: rgba(15, 118, 110, 0.16);
 }
@@ -602,6 +609,11 @@ input[type="range"]:disabled {
   border: 1px solid rgba(15, 118, 110, 0.2);
   border-radius: var(--radius-md);
   background: linear-gradient(180deg, rgba(15, 118, 110, 0.08) 0%, rgba(255, 253, 249, 0.88) 100%);
+}
+
+.primary-surface {
+  border-color: rgba(15, 118, 110, 0.26);
+  box-shadow: 0 12px 28px rgba(15, 118, 110, 0.12);
 }
 
 .speed-field {
@@ -758,6 +770,11 @@ input[type="range"]:disabled {
   gap: 0.45rem;
 }
 
+.secondary-surface {
+  border-color: rgba(15, 118, 110, 0.2);
+  background: linear-gradient(180deg, rgba(255, 253, 249, 0.96) 0%, rgba(248, 241, 233, 0.9) 100%);
+}
+
 .run-interpretation h3 {
   margin: 0;
   font-size: 0.95rem;
@@ -861,6 +878,11 @@ input[type="range"]:disabled {
   gap: 0.5rem;
 }
 
+.tertiary-surface {
+  border-color: rgba(79, 57, 36, 0.16);
+  background: linear-gradient(180deg, rgba(255, 253, 249, 0.9) 0%, rgba(245, 238, 229, 0.82) 100%);
+}
+
 .run-comparison-header {
   display: flex;
   align-items: center;
@@ -911,6 +933,28 @@ input[type="range"]:disabled {
   flex-wrap: wrap;
   gap: 0.6rem;
   align-items: end;
+}
+
+.mobile-collapsible {
+  margin-top: 0.6rem;
+}
+
+.mobile-collapsible > summary {
+  display: none;
+}
+
+.mobile-collapsible > .mobile-collapsible-content {
+  display: block;
+}
+
+.mobile-collapsible-secondary {
+  border-top: 1px dashed rgba(15, 118, 110, 0.18);
+  padding-top: 0.45rem;
+}
+
+.mobile-collapsible-tertiary {
+  border-top: 1px dashed rgba(79, 57, 36, 0.14);
+  padding-top: 0.45rem;
 }
 
 .batch-field {
@@ -1607,6 +1651,20 @@ input[type="range"]:disabled {
   outline: none;
 }
 
+a:focus-visible,
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 3px solid rgba(15, 118, 110, 0.42);
+  outline-offset: 2px;
+}
+
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
 .chat-suggestion-chip:disabled {
   cursor: not-allowed;
   opacity: 0.55;
@@ -1729,6 +1787,61 @@ input[type="range"]:disabled {
     margin-left: 0;
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .mobile-collapsible {
+    margin-top: 0.45rem;
+    border: 1px solid rgba(79, 57, 36, 0.14);
+    border-radius: var(--radius-md);
+    background: rgba(255, 253, 249, 0.85);
+    overflow: hidden;
+    padding-top: 0;
+  }
+
+  .mobile-collapsible > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    list-style: none;
+    padding: 0.62rem 0.78rem;
+    cursor: pointer;
+    color: #0f4f4a;
+    font-size: 0.86rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: linear-gradient(180deg, rgba(15, 118, 110, 0.09) 0%, rgba(255, 253, 249, 0.9) 100%);
+  }
+
+  .mobile-collapsible > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .mobile-collapsible > summary::after {
+    content: "+";
+    font-size: 1rem;
+    line-height: 1;
+    color: rgba(15, 118, 110, 0.9);
+  }
+
+  .mobile-collapsible[open] > summary::after {
+    content: "-";
+  }
+
+  .mobile-collapsible > .mobile-collapsible-content {
+    display: none;
+    padding: 0.25rem 0.55rem 0.6rem;
+  }
+
+  .mobile-collapsible[open] > .mobile-collapsible-content {
+    display: block;
+  }
+
+  .mobile-collapsible .run-interpretation,
+  .mobile-collapsible .run-comparison,
+  .mobile-collapsible .batch-tools {
+    margin-top: 0;
   }
 }
 

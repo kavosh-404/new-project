@@ -3614,10 +3614,10 @@ class MateChoiceSimulation {
       if (!this.runComparisonBody) return;
 
       if (!this.runHistory.length) {
-        this.runComparisonBody.innerHTML = "<tr><td colspan=\"6\">No completed runs yet.</td></tr>";
+        this.runComparisonBody.innerHTML = "<tr><td colspan=\"6\">No completed runs yet. Run once to set a baseline, then change one setting and rerun.</td></tr>";
         if (this.runComparisonSummary) {
           this.runComparisonSummary.textContent =
-            "Run at least two simulations to compare outcomes side-by-side.";
+            "Start with one baseline run. Your next run will show clear deltas in pairs, strength, and search.";
         }
         return;
       }
@@ -3695,14 +3695,14 @@ class MateChoiceSimulation {
 
       if (!reportData) {
         this.runInterpretationWhat.textContent =
-          "What happened: run a simulation to generate a guided interpretation.";
+          "What you'll learn after a run: how many pairs formed and how quickly matching happened.";
         this.runInterpretationWhy.textContent =
           "Why it likely happened: this section links your settings to observed outcomes.";
         this.runInterpretationNext.textContent =
-          "What to try next: after a run, you will get a concrete next scenario to test.";
-        setBadge(this.runBadgeSearch, "Search: pending", null);
-        setBadge(this.runBadgeAssortment, "Assortment: pending", null);
-        setBadge(this.runBadgePairRate, "Pair rate: pending", null);
+          "Example insight: Dense + high mobility often increases pair counts while lowering average search steps.";
+        setBadge(this.runBadgeSearch, "Search guide", null);
+        setBadge(this.runBadgeAssortment, "Assortment guide", null);
+        setBadge(this.runBadgePairRate, "Pair-rate guide", null);
         return;
       }
 
