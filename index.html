@@ -422,7 +422,41 @@
                     <p class="batch-representative-note" id="batch-snapshot-note">
                       Cell-wise average across sampled runs. Color shows matched-rate; opacity shows relative occupancy.
                     </p>
+                    <div class="batch-field-controls" aria-label="Average field controls">
+                      <label for="batch-field-view-mode">View
+                        <select id="batch-field-view-mode" name="batch-field-view-mode">
+                          <option value="2d" selected>2D</option>
+                          <option value="3d">3D (fixed iso)</option>
+                        </select>
+                      </label>
+                      <span class="batch-quality-lock" aria-label="Batch render quality">Quality: Detailed</span>
+                      <button class="secondary-button batch-field-reset" id="batch-field-reset-view" type="button">Reset</button>
+                      <details class="batch-advanced-controls">
+                        <summary>Advanced controls</summary>
+                        <div class="batch-advanced-grid">
+                          <label for="batch-visual-pace">Batch pace
+                            <select id="batch-visual-pace" name="batch-visual-pace">
+                              <option value="normal" selected>Normal</option>
+                              <option value="slow">Slow motion</option>
+                              <option value="very-slow">Very slow</option>
+                            </select>
+                          </label>
+                          <label for="batch-field-tilt" class="batch-field-tilt-label">3D yaw
+                            <input id="batch-field-tilt" type="range" min="-20" max="20" step="1" value="0" />
+                          </label>
+                        </div>
+                      </details>
+                    </div>
+                    <div class="batch-key-findings" id="batch-key-findings" aria-live="polite" aria-hidden="true">
+                      <p class="batch-key-title">Key findings</p>
+                      <div class="batch-key-grid">
+                        <p id="batch-key-hotspot">Top hotspot: -</p>
+                        <p id="batch-key-match-rate">Mean matched-rate: -</p>
+                        <p id="batch-key-delta">Spatial vs non-spatial delta: -</p>
+                      </div>
+                    </div>
                     <canvas id="batch-snapshot-canvas" width="320" height="180" aria-label="Statistical average field across sampled runs"></canvas>
+                    <div class="chart-hover-tip" id="batch-field-tooltip" aria-hidden="true"></div>
                   </div>
                   <div class="batch-heatmap" aria-live="polite">
                     <p class="batch-heatmap-title">Batch pairing hotspot heatmap (statistical)</p>

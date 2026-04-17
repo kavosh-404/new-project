@@ -72,6 +72,15 @@ class MateChoiceSimulation {
       this.batchSnapshotCanvas = document.getElementById("batch-snapshot-canvas");
       this.batchSnapshotNote = document.getElementById("batch-snapshot-note");
       this.batchFieldTooltip = document.getElementById("batch-field-tooltip");
+      this.batchFieldViewModeSelect = document.getElementById("batch-field-view-mode");
+      this.batchFieldQualitySelect = document.getElementById("batch-field-quality");
+      this.batchVisualPaceSelect = document.getElementById("batch-visual-pace");
+      this.batchFieldTiltInput = document.getElementById("batch-field-tilt");
+      this.batchFieldResetViewButton = document.getElementById("batch-field-reset-view");
+      this.batchKeyFindings = document.getElementById("batch-key-findings");
+      this.batchKeyHotspot = document.getElementById("batch-key-hotspot");
+      this.batchKeyMatchRate = document.getElementById("batch-key-match-rate");
+      this.batchKeyDelta = document.getElementById("batch-key-delta");
       this.batchHeatmapCanvas = document.getElementById("batch-heatmap-canvas");
       this.batchHeatmapNote = document.getElementById("batch-heatmap-note");
       this.batchHeatmapTooltip = document.getElementById("batch-heatmap-tooltip");
@@ -176,6 +185,9 @@ class MateChoiceSimulation {
       this.ruleHazardZoomHoverData = null;
       this.batchFieldHoverData = null;
       this.batchHeatmapHoverData = null;
+      this.latestBatchFieldAccumulator = null;
+      this.latestBatchFieldMeta = null;
+      this.batchFieldRenderScale = 1;
       this.lastRuleAnalyticsRows = null;
       this.hazardSeriesSelection = {};
       this.autoHighlightedSeriesLabels = [];
@@ -192,6 +204,8 @@ class MateChoiceSimulation {
       this.batchGhostParticles = [];
       this.batchGhostAnimationId = null;
       this.batchProgressHideTimer = null;
+      this.batchAbortRequested = false;
+      this.batchRestartRequested = false;
 
       this.bindEvents();
       this.handleResize();
@@ -253,6 +267,22 @@ class MateChoiceSimulation {
       }
       if (this.runBatchButton) {
         this.runBatchButton.addEventListener("click", this.handleBatchRun);
+      }
+      if (this.batchFieldViewModeSelect) {
+        this.batchFieldViewModeSelect.addEventListener("change", () => this.redrawBatchFieldFromLatest());
+      }
+      if (this.batchFieldQualitySelect) {
+        this.batchFieldQualitySelect.addEventListener("change", () => {
+          const profile = this.getBatchFieldQualityProfile();
+          this.batchFieldRenderScale = profile.pixelScale;
+          this.redrawBatchFieldFromLatest();
+        });
+      }
+      if (this.batchFieldTiltInput) {
+        this.batchFieldTiltInput.addEventListener("input", () => this.redrawBatchFieldFromLatest());
+      }
+      if (this.batchFieldResetViewButton) {
+        this.batchFieldResetViewButton.addEventListener("click", () => this.handleBatchReset());
       }
       this.bindHazardTooltipEvents();
       this.bindBatchFieldTooltipEvents();
@@ -695,12 +725,17 @@ class MateChoiceSimulation {
       }
 
       this.isBatchRunning = true;
+      this.batchAbortRequested = false;
+      this.batchRestartRequested = false;
+      this.updateBatchActionButtons({ running: true, resetting: false });
 
       const runCount = parseInt(this.batchRunCountSelect ? this.batchRunCountSelect.value : "30", 10) || 30;
       const metricsList = [];
       const spatialStrength = [];
       const nonSpatialStrength = [];
-      const batchFieldAccumulator = this.createBatchFieldAccumulator(16, 16);
+      const qualityProfile = this.getBatchFieldQualityProfile();
+      this.batchFieldRenderScale = qualityProfile.pixelScale;
+      const batchFieldAccumulator = this.createBatchFieldAccumulator(qualityProfile.gridSize, qualityProfile.gridSize);
       const batchHeatAccumulator = this.createBatchHeatAccumulator(18, 10);
       const totalSamples = runCount * 2;
       const batchStartMs = performance.now ? performance.now() : Date.now();
@@ -723,8 +758,11 @@ class MateChoiceSimulation {
         metricsList,
         recentInteractions: 0,
       });
+      this.clearBatchKeyFindings();
       this.resetBatchSnapshot("Preparing statistical average field...");
       this.resetBatchHeatmap("Preparing pairing-hotspot heatmap...");
+      this.latestBatchFieldAccumulator = batchFieldAccumulator;
+      this.latestBatchFieldMeta = { processed: 0, total: totalSamples };
 
       const preservedState = {
         ...this.state,
@@ -740,6 +778,7 @@ class MateChoiceSimulation {
 
       try {
         for (let runIndex = 0; runIndex < runCount; runIndex += 1) {
+          if (this.batchAbortRequested) break;
           const seedBase = this.getNumericSeed();
           const runSeed = typeof seedBase === "number" ? seedBase + runIndex * 101 : null;
 
@@ -770,12 +809,21 @@ class MateChoiceSimulation {
             processed: processedSamples,
             total: totalSamples,
           });
+          this.latestBatchFieldMeta = {
+            modelName: currentModel,
+            runIndex: runIndex + 1,
+            runCount,
+            processed: processedSamples,
+            total: totalSamples,
+          };
           this.accumulateBatchHeatmap(batchHeatAccumulator, primaryResult.snapshot);
           this.drawBatchHeatmap(batchHeatAccumulator, {
             processed: processedSamples,
             total: totalSamples,
           });
-          await this.waitForNextFrame();
+          await this.waitForBatchVisualPace();
+
+          if (this.batchAbortRequested) break;
 
           const compareSeed = typeof runSeed === "number" ? runSeed + 53 : null;
           const compareResult = this.runSingleBatchSample({
@@ -804,12 +852,24 @@ class MateChoiceSimulation {
             processed: processedSamples,
             total: totalSamples,
           });
+          this.latestBatchFieldMeta = {
+            modelName: compareModel,
+            runIndex: runIndex + 1,
+            runCount,
+            processed: processedSamples,
+            total: totalSamples,
+          };
           this.accumulateBatchHeatmap(batchHeatAccumulator, compareResult.snapshot);
           this.drawBatchHeatmap(batchHeatAccumulator, {
             processed: processedSamples,
             total: totalSamples,
           });
-          await this.waitForNextFrame();
+          await this.waitForBatchVisualPace();
+        }
+
+        if (this.batchAbortRequested) {
+          this.status.textContent = "Batch reset.";
+          return;
         }
         const pairStats = this.computeBatchStats(metricsList.map((m) => m.pairCount));
         const strengthStats = this.computeBatchStats(metricsList.map((m) => m.matchingStrength));
@@ -847,6 +907,7 @@ class MateChoiceSimulation {
         this.setExportEnabled(true);
         this.renderInsightQuestions();
         this.draw();
+        this.updateBatchKeyFindings(pairStats, spatialStats, nonSpatialStats, batchFieldAccumulator);
         this.showBatchSummary(runCount, pairStats, strengthStats, searchStats, spatialStats, nonSpatialStats);
         this.recordBatchForComparison(runCount, pairStats, strengthStats, searchStats, spatialStats, nonSpatialStats);
 
@@ -936,6 +997,15 @@ class MateChoiceSimulation {
         this.runButton.disabled = false;
         if (this.runBatchButton) this.runBatchButton.disabled = false;
         this.isBatchRunning = false;
+        this.batchAbortRequested = false;
+        this.updateBatchActionButtons({ running: false, resetting: false });
+
+        if (this.batchRestartRequested) {
+          this.batchRestartRequested = false;
+          window.setTimeout(() => {
+            this.handleBatchRun();
+          }, 0);
+        }
       }
     }
 
@@ -983,6 +1053,90 @@ class MateChoiceSimulation {
       return new Promise((resolve) => {
         window.requestAnimationFrame(() => resolve());
       });
+    }
+
+    waitForBatchVisualPace() {
+      const pace = this.batchVisualPaceSelect ? this.batchVisualPaceSelect.value : "normal";
+      const delayMs = pace === "very-slow" ? 180 : pace === "slow" ? 80 : 0;
+
+      return new Promise((resolve) => {
+        window.requestAnimationFrame(() => {
+          if (!delayMs) {
+            resolve();
+            return;
+          }
+          window.setTimeout(resolve, delayMs);
+        });
+      });
+    }
+
+    getBatchFieldQualityProfile() {
+      if (this.batchFieldQualitySelect) {
+        this.batchFieldQualitySelect.value = "detailed";
+      }
+      return { gridSize: 30, pixelScale: 2.6, smoothingPasses: 2, quantizeSteps: 0, gridStroke: 0.35 };
+    }
+
+    handleBatchReset() {
+      this.batchAbortRequested = true;
+      this.batchRestartRequested = true;
+      this.updateBatchActionButtons({ running: this.isBatchRunning, resetting: true });
+
+      if (this.batchFieldTiltInput) {
+        this.batchFieldTiltInput.value = "0";
+      }
+
+      this.latestBatchFieldAccumulator = null;
+      this.latestBatchFieldMeta = null;
+      this.batchFieldHoverData = null;
+      this.batchHeatmapHoverData = null;
+      this.batchFieldRenderScale = this.getBatchFieldQualityProfile().pixelScale;
+
+      if (this.batchSummary) {
+        this.batchSummary.innerHTML = "";
+        this.batchSummary.classList.remove("is-visible");
+      }
+
+      this.clearBatchKeyFindings();
+
+      this.resetBatchSnapshot("Batch reset. Run a new batch experiment to regenerate the average field.");
+      this.resetBatchHeatmap("Batch reset. Run a new batch experiment to regenerate the pairing-hotspot heatmap.");
+
+      if (this.batchProgressLabel) this.batchProgressLabel.textContent = "Batch progress";
+      if (this.batchProgressCount) this.batchProgressCount.textContent = "0/0";
+      if (this.batchProgressPhase) this.batchProgressPhase.textContent = this.isBatchRunning ? "Stopping batch run..." : "Batch reset.";
+      if (this.batchProgressFill) this.batchProgressFill.style.width = "0%";
+      if (this.batchProgressEta) this.batchProgressEta.textContent = "Elapsed 0.0s";
+      if (this.batchProgressInteractions) this.batchProgressInteractions.textContent = "Sampled interactions: -";
+      if (this.batchProgressPairs) this.batchProgressPairs.textContent = "Rolling pairs mean: -";
+      if (this.batchProgressStrength) this.batchProgressStrength.textContent = "Rolling strength mean: -";
+      if (this.batchProgressSearch) this.batchProgressSearch.textContent = "Rolling search mean: -";
+      this.setBatchProgressVisible(true);
+
+      this.status.textContent = this.isBatchRunning ? "Resetting batch and rerunning..." : "Batch reset. Rerunning...";
+
+      if (!this.isBatchRunning) {
+        this.batchRestartRequested = false;
+        this.handleBatchRun();
+      }
+    }
+
+    updateBatchActionButtons({ running, resetting }) {
+      if (this.runBatchButton) {
+        this.runBatchButton.textContent = running ? "Running batch..." : "Run batch experiment";
+      }
+      if (this.batchFieldResetViewButton) {
+        this.batchFieldResetViewButton.textContent = resetting
+          ? "Resetting..."
+          : running
+            ? "Reset + rerun"
+            : "Reset";
+      }
+    }
+
+    redrawBatchFieldFromLatest() {
+      if (!this.latestBatchFieldAccumulator || !this.latestBatchFieldMeta) return;
+      this.drawBatchField(this.latestBatchFieldAccumulator, this.latestBatchFieldMeta);
     }
 
     setBatchProgressVisible(isVisible) {
@@ -1144,7 +1298,9 @@ class MateChoiceSimulation {
       const ctx = this.batchSnapshotContext;
       if (!ctx) return;
 
-      const chartSize = this.prepareSquareCanvas(this.batchSnapshotCanvas, 420);
+      const qualityProfile = this.getBatchFieldQualityProfile();
+
+      const chartSize = this.prepareSquareCanvas(this.batchSnapshotCanvas, 420, this.batchFieldRenderScale || 1);
       const width = chartSize.size;
       const height = chartSize.size;
       const pad = 10;
@@ -1185,8 +1341,8 @@ class MateChoiceSimulation {
       }
       const meanMatchedRate = occupiedCellCount ? matchedRateSum / occupiedCellCount : 0;
       const matchedRateRange = maxMatchedRate - minMatchedRate;
-      const smoothOccGrid = this.smoothGrid(occGrid, 1);
-      const smoothMatchGrid = this.smoothGrid(matchGrid, 1);
+      const smoothOccGrid = this.smoothGrid(occGrid, qualityProfile.smoothingPasses);
+      const smoothMatchGrid = this.smoothGrid(matchGrid, qualityProfile.smoothingPasses);
       const sortedMatchedRates = matchedRates.slice().sort((a, b) => a - b);
       const q10 = this.getSortedQuantile(sortedMatchedRates, 0.1);
       const q50 = this.getSortedQuantile(sortedMatchedRates, 0.5);
@@ -1214,32 +1370,53 @@ class MateChoiceSimulation {
       ctx.fillStyle = "rgba(255, 252, 246, 0.94)";
       ctx.fillRect(0, 0, width, height);
 
-      for (let row = 0; row < accumulator.rows; row += 1) {
-        for (let col = 0; col < accumulator.columns; col += 1) {
-          const occ = smoothOccGrid[row][col];
-          const matchedRate = smoothMatchGrid[row][col] || 0;
-          const occIntensity = maxSmoothedOccupancy > 0 ? Math.sqrt(occ / maxSmoothedOccupancy) : 0;
-          const matchedNorm = normalizeMatchedRate(matchedRate);
+      const viewMode = this.batchFieldViewModeSelect ? this.batchFieldViewModeSelect.value : "2d";
+      if (viewMode === "3d") {
+        this.drawBatchField3D(ctx, {
+          width,
+          height,
+          pad,
+          rows: accumulator.rows,
+          cols: accumulator.columns,
+          smoothOccGrid,
+          smoothMatchGrid,
+          maxSmoothedOccupancy,
+          normalizeMatchedRate,
+          cellW,
+          cellH,
+        });
+      } else {
+        for (let row = 0; row < accumulator.rows; row += 1) {
+          for (let col = 0; col < accumulator.columns; col += 1) {
+            const occ = smoothOccGrid[row][col];
+            const matchedRate = smoothMatchGrid[row][col] || 0;
+            const occIntensity = maxSmoothedOccupancy > 0 ? Math.sqrt(occ / maxSmoothedOccupancy) : 0;
+            let matchedNorm = normalizeMatchedRate(matchedRate);
+            if (qualityProfile.quantizeSteps > 1) {
+              const steps = qualityProfile.quantizeSteps - 1;
+              matchedNorm = Math.round(matchedNorm * steps) / steps;
+            }
 
-          const rgb = this.interpolateDivergingColor(matchedNorm);
-          const alpha = 0.14 + 0.82 * occIntensity;
-          const x = pad + col * cellW;
-          const y = pad + row * cellH;
+            const rgb = this.interpolateDivergingColor(matchedNorm);
+            const alpha = 0.14 + 0.82 * occIntensity;
+            const x = pad + col * cellW;
+            const y = pad + row * cellH;
 
-          ctx.fillStyle =
-            "rgba(" +
-            Math.round(rgb.r) +
-            "," +
-            Math.round(rgb.g) +
-            "," +
-            Math.round(rgb.b) +
-            "," +
-            alpha.toFixed(3) +
-            ")";
-          ctx.fillRect(x, y, cellW, cellH);
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
-          ctx.lineWidth = 0.6;
-          ctx.strokeRect(x, y, cellW, cellH);
+            ctx.fillStyle =
+              "rgba(" +
+              Math.round(rgb.r) +
+              "," +
+              Math.round(rgb.g) +
+              "," +
+              Math.round(rgb.b) +
+              "," +
+              alpha.toFixed(3) +
+              ")";
+            ctx.fillRect(x, y, cellW, cellH);
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
+            ctx.lineWidth = qualityProfile.gridStroke;
+            ctx.strokeRect(x, y, cellW, cellH);
+          }
         }
       }
 
@@ -1248,71 +1425,399 @@ class MateChoiceSimulation {
       ctx.strokeRect(pad, pad, innerWidth, innerHeight);
 
       const hotspots = this.collectTopFieldCells(smoothOccGrid, smoothMatchGrid, 3);
-      hotspots.forEach((cell, index) => {
-        const cx = pad + (cell.col + 0.5) * cellW;
-        const cy = pad + (cell.row + 0.5) * cellH;
-        const radius = Math.max(4, Math.min(cellW, cellH) * 0.28);
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
-        ctx.fill();
-        ctx.strokeStyle = "rgba(31, 26, 23, 0.55)";
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        ctx.fillStyle = "#2a231d";
-        ctx.font = "700 10px Instrument Sans, sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(String(index + 1), cx, cy + 0.5);
+      if (viewMode === "3d" && this.batchFieldHoverData && this.batchFieldHoverData.centers) {
+        const calloutLeftX = pad + 10;
+        const detailW = 112;
+        const markerSize = 18;
+        const calloutRightX = width - pad - detailW - markerSize - 6;
+        const calloutStartY = pad + 78;
+        hotspots.forEach((cell, index) => {
+          const center = this.batchFieldHoverData.centers.find((entry) => entry.row === cell.row && entry.col === cell.col);
+          if (!center) return;
+
+          const occ = smoothOccGrid[cell.row][cell.col] || 0;
+          const matchRate = smoothMatchGrid[cell.row][cell.col] || 0;
+          const occRel = maxSmoothedOccupancy > 0 ? (occ / maxSmoothedOccupancy) * 100 : 0;
+
+          const preferLeft = center.x >= width * 0.52;
+          const labelX = preferLeft ? calloutLeftX : calloutRightX;
+          const labelY = calloutStartY + index * 56;
+          const markerCenterX = labelX + markerSize / 2;
+          const markerCenterY = labelY + markerSize / 2;
+          const connectorTargetX = preferLeft ? markerCenterX + 6 : markerCenterX - 6;
+
+          ctx.beginPath();
+          ctx.moveTo(center.x, center.y);
+          ctx.lineTo(connectorTargetX, markerCenterY);
+          ctx.strokeStyle = "rgba(31, 26, 23, 0.35)";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.roundRect(labelX, labelY, markerSize, markerSize, 9);
+          ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+          ctx.fill();
+          ctx.strokeStyle = "rgba(31, 26, 23, 0.5)";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.fillStyle = "#2a231d";
+          ctx.font = "700 11px Instrument Sans, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(String(index + 1), markerCenterX, markerCenterY + 0.2);
+
+          ctx.beginPath();
+          ctx.roundRect(labelX - 2, labelY + 20, detailW, 30, 6);
+          ctx.fillStyle = "rgba(255,255,255,0.88)";
+          ctx.fill();
+          ctx.strokeStyle = "rgba(31, 26, 23, 0.2)";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          ctx.textAlign = "left";
+          ctx.textBaseline = "alphabetic";
+          ctx.fillStyle = "#2a231d";
+          ctx.font = "600 10px Instrument Sans, sans-serif";
+          ctx.fillText("r" + (cell.row + 1) + " c" + (cell.col + 1), labelX + 4, labelY + 34);
+          ctx.font = "10px Instrument Sans, sans-serif";
+          ctx.fillText("m " + (matchRate * 100).toFixed(1) + "%  occ " + occRel.toFixed(0) + "%", labelX + 4, labelY + 46);
+        });
+      } else {
+        hotspots.forEach((cell, index) => {
+          const cx = pad + (cell.col + 0.5) * cellW;
+          const cy = pad + (cell.row + 0.5) * cellH;
+          const radius = Math.max(4, Math.min(cellW, cellH) * 0.28);
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+          ctx.fill();
+          ctx.strokeStyle = "rgba(31, 26, 23, 0.55)";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.fillStyle = "#2a231d";
+          ctx.font = "700 10px Instrument Sans, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(String(index + 1), cx, cy + 0.5);
+        });
+      }
+
+      const topCellEntries = hotspots.map((cell, index) => {
+        const occ = smoothOccGrid[cell.row][cell.col] || 0;
+        const matchRate = smoothMatchGrid[cell.row][cell.col] || 0;
+        const occRel = maxSmoothedOccupancy > 0 ? (occ / maxSmoothedOccupancy) * 100 : 0;
+        return {
+          rank: index + 1,
+          row: cell.row + 1,
+          col: cell.col + 1,
+          matchedRate: matchRate * 100,
+          occRel,
+        };
       });
+      // In 2D we keep map area unobstructed; top-cell explanation is rendered in note text below.
 
       // Compact legend for matched-rate color scale.
       const legendX = pad + 6;
-      const legendY = pad + 6;
-      const legendW = 120;
-      const legendH = 10;
+      const legendY = pad + 8;
+      const legendW = 140;
+      const legendH = 12;
       const legendGradient = ctx.createLinearGradient(legendX, 0, legendX + legendW, 0);
       legendGradient.addColorStop(0, "rgba(59, 76, 192, 0.95)");
       legendGradient.addColorStop(0.5, "rgba(244, 244, 244, 0.95)");
       legendGradient.addColorStop(1, "rgba(180, 4, 38, 0.95)");
-      ctx.fillStyle = "rgba(255,255,255,0.72)";
-      ctx.fillRect(legendX - 4, legendY - 12, legendW + 8, 28);
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.fillRect(legendX - 6, legendY - 14, legendW + 12, 45);
+      ctx.fillStyle = "#4b3b2e";
+      ctx.font = "600 10px Instrument Sans, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("Matched-rate scale", legendX, legendY - 2);
       ctx.fillStyle = legendGradient;
       ctx.fillRect(legendX, legendY, legendW, legendH);
       ctx.strokeStyle = "rgba(79, 57, 36, 0.25)";
       ctx.strokeRect(legendX, legendY, legendW, legendH);
       ctx.fillStyle = "#4b3b2e";
-      ctx.font = "10px Instrument Sans, sans-serif";
+      ctx.font = "600 10px Instrument Sans, sans-serif";
       ctx.textAlign = "left";
-      ctx.fillText("low " + (q10 * 100).toFixed(1) + "%", legendX, legendY + 20);
+      ctx.fillText("L " + (q10 * 100).toFixed(1) + "%", legendX, legendY + 26);
       ctx.textAlign = "center";
-      ctx.fillText("mid " + (q50 * 100).toFixed(1) + "%", legendX + legendW / 2, legendY + 20);
+      ctx.fillText("M " + (q50 * 100).toFixed(1) + "%", legendX + legendW / 2, legendY + 26);
       ctx.textAlign = "right";
-      ctx.fillText("high " + (q90 * 100).toFixed(1) + "%", legendX + legendW, legendY + 20);
+      ctx.fillText("H " + (q90 * 100).toFixed(1) + "%", legendX + legendW, legendY + 26);
 
       const processed = meta && typeof meta.processed === "number" ? meta.processed : accumulator.samples;
       const total = meta && typeof meta.total === "number" ? meta.total : accumulator.samples;
-      this.batchFieldHoverData = {
-        pad,
-        innerWidth,
-        innerHeight,
-        cellW,
-        cellH,
-        rows: accumulator.rows,
-        columns: accumulator.columns,
-        occupancy: accumulator.occupancy,
-        matched: accumulator.matched,
-        samples: accumulator.samples,
-        maxOccupancy,
-      };
+      if (viewMode !== "3d") {
+        this.batchFieldHoverData = {
+          mode: "2d",
+          pad,
+          innerWidth,
+          innerHeight,
+          cellW,
+          cellH,
+          rows: accumulator.rows,
+          columns: accumulator.columns,
+          occupancy: accumulator.occupancy,
+          matched: accumulator.matched,
+          samples: accumulator.samples,
+          maxOccupancy,
+        };
+      }
 
       if (this.batchSnapshotNote) {
+        const topText = topCellEntries.length
+          ? " Top cells: " +
+            topCellEntries
+              .map((entry) =>
+                "#" +
+                entry.rank +
+                " (r" +
+                entry.row +
+                ", c" +
+                entry.col +
+                ") m=" +
+                entry.matchedRate.toFixed(1) +
+                "% occ=" +
+                entry.occRel.toFixed(0) +
+                "%"
+              )
+              .join("; ") +
+            "."
+          : "";
         this.batchSnapshotNote.textContent =
-          "Average field from " + processed + "/" + total + " sampled runs. " +
-          "Color: matched-rate in each cell. Opacity: relative occupancy concentration. " +
+          "Average field from " + processed + "/" + total + " sampled runs (" + (qualityProfile.quantizeSteps > 1 ? "Standard" : "Detailed") + " mode). " +
+          (viewMode === "3d"
+            ? "3D uses fixed isometric perspective with limited yaw to reduce distortion. "
+            : "Color: matched-rate in each cell. Opacity: relative occupancy concentration. ") +
           "Observed match-rate range: " + (minMatchedRate * 100).toFixed(1) + "% to " + (maxMatchedRate * 100).toFixed(1) + "%. " +
-          "Top concentration cells are marked 1-3.";
+          "Top concentration cells are marked 1-3." +
+          topText;
       }
+    }
+
+    drawBatchField3D(ctx, options) {
+      const {
+        width,
+        height,
+        pad,
+        rows,
+        cols,
+        smoothOccGrid,
+        smoothMatchGrid,
+        maxSmoothedOccupancy,
+        normalizeMatchedRate,
+      } = options;
+
+      const yawDeg = this.batchFieldTiltInput ? parseFloat(this.batchFieldTiltInput.value || "0") : 0;
+      const yaw = this.clamp(yawDeg, -20, 20) * (Math.PI / 180);
+      const cosYaw = Math.cos(yaw);
+      const sinYaw = Math.sin(yaw);
+      const innerWidth = width - pad * 2;
+      const innerHeight = height - pad * 2;
+
+      const projectUnit = (gx, gy) => {
+        const x0 = gx - cols / 2;
+        const y0 = gy - rows / 2;
+        const xr = x0 * cosYaw - y0 * sinYaw;
+        const yr = x0 * sinYaw + y0 * cosYaw;
+        return {
+          x: xr - yr,
+          y: (xr + yr) * 0.52,
+        };
+      };
+
+      const corners = [
+        projectUnit(0, 0),
+        projectUnit(cols, 0),
+        projectUnit(0, rows),
+        projectUnit(cols, rows),
+      ];
+
+      let minUx = Infinity;
+      let maxUx = -Infinity;
+      let minUy = Infinity;
+      let maxUy = -Infinity;
+      corners.forEach((corner) => {
+        minUx = Math.min(minUx, corner.x);
+        maxUx = Math.max(maxUx, corner.x);
+        minUy = Math.min(minUy, corner.y);
+        maxUy = Math.max(maxUy, corner.y);
+      });
+
+      const rangeUx = Math.max(1e-6, maxUx - minUx);
+      const rangeUy = Math.max(1e-6, maxUy - minUy);
+      const heightFactor = Math.max(1, Math.min(rows, cols) * 0.36);
+      const scale = Math.min((innerWidth * 0.98) / rangeUx, (innerHeight * 0.95) / (rangeUy + heightFactor));
+      const heightScale = scale * heightFactor * 0.74;
+
+      const minX = minUx * scale;
+      const maxX = maxUx * scale;
+      const minY = minUy * scale;
+      const maxY = maxUy * scale;
+      const offsetX = pad + innerWidth * 0.5 - (minX + maxX) * 0.5;
+      const offsetY = pad + innerHeight * 0.2 + heightScale - minY;
+
+      const project = (gx, gy, gz) => {
+        const base = projectUnit(gx, gy);
+        return {
+          x: offsetX + base.x * scale,
+          y: offsetY + base.y * scale - gz,
+        };
+      };
+
+      // Draw a subtle base plate and grid so depth is easier to perceive.
+      const baseCorners = [
+        project(0, 0, 0),
+        project(cols, 0, 0),
+        project(cols, rows, 0),
+        project(0, rows, 0),
+      ];
+      ctx.beginPath();
+      ctx.moveTo(baseCorners[0].x, baseCorners[0].y);
+      for (let i = 1; i < baseCorners.length; i += 1) {
+        ctx.lineTo(baseCorners[i].x, baseCorners[i].y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = "rgba(236, 230, 220, 0.72)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(79, 57, 36, 0.24)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(79, 57, 36, 0.12)";
+      ctx.lineWidth = 0.65;
+      for (let row = 0; row <= rows; row += 1) {
+        const a = project(0, row, 0);
+        const b = project(cols, row, 0);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+      for (let col = 0; col <= cols; col += 1) {
+        const a = project(col, 0, 0);
+        const b = project(col, rows, 0);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+
+      const bars = [];
+      for (let row = 0; row < rows; row += 1) {
+        for (let col = 0; col < cols; col += 1) {
+          const occ = smoothOccGrid[row][col];
+          const matchRate = smoothMatchGrid[row][col] || 0;
+          const occIntensity = maxSmoothedOccupancy > 0 ? Math.sqrt(occ / maxSmoothedOccupancy) : 0;
+          const matchedNorm = normalizeMatchedRate(matchRate);
+          const rgb = this.interpolateDivergingColor(matchedNorm);
+          const h = Math.max(0.6, occIntensity * heightScale);
+
+          const p00 = project(col, row, h);
+          const p10 = project(col + 1, row, h);
+          const p11 = project(col + 1, row + 1, h);
+          const p01 = project(col, row + 1, h);
+
+          const b00 = project(col, row, 0);
+          const b10 = project(col + 1, row, 0);
+          const b11 = project(col + 1, row + 1, 0);
+          const b01 = project(col, row + 1, 0);
+
+          bars.push({
+            row,
+            col,
+            occ,
+            matchRate,
+            rgb,
+            top: [p00, p10, p11, p01],
+            sideA: [p10, b10, b11, p11],
+            sideB: [p11, b11, b01, p01],
+            depth: row + col,
+            hoverX: (p00.x + p10.x + p11.x + p01.x) / 4,
+            hoverY: (p00.y + p10.y + p11.y + p01.y) / 4,
+          });
+        }
+      }
+
+      bars.sort((a, b) => a.depth - b.depth);
+
+      const drawPoly = (poly, fillStyle, strokeStyle) => {
+        ctx.beginPath();
+        ctx.moveTo(poly[0].x, poly[0].y);
+        for (let i = 1; i < poly.length; i += 1) {
+          ctx.lineTo(poly[i].x, poly[i].y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = fillStyle;
+        ctx.fill();
+        ctx.strokeStyle = strokeStyle;
+        ctx.lineWidth = 0.6;
+        ctx.stroke();
+      };
+
+      bars.forEach((bar) => {
+        const r = Math.round(bar.rgb.r);
+        const g = Math.round(bar.rgb.g);
+        const b = Math.round(bar.rgb.b);
+        drawPoly(bar.sideA, "rgba(" + (r * 0.72).toFixed(0) + "," + (g * 0.72).toFixed(0) + "," + (b * 0.72).toFixed(0) + ",0.82)", "rgba(31,26,23,0.14)");
+        drawPoly(bar.sideB, "rgba(" + (r * 0.58).toFixed(0) + "," + (g * 0.58).toFixed(0) + "," + (b * 0.58).toFixed(0) + ",0.85)", "rgba(31,26,23,0.14)");
+        drawPoly(bar.top, "rgba(" + r + "," + g + "," + b + ",0.94)", "rgba(31,26,23,0.2)");
+      });
+
+      this.batchFieldHoverData = {
+        mode: "3d",
+        centers: bars.map((bar) => ({
+          row: bar.row,
+          col: bar.col,
+          x: bar.hoverX,
+          y: bar.hoverY,
+        })),
+        occupancy: options.smoothOccGrid,
+        matchedRate: options.smoothMatchGrid,
+        samples: this.latestBatchFieldAccumulator ? this.latestBatchFieldAccumulator.samples : 1,
+        maxOccupancy: maxSmoothedOccupancy,
+      };
+    }
+
+    drawTopCellsInfoCard(ctx, options) {
+      if (!ctx || !options || !options.entries || !options.entries.length) return;
+
+      const cardX = options.x;
+      const cardY = options.y;
+      const cardW = options.width;
+      const rowH = 14;
+      const cardH = 22 + options.entries.length * rowH + 6;
+
+      ctx.beginPath();
+      ctx.roundRect(cardX, cardY, cardW, cardH, 9);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(79, 57, 36, 0.2)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = "#2f271f";
+      ctx.font = "700 10px Instrument Sans, sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText(options.mode === "3d" ? "Top cells (3D)" : "Top cells", cardX + 8, cardY + 12);
+
+      ctx.font = "10px Instrument Sans, sans-serif";
+      options.entries.forEach((entry, index) => {
+        const y = cardY + 24 + index * rowH;
+        const label =
+          "#" +
+          entry.rank +
+          " r" +
+          entry.row +
+          " c" +
+          entry.col +
+          "  m=" +
+          entry.matchedRate.toFixed(1) +
+          "%  occ=" +
+          entry.occRel.toFixed(0) +
+          "%";
+        ctx.fillText(label, cardX + 8, y);
+      });
     }
 
     smoothGrid(grid, passes) {
@@ -1408,6 +1913,52 @@ class MateChoiceSimulation {
       const rect = this.batchSnapshotCanvas.getBoundingClientRect();
       const localX = event.clientX - rect.left;
       const localY = event.clientY - rect.top;
+
+      if (hoverData.mode === "3d") {
+        if (!hoverData.centers || !hoverData.centers.length) {
+          this.hideHazardTooltip(this.batchFieldTooltip);
+          return;
+        }
+
+        let best = null;
+        let bestDist = Infinity;
+        hoverData.centers.forEach((center) => {
+          const dx = localX - center.x;
+          const dy = localY - center.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < bestDist) {
+            bestDist = dist;
+            best = center;
+          }
+        });
+
+        if (!best || bestDist > 20) {
+          this.hideHazardTooltip(this.batchFieldTooltip);
+          return;
+        }
+
+        const occ = hoverData.occupancy[best.row][best.col] || 0;
+        const meanAgentsPerRun = hoverData.samples > 0 ? occ / hoverData.samples : 0;
+        const matchedRateRaw = hoverData.matchedRate[best.row][best.col] || 0;
+        const matchedRate = matchedRateRaw * 100;
+        const occRel = hoverData.maxOccupancy > 0 ? (occ / hoverData.maxOccupancy) * 100 : 0;
+
+        this.batchFieldTooltip.innerHTML =
+          "Cell r" + (best.row + 1) + ", c" + (best.col + 1) + " (3D)<br>" +
+          "Avg agents/run: " + meanAgentsPerRun.toFixed(2) + "<br>" +
+          "Matched-rate: " + matchedRate.toFixed(1) + "%<br>" +
+          "Relative occupancy: " + occRel.toFixed(1) + "%";
+
+        const parentRect = this.batchSnapshotCanvas.parentElement
+          ? this.batchSnapshotCanvas.parentElement.getBoundingClientRect()
+          : rect;
+        const tooltipX = event.clientX - parentRect.left + 12;
+        const tooltipY = event.clientY - parentRect.top - 8;
+        this.batchFieldTooltip.style.left = Math.min(tooltipX, parentRect.width - 240) + "px";
+        this.batchFieldTooltip.style.top = Math.max(tooltipY, 24) + "px";
+        this.batchFieldTooltip.classList.add("is-visible");
+        return;
+      }
 
       const inBounds =
         localX >= hoverData.pad &&
@@ -1811,9 +2362,91 @@ class MateChoiceSimulation {
         " (95% CI " + spatialStats.ciLow.toFixed(2) + " to " + spatialStats.ciHigh.toFixed(2) + ")</li>" +
         "<li>Non-spatial r: " + nonSpatialStats.mean.toFixed(2) +
         " (95% CI " + nonSpatialStats.ciLow.toFixed(2) + " to " + nonSpatialStats.ciHigh.toFixed(2) + ")</li>" +
-        "<li><strong>Note:</strong> Batch values are aggregate statistics and are not added to Run Comparison rows.</li>" +
+        "<li><strong>Note:</strong> Batch values are aggregate statistics; a labeled summary row is added to Run Comparison.</li>" +
         "</ul>";
       this.batchSummary.classList.add("is-visible");
+    }
+
+    clearBatchKeyFindings() {
+      if (this.batchKeyHotspot) {
+        this.batchKeyHotspot.textContent = "Top hotspot: -";
+      }
+      if (this.batchKeyMatchRate) {
+        this.batchKeyMatchRate.textContent = "Mean matched-rate: -";
+      }
+      if (this.batchKeyDelta) {
+        this.batchKeyDelta.textContent = "Spatial vs non-spatial delta: -";
+      }
+      if (this.batchKeyFindings) {
+        this.batchKeyFindings.classList.remove("is-visible");
+        this.batchKeyFindings.setAttribute("aria-hidden", "true");
+      }
+    }
+
+    updateBatchKeyFindings(pairStats, spatialStats, nonSpatialStats, accumulator) {
+      const topCell = this.getTopBatchHotspot(accumulator);
+      const activeAgents = Math.max(1, this.getActiveAgentCount());
+      const meanMatchedRate = this.clamp((2 * pairStats.mean) / activeAgents, 0, 1) * 100;
+      const delta = spatialStats.mean - nonSpatialStats.mean;
+      const deltaPrefix = delta >= 0 ? "+" : "";
+
+      if (this.batchKeyHotspot) {
+        if (topCell) {
+          this.batchKeyHotspot.textContent =
+            "Top hotspot: r" + topCell.row + " c" + topCell.col +
+            " (m " + topCell.matchedRate.toFixed(1) + "%, occ " + topCell.occRel.toFixed(0) + "%)";
+        } else {
+          this.batchKeyHotspot.textContent = "Top hotspot: not enough matched occupancy yet";
+        }
+      }
+      if (this.batchKeyMatchRate) {
+        this.batchKeyMatchRate.textContent = "Mean matched-rate: " + meanMatchedRate.toFixed(1) + "% of agents paired";
+      }
+      if (this.batchKeyDelta) {
+        this.batchKeyDelta.textContent =
+          "Spatial vs non-spatial delta: " + deltaPrefix + delta.toFixed(2) + " r";
+      }
+      if (this.batchKeyFindings) {
+        this.batchKeyFindings.classList.add("is-visible");
+        this.batchKeyFindings.setAttribute("aria-hidden", "false");
+      }
+    }
+
+    getTopBatchHotspot(accumulator) {
+      if (!accumulator || !accumulator.samples || !accumulator.occupancy || !accumulator.occupancy.length) {
+        return null;
+      }
+
+      let best = null;
+      let bestOcc = 0;
+      for (let row = 0; row < accumulator.rows; row += 1) {
+        for (let col = 0; col < accumulator.columns; col += 1) {
+          const occ = accumulator.occupancy[row][col] || 0;
+          if (occ <= bestOcc) continue;
+          bestOcc = occ;
+          best = { row, col, occ };
+        }
+      }
+
+      if (!best || bestOcc <= 0) return null;
+
+      const matched = accumulator.matched[best.row][best.col] || 0;
+      const matchedRate = bestOcc > 0 ? (matched / bestOcc) * 100 : 0;
+
+      let maxOcc = 0;
+      for (let row = 0; row < accumulator.rows; row += 1) {
+        for (let col = 0; col < accumulator.columns; col += 1) {
+          maxOcc = Math.max(maxOcc, accumulator.occupancy[row][col] || 0);
+        }
+      }
+
+      const occRel = maxOcc > 0 ? (bestOcc / maxOcc) * 100 : 0;
+      return {
+        row: best.row + 1,
+        col: best.col + 1,
+        matchedRate,
+        occRel,
+      };
     }
 
     handleControlChange() {
@@ -4350,11 +4983,12 @@ class MateChoiceSimulation {
       return { width, height };
     }
 
-    prepareSquareCanvas(canvas, maxSize) {
+    prepareSquareCanvas(canvas, maxSize, pixelScale) {
       const parentWidth = canvas.parentElement ? canvas.parentElement.clientWidth : 0;
       const target = Math.floor(parentWidth || canvas.clientWidth || maxSize || 360);
       const size = this.clamp(target, 240, maxSize || 420);
-      const ratio = window.devicePixelRatio || 1;
+      const qualityScale = this.clamp(typeof pixelScale === "number" ? pixelScale : 1, 1, 4);
+      const ratio = (window.devicePixelRatio || 1) * qualityScale;
 
       canvas.width = Math.floor(size * ratio);
       canvas.height = Math.floor(size * ratio);
