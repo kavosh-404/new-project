@@ -8,12 +8,26 @@ class UIController {
     this.sim = simulation;
     this.debounceTimer = null;
     this.observedRuns = []; // For run comparison feature
+    this.capabilityCardShown = localStorage.getItem('capabilityCardShown') === 'true' ? true : false;
   }
 
   /**
    * Bind all event listeners
    */
   bindEvents() {
+    // Show capability card on first launch
+    setTimeout(() => {
+      if (!this.capabilityCardShown) {
+        this.showCapabilityCard();
+      }
+    }, 500);
+
+    // Capability card close button
+    document.getElementById('capability-card-got-it')?.addEventListener('click', () => {
+      const modal = document.getElementById('capability-card-modal');
+      if (modal) this.closeCapabilityCard(modal);
+    });
+
     // Window resize
     window.addEventListener("resize", () => this.handleResize());
 
@@ -190,6 +204,9 @@ class UIController {
     // Update teaching panel
     this.updateTeachingExplanation();
     this.updateStatus(true);
+
+    // Highlight last two runs in comparison table
+    this.highlightLastTwoRuns();
 
     // Enable exports
     ExportEngine.setExportEnabled(true, {
@@ -406,44 +423,251 @@ class UIController {
   }
 
   /**
-   * Add chat message
+   * Add chat message with support for structured replies
    */
   addChatMessage(author, text) {
     if (!this.sim.chatLog) return;
 
-    const p = document.createElement("p");
-    const strong = document.createElement("strong");
-    strong.textContent = author + ":";
-    p.appendChild(strong);
-    p.appendChild(document.createTextNode(" " + text));
+    // Handle structured replies with progressive disclosure
+    if (typeof text === 'object' && text.type === 'research-structured') {
+      this.addStructuredChatMessage(author, text);
+    } else {
+      // Simple text message
+      const p = document.createElement("p");
+      const strong = document.createElement("strong");
+      strong.textContent = author + ":";
+      p.appendChild(strong);
+      p.appendChild(document.createTextNode(" " + text));
 
-    this.sim.chatLog.appendChild(p);
+      this.sim.chatLog.appendChild(p);
+    }
+
     this.sim.chatLog.scrollTop = this.sim.chatLog.scrollHeight;
+  }
+
+  /**
+   * Add structured chat message with confidence badge and progressive disclosure
+   */
+  addStructuredChatMessage(author, reply) {
+    const card = document.createElement('div');
+    card.className = 'research-message-card';
+
+    // Header with author and confidence badge
+    const header = document.createElement('div');
+    header.className = 'research-message-header';
+
+    const authorSpan = document.createElement('strong');
+    authorSpan.textContent = author;
+    header.appendChild(authorSpan);
+
+    const confidenceBadge = document.createElement('span');
+    confidenceBadge.className = `confidence-badge confidence-${reply.confidence.toLowerCase()}`;
+    confidenceBadge.textContent = `Confidence: ${reply.confidence}`;
+    confidenceBadge.setAttribute('title', this.getConfidenceTooltip(reply.confidence));
+    header.appendChild(confidenceBadge);
+
+    card.appendChild(header);
+
+    // Claim (always visible)
+    const claimDiv = document.createElement('div');
+    claimDiv.className = 'research-claim';
+    claimDiv.innerHTML = '<strong>📌 Claim:</strong> ' + reply.claim;
+    card.appendChild(claimDiv);
+
+    // Evidence (collapsible)
+    const evidenceDiv = document.createElement('div');
+    evidenceDiv.className = 'research-section';
+    const evidenceToggle = document.createElement('button');
+    evidenceToggle.className = 'disclosure-toggle';
+    evidenceToggle.innerHTML = '+ Evidence';
+    evidenceToggle.setAttribute('aria-expanded', 'false');
+    const evidenceContent = document.createElement('div');
+    evidenceContent.className = 'disclosure-content hidden';
+    evidenceContent.innerHTML = '<strong>📊 Evidence:</strong> ' + reply.evidence;
+    evidenceToggle.addEventListener('click', () => {
+      const expanded = evidenceToggle.getAttribute('aria-expanded') === 'true';
+      if (expanded) {
+        evidenceToggle.innerHTML = '+ Evidence';
+        evidenceContent.classList.add('hidden');
+      } else {
+        evidenceToggle.innerHTML = '- Evidence';
+        evidenceContent.classList.remove('hidden');
+      }
+      evidenceToggle.setAttribute('aria-expanded', !expanded);
+    });
+    evidenceDiv.appendChild(evidenceToggle);
+    evidenceDiv.appendChild(evidenceContent);
+    card.appendChild(evidenceDiv);
+
+    // Interpretation (collapsible)
+    const interpDiv = document.createElement('div');
+    interpDiv.className = 'research-section';
+    const interpToggle = document.createElement('button');
+    interpToggle.className = 'disclosure-toggle';
+    interpToggle.innerHTML = '+ Interpretation';
+    interpToggle.setAttribute('aria-expanded', 'false');
+    const interpContent = document.createElement('div');
+    interpContent.className = 'disclosure-content hidden';
+    interpContent.innerHTML = '<strong>🔍 Interpretation:</strong> ' + reply.interpretation;
+    interpToggle.addEventListener('click', () => {
+      const expanded = interpToggle.getAttribute('aria-expanded') === 'true';
+      if (expanded) {
+        interpToggle.innerHTML = '+ Interpretation';
+        interpContent.classList.add('hidden');
+      } else {
+        interpToggle.innerHTML = '- Interpretation';
+        interpContent.classList.remove('hidden');
+      }
+      interpToggle.setAttribute('aria-expanded', !expanded);
+    });
+    interpDiv.appendChild(interpToggle);
+    interpDiv.appendChild(interpContent);
+    card.appendChild(interpDiv);
+
+    // Citation
+    if (reply.citation) {
+      const citDiv = document.createElement('div');
+      citDiv.className = 'research-citation';
+      citDiv.innerHTML = '<strong>📚 Citation:</strong> ' + reply.citation;
+      card.appendChild(citDiv);
+    }
+
+    // Next step
+    if (reply.nextStep) {
+      const nextDiv = document.createElement('div');
+      nextDiv.className = 'research-next-step';
+      nextDiv.innerHTML = '<strong>➡️ Next step:</strong> ' + reply.nextStep;
+      nextDiv.addEventListener('click', () => {
+        const match = reply.nextStep.match(/Ask: ["']([^"']+)["']/);
+        if (match) {
+          this.submitChatQuestion(match[1]);
+        }
+      });
+      card.appendChild(nextDiv);
+    }
+
+    this.sim.chatLog.appendChild(card);
+  }
+
+  /**
+   * Get confidence tooltip text
+   */
+  getConfidenceTooltip(level) {
+    const tooltips = {
+      'High': 'Strong evidence from run data, known parameters, or both',
+      'Medium': 'Partial evidence or limited run history',
+      'Low': 'Question outside primary scope; best-effort explanation. Try running 5+ scenarios.'
+    };
+    return tooltips[level] || 'See nearby explanation text.';
+  }
+
+  /**
+   * Render interactive example questions
+   */
+  renderExampleQuestions() {
+    if (!this.sim.chatSuggestions) return;
+
+    // Create a section for example questions
+    const exampleContainer = document.createElement('div');
+    exampleContainer.className = 'example-questions-container';
+    exampleContainer.innerHTML = '<p class="example-questions-label">💡 Example questions you can ask:</p>';
+
+    const examples = [
+      "📊 Why did sparse density lead to fewer pairs?",
+      "⚖️ Compare my last two runs for density effects",
+      "⏱️ What explains the matching strength in this run?",
+      "🔍 How does this connect to Smaldino & Schank (2012)?"
+    ];
+
+    examples.forEach((example) => {
+      const btn = document.createElement('button');
+      btn.className = 'example-question-btn';
+      
+      // Extract the actual question (remove emoji prefix)
+      const question = example.replace(/^[^\s]*\s+/, '');
+      btn.textContent = example;
+      btn.addEventListener('click', () => this.submitChatQuestion(question));
+      exampleContainer.appendChild(btn);
+    });
+
+    const suggestionsDiv = this.sim.chatSuggestions;
+    suggestionsDiv.innerHTML = '';
+    suggestionsDiv.appendChild(exampleContainer);
+
+    // Add follow-up questions after examples
+    if (!this.sim.state.lastRun) {
+      return;
+    }
+
+    const followUpDiv = document.createElement('div');
+    followUpDiv.className = 'follow-up-questions-container';
+    followUpDiv.innerHTML = '<p class="follow-up-questions-label">👉 Follow-up suggestions for this run:</p>';
+
+    const questions = ChatEngine.getInsightQuestionSet(null, this.sim.lastTopic);
+    questions.forEach((question) => {
+      const btn = document.createElement("button");
+      btn.textContent = question;
+      btn.className = "suggestion-btn";
+      btn.addEventListener("click", () => this.submitChatQuestion(question));
+      followUpDiv.appendChild(btn);
+    });
+
+    suggestionsDiv.appendChild(followUpDiv);
+  }
+
+  /**
+   * Show capability card modal (first launch)
+   */
+  showCapabilityCard() {
+    const modal = document.getElementById('capability-card-modal');
+    if (!modal) return;
+
+    modal.setAttribute('aria-hidden', 'false');
+    modal.style.display = 'flex';
+
+    const closeBtn = document.getElementById('capability-card-close');
+    const backdrop = document.getElementById('capability-card-backdrop');
+
+    closeBtn?.addEventListener('click', () => this.closeCapabilityCard(modal));
+    backdrop?.addEventListener('click', () => this.closeCapabilityCard(modal));
+  }
+
+  /**
+   * Close capability card and mark as shown
+   */
+  closeCapabilityCard(modal) {
+    modal.setAttribute('aria-hidden', 'true');
+    modal.style.display = 'none';
+    this.capabilityCardShown = true;
+    localStorage.setItem('capabilityCardShown', 'true');
+  }
+
+  /**
+   * Highlight last two runs in comparison panel
+   */
+  highlightLastTwoRuns() {
+    const comparisonBody = document.getElementById('run-comparison-body');
+    if (!comparisonBody) return;
+
+    const rows = comparisonBody.querySelectorAll('tr');
+    rows.forEach((row, idx) => {
+      row.classList.remove('highlight-last-run');
+    });
+
+    // Highlight last two actual runs
+    if (rows.length >= 2) {
+      rows[rows.length - 1].classList.add('highlight-last-run', 'last-run');
+      if (rows.length >= 3) {
+        rows[rows.length - 2].classList.add('highlight-last-run', 'second-last-run');
+      }
+    }
   }
 
   /**
    * Render suggested follow-up questions
    */
   renderInsightQuestions() {
-    if (!this.sim.chatSuggestions) return;
-
-    this.sim.chatSuggestions.innerHTML = "";
-
-    if (!this.sim.state.lastRun) {
-      this.sim.chatSuggestions.innerHTML =
-        "<p>Run the simulation to see suggested questions.</p>";
-      return;
-    }
-
-    const questions = ChatEngine.getInsightQuestionSet(null, this.sim.lastTopic);
-
-    questions.forEach((question) => {
-      const btn = document.createElement("button");
-      btn.textContent = question;
-      btn.className = "suggestion-btn";
-      btn.addEventListener("click", () => this.submitChatQuestion(question));
-      this.sim.chatSuggestions.appendChild(btn);
-    });
+    this.renderExampleQuestions();
   }
 
   /**
