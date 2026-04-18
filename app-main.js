@@ -3295,6 +3295,7 @@ class MateChoiceSimulation {
             "How did " + densityLevel.toLowerCase() + " density relate to avg search time of " + averageSearchSteps + " steps?",
             "What would likely change if density were " + (densityLevel === "Dense" ? "Sparse" : "Dense") + " instead of " + densityLevel + "?",
             "What in this run is the best evidence that density mattered?",
+            "Compare my last two runs for density effects.",
           ];
         }
 
@@ -3303,6 +3304,7 @@ class MateChoiceSimulation {
             "How does " + mobilityLevel.toLowerCase() + " mobility differ from " + densityLevel.toLowerCase() + " density in this run?",
             "How did " + mobilityLevel.toLowerCase() + " mobility affect avg search time of " + averageSearchSteps + " steps?",
             "What would likely change if mobility were " + (mobilityLevel === "High" ? "Low" : "High") + " instead of " + mobilityLevel + "?",
+            "Compare this run to the previous one.",
             "I don't understand.",
           ];
         }
@@ -3312,6 +3314,7 @@ class MateChoiceSimulation {
             "What part of this run shows assortative matching at strength " + matchingStrength + "?",
             "Why did this scenario produce " + matchingStrength + " matching strength?",
             "How does " + mobilityLevel.toLowerCase() + " mobility differ from " + densityLevel.toLowerCase() + " density here?",
+            "How reliable is this result statistically?",
             "I don't understand.",
           ];
         }
@@ -3321,6 +3324,7 @@ class MateChoiceSimulation {
             "How did the " + preferenceRule.toLowerCase() + " rule shape this scenario?",
             "What would likely change under " + alternatePreference + "?",
             "Why did this rule produce matching strength " + matchingStrength + "?",
+            "Compare this preference rule with my previous run.",
             "I don't understand.",
           ];
         }
@@ -3331,6 +3335,8 @@ class MateChoiceSimulation {
           "How does " + mobilityLevel.toLowerCase() + " mobility vs. " + densityLevel.toLowerCase() + " density differ here?",
           "How did the " + preferenceRule.toLowerCase() + " rule shape the " + pairCount + " pairs we observed?",
           "What result best explains matching strength " + matchingStrength + "?",
+          "Compare my last two runs.",
+          "How reliable is this conclusion?",
         ];
       }
 
@@ -3376,13 +3382,53 @@ class MateChoiceSimulation {
 
     addChatMessage(author, text) {
       if (!this.chatLog) return;
-      const p = document.createElement("p");
-      p.className = "chat-message";
-      const strong = document.createElement("strong");
-      strong.textContent = author + ":";
-      p.appendChild(strong);
-      p.appendChild(document.createTextNode(" " + text));
-      this.chatLog.appendChild(p);
+
+      if (author === "Assistant" && text && typeof text === "object" && text.type === "research-structured") {
+        const card = document.createElement("article");
+        card.className = "chat-message chat-message-card";
+
+        const header = document.createElement("div");
+        header.className = "chat-card-header";
+        const title = document.createElement("strong");
+        title.textContent = "Assistant";
+        const confidence = document.createElement("span");
+        confidence.className = "chat-confidence chat-confidence-" + String(text.confidence || "Medium").toLowerCase();
+        confidence.textContent = "Confidence: " + (text.confidence || "Medium");
+        header.appendChild(title);
+        header.appendChild(confidence);
+
+        const sections = [
+          ["Claim", text.claim],
+          ["Evidence", text.evidence],
+          ["Interpretation", text.interpretation],
+          ["Citation", text.citation],
+          ["Next step", text.nextStep],
+        ];
+
+        card.appendChild(header);
+        sections.forEach(([label, value]) => {
+          if (!value) return;
+          const row = document.createElement("p");
+          row.className = "chat-card-row";
+          const rowLabel = document.createElement("span");
+          rowLabel.className = "chat-card-label";
+          rowLabel.textContent = label + ":";
+          row.appendChild(rowLabel);
+          row.appendChild(document.createTextNode(" " + value));
+          card.appendChild(row);
+        });
+
+        this.chatLog.appendChild(card);
+      } else {
+        const p = document.createElement("p");
+        p.className = "chat-message";
+        const strong = document.createElement("strong");
+        strong.textContent = author + ":";
+        p.appendChild(strong);
+        p.appendChild(document.createTextNode(" " + String(text)));
+        this.chatLog.appendChild(p);
+      }
+
       this.chatLog.scrollTop = this.chatLog.scrollHeight;
     }
 
@@ -3430,7 +3476,8 @@ class MateChoiceSimulation {
         mobilityLevel,
         preferenceRule,
         this.lastTopic,
-        this.topicDepth
+        this.topicDepth,
+        this.runHistory
       );
     }
 
