@@ -3437,6 +3437,18 @@ class MateChoiceSimulation {
           card.appendChild(intro);
         }
 
+        if (Array.isArray(text.badges) && text.badges.length) {
+          const badges = document.createElement("div");
+          badges.className = "capability-badges";
+          text.badges.forEach((badge) => {
+            const badgeEl = document.createElement("span");
+            badgeEl.className = "capability-badge";
+            badgeEl.textContent = badge;
+            badges.appendChild(badgeEl);
+          });
+          card.appendChild(badges);
+        }
+
         const list = document.createElement("ul");
         list.className = "capability-list";
         (text.items || []).forEach((item) => {
@@ -3485,6 +3497,7 @@ class MateChoiceSimulation {
         intro: hasRun
           ? "I can analyze your current session evidence and help you design cleaner experiments."
           : "I can guide setup and interpretation; run one simulation to unlock evidence-grounded analysis.",
+        badges: ["Analysis", "Evidence", "Comparison", "Citation", "Export"],
         items: [
           "Explain mechanisms: density, mobility, preference rule, selectivity, patience, exploration.",
           "Return structured responses: Claim, Evidence, Interpretation, Citation, confidence level.",

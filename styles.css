@@ -2447,6 +2447,24 @@ summary:focus-visible {
   gap: 0.3rem;
 }
 
+.capability-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.1rem 0 0.2rem;
+}
+
+.capability-badge {
+  border: 1px solid rgba(15, 118, 110, 0.22);
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.1);
+  color: #0f4f4a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.14rem 0.5rem;
+}
+
 .capability-list li {
   display: grid;
   grid-template-columns: auto 1fr;
