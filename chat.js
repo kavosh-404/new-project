@@ -50,7 +50,7 @@ class ChatEngine {
    */
   static isCapabilityQuestion(text) {
     const lower = text.toLowerCase();
-    return /nlp|llm|capability|what can you|how do you work|backend|built|how/.test(lower);
+    return /nlp|llm|capability|capabilities|what can you do|what can this assistant do|how do you work|how are you built|backend|architecture|local or cloud/.test(lower);
   }
 
   static isComparisonQuestion(text) {

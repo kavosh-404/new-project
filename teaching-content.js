@@ -218,9 +218,9 @@ ${this.getSearchCommentary(metrics.averageSearchSteps)}`;
    */
   static buildCapabilityMessage(hasRun = false) {
     if (!hasRun) {
-      return "This website is built with HTML, CSS, and vanilla JavaScript—no backend, no downloads. The assistant is lightweight NLP: it detects your question intent and topic, then generates explanations grounded in Smaldino & Schank (2012).";
+      return "This assistant runs fully in-browser with HTML/CSS/vanilla JavaScript (no cloud backend required). It can explain model concepts, detect question intent/topic, ground answers in Smaldino & Schank (2012), compare recent runs, add confidence labels, and guide experimental design. Exports are available locally: styled report (HTML/Markdown), CSV summaries, PNG snapshots, and citation copy.";
     }
-    return "I can explain this specific simulation: density, mobility, preference rules, selectivity, patience, exploration, matching strength, search time, results, and citations from Smaldino & Schank (2012). I use lightweight NLP to detect your intent (causal, comparative, clarifying, etc.) and route to relevant explanations. No ML backend—all logic is in JavaScript.";
+    return "I can analyze this session's results with structured research responses: Claim, Evidence, Interpretation, Citation, confidence level, and next-step recommendations. I can compare recent runs (pairs/strength/search deltas), explain mechanisms (density, mobility, rules), answer reliability questions, and connect findings to Smaldino & Schank (2012). I also support local exports: configurable reports, CSV, PNG, and citation text.";
   }
 
   /**
