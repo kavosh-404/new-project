@@ -22,11 +22,17 @@ class UIController {
       }
     }, 500);
 
-    // Capability card close button
-    document.getElementById('capability-card-got-it')?.addEventListener('click', () => {
-      const modal = document.getElementById('capability-card-modal');
-      if (modal) this.closeCapabilityCard(modal);
-    });
+    // Capability card close controls (bind once so repeated openings do not stack handlers)
+    const capabilityModal = document.getElementById('capability-card-modal');
+    const capabilityClose = document.getElementById('capability-card-close');
+    const capabilityBackdrop = document.getElementById('capability-card-backdrop');
+    const capabilityGotIt = document.getElementById('capability-card-got-it');
+    const closeCapability = () => {
+      if (capabilityModal) this.closeCapabilityCard(capabilityModal);
+    };
+    capabilityClose?.addEventListener('click', closeCapability);
+    capabilityBackdrop?.addEventListener('click', closeCapability);
+    capabilityGotIt?.addEventListener('click', closeCapability);
 
     // Window resize
     window.addEventListener("resize", () => this.handleResize());
@@ -624,12 +630,6 @@ class UIController {
 
     modal.setAttribute('aria-hidden', 'false');
     modal.style.display = 'flex';
-
-    const closeBtn = document.getElementById('capability-card-close');
-    const backdrop = document.getElementById('capability-card-backdrop');
-
-    closeBtn?.addEventListener('click', () => this.closeCapabilityCard(modal));
-    backdrop?.addEventListener('click', () => this.closeCapabilityCard(modal));
   }
 
   /**
@@ -694,7 +694,7 @@ class UIController {
    * Show capabilities
    */
   showCapabilities() {
-    this.submitChatQuestion("What can you do?");
+    this.showCapabilityCard();
   }
 
   /**
