@@ -315,7 +315,7 @@ class MateChoiceSimulation {
       this.chatForm.addEventListener("submit", this.handleChatSubmit);
       if (this.chatCapabilitiesButton) {
         this.chatCapabilitiesButton.addEventListener("click", () => {
-          this.addChatMessage("Assistant", this.buildCapabilityMessage());
+          this.addChatMessage("Assistant", this.buildCapabilityChecklistCard());
           this.renderInsightQuestions();
         });
       }
@@ -3419,6 +3419,52 @@ class MateChoiceSimulation {
         });
 
         this.chatLog.appendChild(card);
+      } else if (author === "Assistant" && text && typeof text === "object" && text.type === "capability-checklist") {
+        const card = document.createElement("article");
+        card.className = "chat-message chat-message-card capability-card";
+
+        const header = document.createElement("div");
+        header.className = "chat-card-header";
+        const title = document.createElement("strong");
+        title.textContent = "Assistant capabilities";
+        header.appendChild(title);
+        card.appendChild(header);
+
+        if (text.intro) {
+          const intro = document.createElement("p");
+          intro.className = "chat-card-row";
+          intro.textContent = text.intro;
+          card.appendChild(intro);
+        }
+
+        const list = document.createElement("ul");
+        list.className = "capability-list";
+        (text.items || []).forEach((item) => {
+          const li = document.createElement("li");
+          const check = document.createElement("span");
+          check.className = "capability-check";
+          check.setAttribute("aria-hidden", "true");
+          check.textContent = "\u2713";
+          const content = document.createElement("span");
+          content.textContent = item;
+          li.appendChild(check);
+          li.appendChild(content);
+          list.appendChild(li);
+        });
+        card.appendChild(list);
+
+        if (text.nextStep) {
+          const next = document.createElement("p");
+          next.className = "chat-card-row";
+          const label = document.createElement("span");
+          label.className = "chat-card-label";
+          label.textContent = "Try now:";
+          next.appendChild(label);
+          next.appendChild(document.createTextNode(" " + text.nextStep));
+          card.appendChild(next);
+        }
+
+        this.chatLog.appendChild(card);
       } else {
         const p = document.createElement("p");
         p.className = "chat-message";
@@ -3430,6 +3476,25 @@ class MateChoiceSimulation {
       }
 
       this.chatLog.scrollTop = this.chatLog.scrollHeight;
+    }
+
+    buildCapabilityChecklistCard() {
+      const hasRun = !!this.state.lastRun;
+      return {
+        type: "capability-checklist",
+        intro: hasRun
+          ? "I can analyze your current session evidence and help you design cleaner experiments."
+          : "I can guide setup and interpretation; run one simulation to unlock evidence-grounded analysis.",
+        items: [
+          "Explain mechanisms: density, mobility, preference rule, selectivity, patience, exploration.",
+          "Return structured responses: Claim, Evidence, Interpretation, Citation, confidence level.",
+          "Compare recent runs with metric deltas (pairs, matching strength, average search).",
+          "Answer reliability questions and suggest stronger validation via batch experiments.",
+          "Ground explanations in Smaldino & Schank (2012) with citations.",
+          "Support local export workflow: report, CSV, PNG snapshots, and citation text.",
+        ],
+        nextStep: hasRun ? "Compare my last two runs." : "Run a simulation, then ask: What explains this result?",
+      };
     }
 
 

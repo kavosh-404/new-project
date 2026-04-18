@@ -2434,6 +2434,34 @@ summary:focus-visible {
   color: #991b1b;
 }
 
+.capability-card {
+  border-color: rgba(79, 57, 36, 0.22);
+  background: linear-gradient(180deg, rgba(255, 248, 236, 0.9) 0%, rgba(255, 255, 255, 0.98) 58%);
+}
+
+.capability-list {
+  margin: 0.2rem 0 0.1rem;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.capability-list li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+  color: #2d241d;
+}
+
+.capability-check {
+  color: #166534;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
 .chat-form {
   display: grid;
   gap: 0.4rem;
