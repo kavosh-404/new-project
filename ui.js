@@ -204,8 +204,17 @@ class UIController {
       step: this.sim.state.step,
     };
 
-    // Also cache for run comparison
-    this.observedRuns.push(this.sim.state.lastRun);
+    // Also cache compact run history for chat comparison logic
+    const runId = this.observedRuns.length + 1;
+    this.observedRuns.push({
+      id: runId,
+      pairCount: metrics.pairs.length,
+      strength: metrics.matchingStrength,
+      search: metrics.averageSearchSteps,
+      density: this.sim.state.lastRun.settings.densityLevel,
+      mobility: this.sim.state.lastRun.settings.mobilityLevel,
+      preference: this.sim.state.lastRun.settings.preferenceRule,
+    });
 
     // Update teaching panel
     this.updateTeachingExplanation();
@@ -413,6 +422,16 @@ class UIController {
   submitChatQuestion(text) {
     this.addChatMessage("You", text);
 
+    const normalizedInput =
+      window.PaperKnowledgeBase && typeof window.PaperKnowledgeBase.normalizeQuery === "function"
+        ? window.PaperKnowledgeBase.normalizeQuery(text)
+        : text.toLowerCase();
+    const detectedTopic = ChatEngine.detectTopic(normalizedInput);
+    if (detectedTopic) {
+      this.sim.topicDepth = this.sim.lastTopic === detectedTopic ? (this.sim.topicDepth || 0) + 1 : 1;
+      this.sim.lastTopic = detectedTopic;
+    }
+
     const reply = ChatEngine.buildChatReply(
       text,
       this.sim.state.lastRun?.metrics || null,
@@ -421,7 +440,8 @@ class UIController {
       this.getRunSettings().mobilityLevel,
       this.getRunSettings().preferenceRule,
       this.sim.lastTopic,
-      this.sim.topicDepth || 0
+      this.sim.topicDepth || 0,
+      this.observedRuns
     );
 
     this.addChatMessage("Assistant", reply);

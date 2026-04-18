@@ -1,21 +1,28 @@
 /**
  * chat.js
- * NLP-driven conversational interface with progressive explanations
+ * Retrieval-grounded conversational interface for simulation + paper interpretation
  */
 
 class ChatEngine {
+  static normalizeUserText(text) {
+    if (window.PaperKnowledgeBase && typeof window.PaperKnowledgeBase.normalizeQuery === "function") {
+      return window.PaperKnowledgeBase.normalizeQuery(text || "");
+    }
+    return (text || "").toLowerCase();
+  }
+
   /**
    * Detect question intent using pattern matching
    */
   static detectIntent(text) {
-    const lower = text.toLowerCase();
+    const lower = this.normalizeUserText(text);
 
-    if (/reliable|reliability|statistical|confidence interval|ci|significant|noise|uncertain/.test(lower)) return "reliability";
-    if (/compare|vs|different|between|versus|change|changed|trend|previous|before|after/.test(lower)) return "comparative";
-    if (/why|because|cause/.test(lower)) return "causal";
-    if (/don't|don't|confused|simpler|again|unclear/.test(lower)) return "clarification";
-    if (/explain|how does|mechanism/.test(lower)) return "explanatory";
-    if (/what|when|where|which/.test(lower)) return "factual";
+    if (/reliable|reliability|statistical|confidence interval|ci|significant|noise|uncertain|replicate|repeat/.test(lower)) return "reliability";
+    if (/compare|vs|different|between|versus|change|changed|trend|previous|before|after|delta/.test(lower)) return "comparative";
+    if (/why|because|cause|driver|led to|reason/.test(lower)) return "causal";
+    if (/don't|do not|confused|simpler|again|unclear|lost|not understand|rephrase/.test(lower)) return "clarification";
+    if (/explain|how does|mechanism|how come|walk me through/.test(lower)) return "explanatory";
+    if (/what|when|where|which|who/.test(lower)) return "factual";
 
     return "general";
   }
@@ -24,38 +31,37 @@ class ChatEngine {
    * Detect question topic
    */
   static detectTopic(text) {
-    const lower = text.toLowerCase();
+    const lower = this.normalizeUserText(text);
 
     if (/density|grid|population|sparse|dense|crowded|encounter/.test(lower)) return "density";
     if (/mobility|move|speed|distance|roam|movement/.test(lower)) return "mobility";
     if (/select|choosy|picky|accept|threshold/.test(lower)) return "selectivity";
     if (/patience|wait|relax|criteria/.test(lower)) return "patience";
     if (/explor|search|wander/.test(lower)) return "exploration";
-    if (/match|pair|couple|partner|assort|strength/.test(lower)) return "matching";
+    if (/match|pair|couple|partner|assort|strength|correlation/.test(lower)) return "matching";
     if (/prefer|attract|similar|rule/.test(lower)) return "preference";
 
     return null;
   }
 
-  /**
-   * Detect if user wants simpler explanation
-   */
   static isClarificationRequest(text) {
-    const lower = text.toLowerCase();
-    return /don't|don't|confused|simpler|explain again|unclear|lost|not understand/.test(lower);
+    const lower = this.normalizeUserText(text);
+    return /don't|do not|confused|simpler|explain again|unclear|lost|not understand|rephrase/.test(lower);
   }
 
-  /**
-   * Check if question is about capabilities
-   */
   static isCapabilityQuestion(text) {
-    const lower = text.toLowerCase();
+    const lower = this.normalizeUserText(text);
     return /nlp|llm|capability|capabilities|what can you do|what can this assistant do|how do you work|how are you built|backend|architecture|local or cloud/.test(lower);
   }
 
   static isComparisonQuestion(text) {
-    const lower = text.toLowerCase();
-    return /compare|vs|different|between|versus|change|changed|trend|previous|before|after|last run|earlier/.test(lower);
+    const lower = this.normalizeUserText(text);
+    return /compare|vs|different|between|versus|change|changed|trend|previous|before|after|last run|earlier|delta/.test(lower);
+  }
+
+  static isPaperQuestion(text) {
+    const lower = this.normalizeUserText(text);
+    return /paper|smaldino|schank|model|theory|mechanism|finding|result|assortative|encounter/.test(lower);
   }
 
   static getConfidenceLabel(hasStrongEvidence, isComparative, topicKnown) {
@@ -74,6 +80,23 @@ class ChatEngine {
       citation,
       confidence,
       nextStep,
+    };
+  }
+
+  static getGroundingEvidence(text, topicHint = null) {
+    if (!window.PaperKnowledgeBase || typeof window.PaperKnowledgeBase.search !== "function") {
+      return { snippets: [], citation: "Smaldino & Schank (2012).", strong: false };
+    }
+
+    const hits = window.PaperKnowledgeBase.search(text, topicHint, 2);
+    const snippets = hits.map((hit) => `${hit.title} (${hit.pages}): ${hit.snippet}`);
+    const citation = window.PaperKnowledgeBase.composeCitation(hits);
+    const strongest = hits.length > 0 ? hits[0].score : 0;
+
+    return {
+      snippets,
+      citation,
+      strong: strongest >= 4,
     };
   }
 
@@ -113,109 +136,67 @@ class ChatEngine {
 
     const interpretation =
       "Most plausible driver in this comparison: " + dominantDriver +
-      ". This should be treated as directional evidence rather than a controlled causal estimate unless other parameters are held constant across repeated runs.";
+      ". Treat this as directional evidence unless other parameters are held constant across repeated runs.";
 
     return this.buildStructuredReply({
       claim,
       evidence,
       interpretation,
-      citation: "Smaldino & Schank (2012), especially pp. 11-18 on spatial constraints, encounter dynamics, and emergent matching patterns.",
+      citation: "Smaldino & Schank (2012), pp. 11-18.",
       confidence: "High",
-      nextStep: "Repeat each condition at least 5-10 times (or use batch mode) to reduce run-to-run noise before drawing stronger conclusions.",
+      nextStep: "Repeat each condition 5-10 times (or use batch mode) before drawing strong causal conclusions.",
     });
   }
 
-  /**
-   * Get progressive explanation based on depth
-   */
-  static getProgressiveExplanation(
-    topic,
-    depth,
-    metrics,
-    densityLevel,
-    mobilityLevel,
-    preferenceRule
-  ) {
+  static getProgressiveExplanation(topic, depth, metrics, densityLevel, mobilityLevel, preferenceRule) {
     if (depth === 1) {
-      // First mention: basic definition
       if (topic === "density") {
-        return "Density affects how often agents meet. With a " +
-          densityLevel.toLowerCase() +
-          " density, agents encounter potential partners at different rates.";
+        return "Density changes encounter frequency. With " + densityLevel.toLowerCase() + " density, partner meetings happen at a different rate.";
       }
       if (topic === "mobility") {
-        return "Mobility affects how far agents travel per step. With " +
-          mobilityLevel.toLowerCase() +
-          " mobility, agents cover more or less space when searching.";
+        return "Mobility changes movement range per step. With " + mobilityLevel.toLowerCase() + " mobility, agents explore more or less of the grid.";
       }
       if (topic === "matching") {
-        return "Matching happens when two agents meet and both accept each other. The final set of pairs reflects the interaction of density, mobility, and the decision rule.";
+        return "Matching occurs when two agents meet and both accept. Final pairing patterns reflect environment and rule interactions.";
       }
-      return "That's a good question about the simulation.";
+      return "This asks about a core mechanism in the simulation.";
     }
 
     if (depth === 2) {
-      // Second mention: connect to results
       if (topic === "density" && metrics) {
-        return `Your run shows this: with ${densityLevel.toLowerCase()} density, ${metrics.pairs.length} pairs formed and matching strength is ${metrics.matchingStrength.toFixed(2)}. Smaldino & Schank (2012, pp. 17–18) found that density controls encounter frequency, which shapes final outcomes.`;
+        return "In your run, " + densityLevel.toLowerCase() + " density produced " + metrics.pairs.length + " pairs and matching strength " + metrics.matchingStrength.toFixed(2) + ".";
       }
       if (topic === "mobility" && metrics) {
-        return `In this run, ${mobilityLevel.toLowerCase()} mobility produced ${metrics.averageSearchSteps.toFixed(0)} average search steps. Higher mobility generally gives agents more opportunities to find partners (Smaldino & Schank 2012, p. 16).`;
+        return "In your run, " + mobilityLevel.toLowerCase() + " mobility produced average search " + metrics.averageSearchSteps.toFixed(1) + " steps.";
       }
-      return "Let me explain how that connects to your results.";
+      return "This mechanism can be connected directly to your run outcomes.";
     }
 
-    // Depth >= 3: mechanistic deep dive
     if (topic === "density") {
-      return `Deep dive on density: With ${densityLevel.toLowerCase()} density and ${mobilityLevel.toLowerCase()} mobility, agents operate in local neighborhoods. Sparse settings force longer searches; dense ones compress encounters. This is a core finding in Smaldino & Schank (2012, pp. 11–18): environment constrains the structure of matching.`;
+      return "Deep dive: density and mobility jointly control who can be encountered in local neighborhoods, shaping search bottlenecks and final pair patterns.";
     }
     if (topic === "mobility") {
-      return `Deep dive on mobility: When mobility is low, agents stay local and only contact nearby potential partners. High mobility lets agents sweep broader areas, increasing assortative strength (Smaldino & Schank 2012, p. 16). The effect interacts with density and the decision rule.`;
+      return "Deep dive: low mobility traps search in local pockets, while high mobility broadens alternatives and can increase assortative structure.";
     }
 
-    return "That's a complex mechanism. Here's what we know from the model.";
+    return "Deep dive: this mechanism depends on interactions among environment, search, and acceptance criteria.";
   }
 
-  /**
-   * Topic-specific reply builder for density
-   */
   static buildDensityCausalReply(metrics, densityLevel) {
-    return `Density changes how often agents meet. With ${densityLevel.toLowerCase()} density, encounter frequency is ${metrics.pairs.length} pairs per simulation. Smaldino & Schank (2012, pp. 17–18) show that population density acts as an environmental constraint on matching opportunities. Your run confirms this: denser settings generally produce faster pairing and stronger assortment.`;
+    return "Density changes encounter opportunities. With " + densityLevel.toLowerCase() + " density, your run produced " + metrics.pairs.length + " pairs, consistent with the idea that sparse settings increase search friction while dense settings increase opportunities.";
   }
 
-  /**
-   * Topic-specific reply: density and search time
-   */
   static buildDensitySearchReply(metrics, densityLevel) {
-    return `Density affects search time. In your run with ${densityLevel.toLowerCase()} density, agents needed an average of ${Math.round(metrics.averageSearchSteps)} steps to find a partner. Sparse populations force longer searches; denser ones compress the timeline. Smaldino & Schank (2012) found this is a robust effect across parameter spaces.`;
+    return "In " + densityLevel.toLowerCase() + " density, average search time was " + Math.round(metrics.averageSearchSteps) + " steps. Sparse populations generally prolong search; denser populations typically compress the timeline.";
   }
 
-  /**
-   * Topic-specific reply: preference rule
-   */
   static buildPreferenceReply(preferenceRule) {
     if (preferenceRule === "Attractiveness-based") {
-      return `Attractiveness-based choice means agents prioritize a partner's attractiveness score. Agents are more selective if they are highly attractive, and less selective as time passes. This creates stronger assortative patterns (Smaldino & Schank 2012, pp. 13–16).`;
+      return "Attractiveness-based choice prioritizes partner attractiveness and often creates stronger sorting under good encounter conditions.";
     }
-    return `Similarity-based choice means agents prioritize a partner with a similar attractiveness score. This can lead to faster pairing because the acceptance threshold is easier to meet. Smaldino & Schank (2012, pp. 11–13) show this rule produces different dynamics than attractiveness-based choice.`;
+    return "Similarity-based choice prioritizes closeness in attractiveness and can support faster acceptance under local availability.";
   }
 
-  /**
-   * Build comparison between two conditions
-   */
-  static buildComparisonReply(topic, value1, value2, label1, label2) {
-    if (topic === "density") {
-      return `Comparing ${label1} and ${label2}: with ${label1}, you see ${Math.round(value1)} pairs. With ${label2}, you see ${Math.round(value2)} pairs. That's a difference of ${Math.abs(value1 - value2).toFixed(0)} pairs, showing how population spacing shapes encounter frequency (Smaldino & Schank 2012, pp. 17–18).`;
-    }
-    if (topic === "mobility") {
-      return `Comparing ${label1} and ${label2}: with ${label1}, you see ${Math.round(value1)} average search steps. With ${label2}, you see ${Math.round(value2)} search steps. Movement range directly affects how long it takes to find a partner (Smaldino & Schank 2012, p. 16).`;
-    }
-    return `Comparing these two settings shows how the parameters interact to shape outcomes.`;
-  }
-
-  /**
-   * Get suggested follow-up questions context
-   */
   static getInsightQuestionSet(scenario, lastTopic = null) {
     const densityQuestions = [
       "Why did density affect pairing?",
@@ -226,20 +207,20 @@ class ChatEngine {
 
     const mobilityQuestions = [
       "Why does mobility change search time?",
-      "High mobility vs. low mobility—which forms more pairs?",
+      "High mobility vs. low mobility: which forms more pairs?",
       "How does mobility differ from density?",
       "Can I improve results by changing mobility?",
     ];
 
     const matchingQuestions = [
-      "What does 'matching strength' mean?",
+      "What does matching strength mean?",
       "Why did some agents not pair?",
       "Can I make pairs stronger?",
       "How does the rule affect pairing?",
     ];
 
     const preferenceQuestions = [
-      "What's the difference between the rules?",
+      "What is the difference between the rules?",
       "Does attractiveness-based work better?",
       "How does the rule affect search time?",
       "Can I test both rules?",
@@ -247,7 +228,7 @@ class ChatEngine {
 
     const defaultQuestions = [
       "Why did density affect pairing?",
-      "I don't understand the result.",
+      "I do not understand the result.",
       "How do mobility and density differ?",
       "What does matching strength mean?",
       "How do I use the decision rules?",
@@ -275,100 +256,101 @@ class ChatEngine {
     topicDepth,
     runHistory
   ) {
-    // Check if it's asking about capabilities
-    if (this.isCapabilityQuestion(text)) {
+    const normalizedText = this.normalizeUserText(text);
+
+    if (this.isCapabilityQuestion(normalizedText)) {
       return this.buildStructuredReply({
-        claim: "This assistant can interpret simulation results and connect them to the paper.",
+        claim: "This assistant interprets simulation outcomes and paper mechanisms in a grounded format.",
         evidence: TeachingContent.buildCapabilityMessage(hasRun),
-        interpretation: "Use it for explanation, comparison, and citation-grounded interpretation rather than open-ended domain chat.",
+        interpretation: "It is optimized for this simulation and Smaldino & Schank (2012), including evidence-based comparisons and confidence labels.",
         citation: "Smaldino & Schank (2012).",
         confidence: "High",
-        nextStep: hasRun ? "Ask: 'Compare my last two runs.'" : "Run a simulation first, then ask: 'What explains this result?'",
+        nextStep: hasRun ? "Ask: 'Compare my last two runs.'" : "Ask: 'What does the paper predict about density?'",
       });
     }
 
-    // If no run exists, prompt user to run
+    const intent = this.detectIntent(normalizedText);
+    const topic = this.detectTopic(normalizedText) || lastTopic;
+    const grounding = this.getGroundingEvidence(normalizedText, topic);
+
+    if (intent === "comparative" || this.isComparisonQuestion(normalizedText)) {
+      const comparisonReply = this.buildComparisonFromHistory(runHistory, topic);
+      if (comparisonReply) return comparisonReply;
+    }
+
+    if (intent === "reliability") {
+      const runCount = Array.isArray(runHistory) ? runHistory.length : 0;
+      return this.buildStructuredReply({
+        claim: "Single-run conclusions are directional, not definitive.",
+        evidence:
+          "Tracked runs=" + runCount +
+          (metrics
+            ? "; latest metrics: pairs=" + metrics.pairs.length + ", strength=" + metrics.matchingStrength.toFixed(2) + ", avg search=" + metrics.averageSearchSteps.toFixed(1)
+            : "; no run metrics currently loaded"),
+        interpretation: "Reliability rises with repeated runs per condition and controlled one-parameter changes.",
+        citation: grounding.citation,
+        confidence: runCount >= 5 ? "Medium" : "Low",
+        nextStep: "Run batch experiments (n>=10) per condition and compare mean differences with confidence intervals.",
+      });
+    }
+
+    if (this.isClarificationRequest(normalizedText)) {
+      if (topic) {
+        return this.buildStructuredReply({
+          claim: "Here is a simpler explanation of the same mechanism.",
+          evidence: metrics
+            ? "Run metrics: pairs=" + metrics.pairs.length + ", strength=" + metrics.matchingStrength.toFixed(2) + ", avg search=" + metrics.averageSearchSteps.toFixed(1) + "."
+            : "No run-specific metrics yet; explanation is paper-grounded.",
+          interpretation: this.getProgressiveExplanation(topic, Math.min((topicDepth || 0) + 1, 3), metrics, densityLevel, mobilityLevel, preferenceRule),
+          citation: grounding.citation,
+          confidence: topic && grounding.snippets.length > 0 ? "Medium" : "Low",
+          nextStep: "If needed, ask: 'Give one concrete example from the run plus one paper claim.'",
+        });
+      }
+
+      return this.buildStructuredReply({
+        claim: "I can simplify it, but I need a target concept.",
+        evidence: "Available concepts: density, mobility, preference rule, matching strength, and search time.",
+        interpretation: "Pick one variable and I will map it to paper mechanism and run evidence.",
+        citation: grounding.citation,
+        confidence: "Medium",
+        nextStep: "Ask: 'Explain mobility in this run in simple terms.'",
+      });
+    }
+
+    // Allow paper-grounded conceptual Q&A even without a completed run.
+    if (!hasRun && (topic || this.isPaperQuestion(normalizedText))) {
+      const topSnippet = grounding.snippets[0] || "No direct snippet match found; ask with a clearer concept like density, mobility, or preference rule.";
+      return this.buildStructuredReply({
+        claim: "I can answer this conceptually from the paper even without a completed run.",
+        evidence: topSnippet,
+        interpretation: topic
+          ? this.getProgressiveExplanation(topic, 1, null, densityLevel, mobilityLevel, preferenceRule)
+          : "This question maps to paper-level mechanism claims about spatial constraints and encounter structure.",
+        citation: grounding.citation,
+        confidence: grounding.strong ? "Medium" : "Low",
+        nextStep: "Run one scenario and ask the same question again for run-specific evidence.",
+      });
+    }
+
     if (!hasRun) {
       return this.buildStructuredReply({
         claim: "No simulation evidence is available yet.",
         evidence: "I cannot reference run metrics because no completed run exists in this session.",
-        interpretation: "Any explanation now would be generic, not evidence-grounded.",
-        citation: "Smaldino & Schank (2012).",
+        interpretation: "I can still answer conceptual paper questions if you ask about density, mobility, matching, or preference rules.",
+        citation: grounding.citation,
         confidence: "Low",
-        nextStep: "Click 'Start Simulation', then ask about density, mobility, preference rule, or matching strength.",
-      });
-    }
-
-    // Detect intent and topic
-    const intent = this.detectIntent(text);
-    const topic = this.detectTopic(text);
-
-    if (intent === "reliability") {
-      const runCount = Array.isArray(runHistory) ? runHistory.length : 0;
-      const evidence = "Current evidence is based on " + runCount + " tracked run(s). Latest run metrics: pairs=" + metrics.pairs.length + ", strength=" + metrics.matchingStrength.toFixed(2) + ", avg search=" + metrics.averageSearchSteps.toFixed(1) + ".";
-      return this.buildStructuredReply({
-        claim: "Single-run conclusions are directionally useful but not statistically strong.",
-        evidence,
-        interpretation: "Reliability improves when you replicate the same condition multiple times and compare distributions rather than one-point outcomes. Batch mode with confidence intervals is the preferred path for stronger inference.",
-        citation: "Smaldino & Schank (2012) emphasize parameter-space exploration over single trajectories.",
-        confidence: runCount >= 5 ? "Medium" : "Low",
-        nextStep: "Run batch experiments (n>=10) for each condition and compare mean differences with 95% confidence intervals.",
-      });
-    }
-
-    if (intent === "comparative" || this.isComparisonQuestion(text)) {
-      const comparisonReply = this.buildComparisonFromHistory(runHistory, topic || lastTopic);
-      if (comparisonReply) return comparisonReply;
-    }
-
-    // Check for clarification request
-    if (this.isClarificationRequest(text)) {
-      if (lastTopic) {
-        const clarification = this.getProgressiveExplanation(
-          lastTopic,
-          Math.min(topicDepth + 1, 3),
-          metrics,
-          densityLevel,
-          mobilityLevel,
-          preferenceRule
-        );
-        return this.buildStructuredReply({
-          claim: "Here is a simpler explanation of the same mechanism.",
-          evidence: "Run metrics: pairs=" + metrics.pairs.length + ", strength=" + metrics.matchingStrength.toFixed(2) + ", avg search=" + metrics.averageSearchSteps.toFixed(1) + ".",
-          interpretation: clarification,
-          citation: "Smaldino & Schank (2012).",
-          confidence: "Medium",
-          nextStep: "If this is still unclear, ask: 'Explain with one concrete run example.'",
-        });
-      }
-      return this.buildStructuredReply({
-        claim: "I can simplify this, but I need a specific topic.",
-        evidence: "Available topics: density, mobility, preference rule, matching strength, and search time.",
-        interpretation: "Choose one variable and I will map it to your exact run metrics.",
-        citation: "Smaldino & Schank (2012).",
-        confidence: "Medium",
-        nextStep: "Ask: 'Explain mobility in this run in simple terms.'",
+        nextStep: "Click 'Start Simulation', then ask about a variable or mechanism.",
       });
     }
 
     let answerText = null;
     let topicUsed = topic;
 
-    // Route by topic
     if (topic === "density") {
       if (intent === "causal") answerText = this.buildDensityCausalReply(metrics, densityLevel);
-      else if (intent === "explanatory") {
-        answerText = this.getProgressiveExplanation(
-          topic,
-          1,
-          metrics,
-          densityLevel,
-          mobilityLevel,
-          preferenceRule
-        );
-      } else {
-        answerText = this.buildDensitySearchReply(metrics, densityLevel);
-      }
+      else if (intent === "explanatory") answerText = this.getProgressiveExplanation(topic, 1, metrics, densityLevel, mobilityLevel, preferenceRule);
+      else answerText = this.buildDensitySearchReply(metrics, densityLevel);
     }
 
     if (topic === "preference" && !answerText) {
@@ -376,40 +358,50 @@ class ChatEngine {
     }
 
     if (topic === "matching" && !answerText) {
-      answerText = `Matching is when two agents meet and both accept each other. Your run shows ${metrics.pairs.length} matches with strength ${metrics.matchingStrength.toFixed(2)}. The strength reflects how similar matched pairs are in attractiveness.`;
+      answerText =
+        "Matching occurs when both agents accept. This run produced " + metrics.pairs.length +
+        " pairs with strength " + metrics.matchingStrength.toFixed(2) +
+        ", indicating the degree of assortative sorting.";
     }
 
-    if (!answerText && topic === "mobility") {
-      topicUsed = "mobility";
+    if (topic === "mobility" && !answerText) {
       answerText = this.getProgressiveExplanation("mobility", 2, metrics, densityLevel, mobilityLevel, preferenceRule);
+    }
+
+    if (!answerText && grounding.snippets.length > 0) {
+      answerText = "From the paper: " + grounding.snippets[0];
+      topicUsed = topicUsed || "paper";
     }
 
     if (!answerText) {
       return this.buildStructuredReply({
         claim: "This question is outside the assistant's current analysis scope.",
         evidence: TeachingContent.buildOutOfScopeReply(),
-        interpretation: "I can still help if you ask about simulation variables and run metrics.",
+        interpretation: "I can still help if you ask about simulation variables, run metrics, or the paper's core mechanisms.",
         citation: "Smaldino & Schank (2012).",
         confidence: "Low",
         nextStep: "Ask: 'What in this run explains matching strength?'",
       });
     }
 
-    const confidence = this.getConfidenceLabel(!!metrics, false, !!topicUsed);
+    const combinedEvidence =
+      "Run evidence: pairs=" + metrics.pairs.length +
+      ", matching strength=" + metrics.matchingStrength.toFixed(2) +
+      ", avg search=" + metrics.averageSearchSteps.toFixed(1) +
+      ". " +
+      (grounding.snippets[0] ? "Paper evidence: " + grounding.snippets[0] : "");
+
+    const confidence = this.getConfidenceLabel(grounding.strong || !!metrics, intent === "comparative", !!topicUsed);
+
     return this.buildStructuredReply({
       claim: "Your question maps to the " + (topicUsed || "current") + " mechanism in this model.",
-      evidence: "Run evidence: pairs=" + metrics.pairs.length + ", matching strength=" + metrics.matchingStrength.toFixed(2) + ", avg search=" + metrics.averageSearchSteps.toFixed(1) + ".",
+      evidence: combinedEvidence,
       interpretation: answerText,
-      citation: topicUsed === "matching"
-        ? "Smaldino & Schank (2012), pp. 11-13."
-        : topicUsed === "mobility"
-        ? "Smaldino & Schank (2012), p. 16."
-        : "Smaldino & Schank (2012), pp. 11-18.",
+      citation: grounding.citation,
       confidence,
       nextStep: "For stronger evidence, compare this with another run where only one parameter changes.",
     });
   }
 }
 
-// Export for use in other modules
 window.ChatEngine = ChatEngine;
