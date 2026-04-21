@@ -51,6 +51,11 @@ class MateChoiceSimulation {
       this.chatSimpleToggle = document.getElementById("chat-simple-toggle");
       this.chatCapabilitiesButton = document.getElementById("chat-capabilities");
       this.chatResetButton = document.getElementById("chat-reset");
+      this.capabilityCardModal = document.getElementById("capability-card-modal");
+      this.capabilityCardClose = document.getElementById("capability-card-close");
+      this.capabilityCardBackdrop = document.getElementById("capability-card-backdrop");
+      this.capabilityCardGotIt = document.getElementById("capability-card-got-it");
+      this.capabilityCardShown = localStorage.getItem("capabilityCardShown") === "true";
       this.previewCsvButton = document.getElementById("preview-csv");
       this.downloadCsvButton = document.getElementById("download-csv");
       this.downloadPngButton = document.getElementById("download-png");
@@ -178,7 +183,7 @@ class MateChoiceSimulation {
       this.runHistory = [];
       this.maxRunHistory = 8;
       this.nextRunId = 1;
-      this.simpleMode = false; // Default to technical mode
+      this.simpleMode = true; // Default to plain-language mode
       this.conversationHistory = []; // Track all questions/answers
       this.lastTopic = null; // Remember what user last asked about
       this.lastQuestionType = null; // Track question intent (causal, clarifying, comparative)
@@ -315,9 +320,17 @@ class MateChoiceSimulation {
       this.chatForm.addEventListener("submit", this.handleChatSubmit);
       if (this.chatCapabilitiesButton) {
         this.chatCapabilitiesButton.addEventListener("click", () => {
-          this.addChatMessage("Assistant", this.buildCapabilityChecklistCard());
-          this.renderInsightQuestions();
+          this.showCapabilityCard();
         });
+      }
+      if (this.capabilityCardClose) {
+        this.capabilityCardClose.addEventListener("click", () => this.closeCapabilityCard());
+      }
+      if (this.capabilityCardBackdrop) {
+        this.capabilityCardBackdrop.addEventListener("click", () => this.closeCapabilityCard());
+      }
+      if (this.capabilityCardGotIt) {
+        this.capabilityCardGotIt.addEventListener("click", () => this.closeCapabilityCard());
       }
       if (this.chatResetButton) {
         this.chatResetButton.addEventListener("click", () => this.resetChatSession());
@@ -479,7 +492,7 @@ class MateChoiceSimulation {
     seedPreview() {
       this.resetRng();
       this.state = this.buildFreshState();
-      this.runButton.textContent = "Start Simulation";
+      this.runButton.textContent = "Run Simulation Now";
       if (this.stepButton) this.stepButton.disabled = false;
       this.updateAcceptanceBiasEffect();
       this.updateViewRadiusControlState();
@@ -639,7 +652,7 @@ class MateChoiceSimulation {
 
       if (this.state.isRunning && !forceRestart) {
         this.state.isRunning = false;
-        this.runButton.textContent = "Resume Simulation";
+        this.runButton.textContent = "Resume Run";
         if (this.stepButton) this.stepButton.disabled = false;
         this.stopStepping();
         this.updateStatus();
@@ -671,9 +684,9 @@ class MateChoiceSimulation {
       }
 
       this.state.isRunning = true;
-      this.runButton.textContent = "Pause Simulation";
+      this.runButton.textContent = "Pause Run";
       if (this.stepButton) this.stepButton.disabled = true;
-      this.status.textContent = "Simulation started. Agents are interacting now.";
+      this.status.textContent = "Running now. Watch who meets, who says yes, and who matches.";
       this.updateRunStateChips();
       this.draw();
       this.scheduleSummaryScrollAfterStart();
@@ -699,7 +712,7 @@ class MateChoiceSimulation {
       this.stopStepping();
       this.resetRng();
       this.state = this.buildFreshState();
-      this.runButton.textContent = "Start Simulation";
+      this.runButton.textContent = "Run Simulation Now";
       if (this.stepButton) this.stepButton.disabled = false;
       this.updateSummaryBarPlaceholder();
       this.updateViewRadiusControlState();
@@ -818,14 +831,14 @@ class MateChoiceSimulation {
 
       this.runButton.disabled = true;
       if (this.runBatchButton) this.runBatchButton.disabled = true;
-      this.status.textContent = "Running batch experiment: " + runCount + " simulations...";
+      this.status.textContent = "Running many trials: " + runCount + " runs...";
       if (this.batchProgressHideTimer) {
         window.clearTimeout(this.batchProgressHideTimer);
         this.batchProgressHideTimer = null;
       }
       this.setBatchProgressVisible(true);
       this.updateBatchProgress({
-        phase: "Preparing batch runs...",
+        phase: "Preparing repeated runs...",
         processed: 0,
         total: totalSamples,
         batchStartMs,
@@ -942,7 +955,7 @@ class MateChoiceSimulation {
         }
 
         if (this.batchAbortRequested) {
-          this.status.textContent = "Batch reset.";
+          this.status.textContent = "Many-trials run reset.";
           return;
         }
         const pairStats = this.computeBatchStats(metricsList.map((m) => m.pairCount));
@@ -995,7 +1008,7 @@ class MateChoiceSimulation {
         this.recordBatchForComparison(runCount, pairStats, strengthStats, searchStats, spatialStats, nonSpatialStats);
 
         this.status.textContent =
-          "Batch complete: " +
+          "Many trials complete: " +
           runCount +
           " runs. Mean pairs " +
           pairStats.mean.toFixed(1) +
@@ -1011,35 +1024,35 @@ class MateChoiceSimulation {
 
         this.addChatMessage(
           "Assistant",
-          "Batch experiment complete (n=" +
+          "Many trials complete (n=" +
             runCount +
             "). Mean pairs=" +
             pairStats.mean.toFixed(1) +
-            " (95% CI " +
+            " (range " +
             pairStats.ciLow.toFixed(1) +
             " to " +
             pairStats.ciHigh.toFixed(1) +
             "), matching strength=" +
             strengthStats.mean.toFixed(2) +
-            " (95% CI " +
+            " (range " +
             strengthStats.ciLow.toFixed(2) +
             " to " +
             strengthStats.ciHigh.toFixed(2) +
             "), avg search=" +
             searchStats.mean.toFixed(1) +
-            " (95% CI " +
+            " (range " +
             searchStats.ciLow.toFixed(1) +
             " to " +
             searchStats.ciHigh.toFixed(1) +
             "). Spatial r=" +
             spatialStats.mean.toFixed(2) +
-            " (95% CI " +
+            " (range " +
             spatialStats.ciLow.toFixed(2) +
             " to " +
             spatialStats.ciHigh.toFixed(2) +
             "), Non-spatial r=" +
             nonSpatialStats.mean.toFixed(2) +
-            " (95% CI " +
+            " (range " +
             nonSpatialStats.ciLow.toFixed(2) +
             " to " +
             nonSpatialStats.ciHigh.toFixed(2) +
@@ -1047,7 +1060,7 @@ class MateChoiceSimulation {
         );
 
         this.updateBatchProgress({
-          phase: "Batch complete.",
+          phase: "Many trials complete.",
           processed: totalSamples,
           total: totalSamples,
           batchStartMs,
@@ -1064,8 +1077,8 @@ class MateChoiceSimulation {
         }
       } catch (error) {
         console.error("Batch run failed", error);
-        this.status.textContent = "Batch run failed. Please try again.";
-        this.addChatMessage("Assistant", "Batch run failed unexpectedly. Try a smaller n and run again.");
+        this.status.textContent = "Many-trials run failed. Please try again.";
+        this.addChatMessage("Assistant", "Many-trials run did not finish. Try fewer trials, then run again.");
       } finally {
         if (this.modelTypeSelect) {
           this.modelTypeSelect.value = currentModel;
@@ -1183,21 +1196,21 @@ class MateChoiceSimulation {
 
       this.clearBatchKeyFindings();
 
-      this.resetBatchSnapshot("Batch reset. Run a new batch experiment to regenerate the average field.");
-      this.resetBatchHeatmap("Batch reset. Run a new batch experiment to regenerate the pairing-hotspot heatmap.");
+      this.resetBatchSnapshot("Many-trials view reset. Run again to regenerate the average field.");
+      this.resetBatchHeatmap("Many-trials view reset. Run again to regenerate the pairing hotspot map.");
 
-      if (this.batchProgressLabel) this.batchProgressLabel.textContent = "Batch progress";
+      if (this.batchProgressLabel) this.batchProgressLabel.textContent = "Many-trials progress";
       if (this.batchProgressCount) this.batchProgressCount.textContent = "0/0";
-      if (this.batchProgressPhase) this.batchProgressPhase.textContent = this.isBatchRunning ? "Stopping batch run..." : "Batch reset.";
+      if (this.batchProgressPhase) this.batchProgressPhase.textContent = this.isBatchRunning ? "Stopping current run..." : "Ready to rerun.";
       if (this.batchProgressFill) this.batchProgressFill.style.width = "0%";
       if (this.batchProgressEta) this.batchProgressEta.textContent = "Elapsed 0.0s";
-      if (this.batchProgressInteractions) this.batchProgressInteractions.textContent = "Sampled interactions: -";
-      if (this.batchProgressPairs) this.batchProgressPairs.textContent = "Rolling pairs mean: -";
-      if (this.batchProgressStrength) this.batchProgressStrength.textContent = "Rolling strength mean: -";
-      if (this.batchProgressSearch) this.batchProgressSearch.textContent = "Rolling search mean: -";
+      if (this.batchProgressInteractions) this.batchProgressInteractions.textContent = "Interactions seen: -";
+      if (this.batchProgressPairs) this.batchProgressPairs.textContent = "Average pairs so far: -";
+      if (this.batchProgressStrength) this.batchProgressStrength.textContent = "Average quality so far: -";
+      if (this.batchProgressSearch) this.batchProgressSearch.textContent = "Average search time so far: -";
       this.setBatchProgressVisible(true);
 
-      this.status.textContent = this.isBatchRunning ? "Resetting batch and rerunning..." : "Batch reset. Rerunning...";
+      this.status.textContent = this.isBatchRunning ? "Resetting and rerunning many trials..." : "Reset complete. Rerunning many trials...";
 
       if (!this.isBatchRunning) {
         this.batchRestartRequested = false;
@@ -1207,7 +1220,7 @@ class MateChoiceSimulation {
 
     updateBatchActionButtons({ running, resetting }) {
       if (this.runBatchButton) {
-        this.runBatchButton.textContent = running ? "Running batch..." : "Run batch experiment";
+        this.runBatchButton.textContent = running ? "Running many trials..." : "Run Many Trials";
       }
       if (this.batchFieldResetViewButton) {
         this.batchFieldResetViewButton.textContent = resetting
@@ -2369,7 +2382,7 @@ class MateChoiceSimulation {
         : 0;
 
       if (this.batchProgressLabel) {
-        this.batchProgressLabel.textContent = clampedProcessed >= safeTotal ? "Batch complete" : "Batch progress";
+        this.batchProgressLabel.textContent = clampedProcessed >= safeTotal ? "Many trials complete" : "Many-trials progress";
       }
       if (this.batchProgressCount) {
         this.batchProgressCount.textContent = clampedProcessed + "/" + safeTotal;
@@ -2392,19 +2405,19 @@ class MateChoiceSimulation {
         }
       }
       if (this.batchProgressInteractions) {
-        this.batchProgressInteractions.textContent = "Sampled interactions: " + recentInteractions;
+        this.batchProgressInteractions.textContent = "Interactions seen: " + recentInteractions;
       }
       if (this.batchProgressPairs) {
         this.batchProgressPairs.textContent =
-          "Rolling pairs mean: " + (metricsList.length ? rollingPairs.toFixed(1) : "-");
+          "Average pairs so far: " + (metricsList.length ? rollingPairs.toFixed(1) : "-");
       }
       if (this.batchProgressStrength) {
         this.batchProgressStrength.textContent =
-          "Rolling strength mean: " + (metricsList.length ? rollingStrength.toFixed(2) : "-");
+          "Average quality so far: " + (metricsList.length ? rollingStrength.toFixed(2) : "-");
       }
       if (this.batchProgressSearch) {
         this.batchProgressSearch.textContent =
-          "Rolling search mean: " + (metricsList.length ? rollingSearch.toFixed(1) : "-");
+          "Average search time so far: " + (metricsList.length ? rollingSearch.toFixed(1) : "-");
       }
     }
 
@@ -2435,18 +2448,18 @@ class MateChoiceSimulation {
 
       this.batchSummary.innerHTML =
         "<ul class=\"batch-summary-list\">" +
-        "<li><strong>Batch n=" + runCount + "</strong></li>" +
+        "<li><strong>Many trials: n=" + runCount + "</strong></li>" +
         "<li>Pairs mean: " + pairStats.mean.toFixed(1) +
-        " (95% CI " + pairStats.ciLow.toFixed(1) + " to " + pairStats.ciHigh.toFixed(1) + ")</li>" +
+        " (range " + pairStats.ciLow.toFixed(1) + " to " + pairStats.ciHigh.toFixed(1) + ")</li>" +
         "<li>Strength mean: " + strengthStats.mean.toFixed(2) +
-        " (95% CI " + strengthStats.ciLow.toFixed(2) + " to " + strengthStats.ciHigh.toFixed(2) + ")</li>" +
+        " (range " + strengthStats.ciLow.toFixed(2) + " to " + strengthStats.ciHigh.toFixed(2) + ")</li>" +
         "<li>Avg search mean: " + searchStats.mean.toFixed(1) +
-        " (95% CI " + searchStats.ciLow.toFixed(1) + " to " + searchStats.ciHigh.toFixed(1) + ")</li>" +
+        " (range " + searchStats.ciLow.toFixed(1) + " to " + searchStats.ciHigh.toFixed(1) + ")</li>" +
         "<li>Spatial r: " + spatialStats.mean.toFixed(2) +
-        " (95% CI " + spatialStats.ciLow.toFixed(2) + " to " + spatialStats.ciHigh.toFixed(2) + ")</li>" +
+        " (range " + spatialStats.ciLow.toFixed(2) + " to " + spatialStats.ciHigh.toFixed(2) + ")</li>" +
         "<li>Non-spatial r: " + nonSpatialStats.mean.toFixed(2) +
-        " (95% CI " + nonSpatialStats.ciLow.toFixed(2) + " to " + nonSpatialStats.ciHigh.toFixed(2) + ")</li>" +
-        "<li><strong>Note:</strong> Batch values are aggregate statistics; a labeled summary row is added to Run Comparison.</li>" +
+        " (range " + nonSpatialStats.ciLow.toFixed(2) + " to " + nonSpatialStats.ciHigh.toFixed(2) + ")</li>" +
+        "<li><strong>Note:</strong> These are combined averages across repeated runs and are added to Run Comparison.</li>" +
         "</ul>";
       this.batchSummary.classList.add("is-visible");
     }
@@ -2595,8 +2608,8 @@ class MateChoiceSimulation {
       this.addChatMessage(
         "Assistant",
         this.state.lastRun
-          ? "Chat reset. Ask about this scenario's density, mobility, preference rule, matching strength, or citations."
-          : "Chat reset. Run a scenario, then ask about density, mobility, preference rules, matching, or citations."
+          ? "New chat started. Ask what happened in this run and why."
+          : "New chat started. Run once, then ask what changed and why."
       );
       this.renderInsightQuestions();
     }
@@ -2835,7 +2848,7 @@ class MateChoiceSimulation {
       this.stopStepping();
       this.state.isRunning = false;
       this.runButton.disabled = false;
-      this.runButton.textContent = "Start Simulation";
+      this.runButton.textContent = "Run Simulation Now";
       if (this.stepButton) this.stepButton.disabled = false;
       this.lastTopic = null;
       this.lastQuestionType = null;
@@ -2895,7 +2908,7 @@ class MateChoiceSimulation {
       if (!this.state.isRunning) {
         if (this.state.step === 0) {
           this.status.textContent =
-            "Ready to simulate density, mobility, and mate choice encounters.";
+            "Ready. Choose settings, then click Run Simulation Now.";
           return;
         }
         this.status.textContent =
@@ -2903,7 +2916,7 @@ class MateChoiceSimulation {
           this.state.step +
           ". Model: " +
           modelType +
-          ". Use Step +1 for frame-by-frame decisions.";
+          ". Use Run One Step for step-by-step decisions.";
         return;
       }
 
@@ -2958,7 +2971,7 @@ class MateChoiceSimulation {
         stats.bAcceptsOnly +
         ", both reject " +
         stats.bothReject +
-        ". Pair decision correlation r=" +
+        ". Decision alignment score=" +
         this.state.pairDecisionCorrelation.toFixed(2) +
         ".";
 
@@ -3311,7 +3324,7 @@ class MateChoiceSimulation {
 
         if (this.lastTopic === "matching") {
           return [
-            "What part of this run shows assortative matching at strength " + matchingStrength + "?",
+            "What part of this run shows strong partner similarity at quality score " + matchingStrength + "?",
             "Why did this scenario produce " + matchingStrength + " matching strength?",
             "How does " + mobilityLevel.toLowerCase() + " mobility differ from " + densityLevel.toLowerCase() + " density here?",
             "How reliable is this result statistically?",
@@ -3348,6 +3361,20 @@ class MateChoiceSimulation {
         return TeachingContent.buildOutOfScopeReply();
       }
 
+      showCapabilityCard() {
+        if (!this.capabilityCardModal) return;
+        this.capabilityCardModal.setAttribute("aria-hidden", "false");
+        this.capabilityCardModal.style.display = "flex";
+      }
+
+      closeCapabilityCard() {
+        if (!this.capabilityCardModal) return;
+        this.capabilityCardModal.setAttribute("aria-hidden", "true");
+        this.capabilityCardModal.style.display = "none";
+        this.capabilityCardShown = true;
+        localStorage.setItem("capabilityCardShown", "true");
+      }
+
     renderInsightQuestions() {
       if (!this.chatSuggestions) return;
 
@@ -3356,7 +3383,7 @@ class MateChoiceSimulation {
       const title = document.createElement("p");
       title.className = "chat-suggestions-title";
         if (!this.state.lastRun) {
-          title.textContent = "Run a scenario to unlock suggested insight questions";
+          title.textContent = "Run once to unlock suggested questions";
         } else if (this.lastTopic) {
           title.textContent = "Suggested follow-ups for " + this.getScenarioLabel();
         } else {
@@ -3506,7 +3533,7 @@ class MateChoiceSimulation {
           "Ground explanations in Smaldino & Schank (2012) with citations.",
           "Support local export workflow: report, CSV, PNG snapshots, and citation text.",
         ],
-        nextStep: hasRun ? "Compare my last two runs." : "Run a simulation, then ask: What explains this result?",
+        nextStep: hasRun ? "Compare my last two runs." : "Run once, then ask: What explains this result?",
       };
     }
 
@@ -3563,7 +3590,7 @@ class MateChoiceSimulation {
       this.teachingExplanation.textContent = this.getTeachingPlaceholderText();
       this.addChatMessage(
         "Assistant",
-        "Ready to discuss results. Run the simulation or ask how mobility, density, and preference rules connect to Smaldino & Schank (2012)."
+        "Ready to help. Run once, then ask what changed and why."
       );
       this.setExportEnabled(false);
       this.renderInsightQuestions();
@@ -3588,8 +3615,8 @@ class MateChoiceSimulation {
         this.addChatMessage(
           "Assistant",
           this.simpleMode
-            ? "Simple mode on: I’ll explain runs in everyday language before citing the paper."
-            : "Simple mode off: I’ll give fuller technical references."
+            ? "Simple mode is on. I will explain results in plain language."
+            : "Simple mode is off. I will include fuller research wording."
         );
       }
     }
@@ -3863,7 +3890,7 @@ class MateChoiceSimulation {
     previewCsv() {
       const hasAnyData = !!this.state.lastRun || !!this.lastBatchReport || !!this.runHistory.length;
       if (!hasAnyData) {
-        this.addChatMessage("Assistant", "Run a simulation or batch first, then build a report.");
+        this.addChatMessage("Assistant", "Run once first, then open the report builder.");
         return false;
       }
       this.openReportBuilder();
@@ -3954,7 +3981,7 @@ class MateChoiceSimulation {
       };
       this.downloadLastGeneratedReport();
       this.closeReportBuilder();
-      this.addChatMessage("Assistant", "Experiment report downloaded.");
+      this.addChatMessage("Assistant", "Report downloaded.");
     }
 
     handleReportBuilderPreview() {
@@ -4001,7 +4028,7 @@ class MateChoiceSimulation {
       const selectedSectionInputs = Array.from(this.reportBuilderForm.querySelectorAll("input[name=\"report-section\"]:checked"));
       const sections = selectedSectionInputs.map((input) => input.value);
       if (!sections.length) {
-        this.addChatMessage("Assistant", "Select at least one report section.");
+        this.addChatMessage("Assistant", "Choose at least one report section.");
         return null;
       }
       const selectedChartInputs = Array.from(this.reportBuilderForm.querySelectorAll("input[name=\"report-chart\"]:checked"));
@@ -4193,12 +4220,12 @@ class MateChoiceSimulation {
         );
       }).join("");
       return (
-        "<svg viewBox=\"0 0 " + W + " " + H + "\" width=\"100%\" height=\"" + H + "\" role=\"img\" aria-label=\"Batch CI bar chart\">" +
+        "<svg viewBox=\"0 0 " + W + " " + H + "\" width=\"100%\" height=\"" + H + "\" role=\"img\" aria-label=\"Many-trials range bar chart\">" +
         "<rect x=\"0\" y=\"0\" width=\"" + W + "\" height=\"" + H + "\" fill=\"#fffdf9\" />" +
         "<line x1=\"" + padL + "\" y1=\"" + padT + "\" x2=\"" + padL + "\" y2=\"" + (H - padB) + "\" stroke=\"#d9ccba\" />" +
         "<line x1=\"" + padL + "\" y1=\"" + (H - padB) + "\" x2=\"" + (W - padR) + "\" y2=\"" + (H - padB) + "\" stroke=\"#d9ccba\" />" +
         bars +
-        "<text x=\"" + (W / 2) + "\" y=\"" + (padT - 4) + "\" text-anchor=\"middle\" font-size=\"10\" fill=\"#7a5a3a\">Error bars = 95% CI</text>" +
+        "<text x=\"" + (W / 2) + "\" y=\"" + (padT - 4) + "\" text-anchor=\"middle\" font-size=\"10\" fill=\"#7a5a3a\">Error bars = result range</text>" +
         "</svg>"
       );
     }
@@ -4215,7 +4242,7 @@ class MateChoiceSimulation {
       const { scope, sections, charts = [] } = options;
       const include = (section) => sections.includes(section) && this.scopeAllowsSection(scope, section);
       const includeChart = (key) => charts.includes(key);
-      const title = "Human Mate Choice Models - Experiment Report";
+      const title = "People Matching Simulation - Experiment Report";
       const now = new Date();
       const reportData = this.buildPreviewReportData();
       const settingsRows = this.buildReportSettingsRows();
@@ -4290,52 +4317,52 @@ class MateChoiceSimulation {
           const hasLatest = run && run.metrics;
           const hasBatch = !!batch;
 
-          const background = "Agent-based computational models provide tractable frameworks for investigating the population-level consequences of individual-level mate-choice rules. This experiment uses a spatially explicit simulation platform to explore how preference specificity, agent density, and mobility constraints shape assortative pairing outcomes.";
+          const background = "This report summarizes what happened when virtual people moved, met, and chose whether to match.";
 
-          let methods = `A mate-choice simulation was configured with ${agentCount} agents operating under a <em>${modeLabel}</em> placement mode with <em>${prefLabel}</em> preference rules.`;
+          let methods = `This simulation used ${agentCount} virtual people in <em>${modeLabel}</em> mode with the <em>${prefLabel}</em> choice rule.`;
           if (hasLatest) {
             methods += ` A total of ${runCount} run${runCount !== 1 ? "s" : ""} were recorded in this session.`;
           }
           if (hasBatch) {
-            methods += ` A batch of <em>n</em> = ${batch.runCount} paired simulations was conducted to estimate parameter distributions.`;
+            methods += ` A repeated run set of <em>n</em> = ${batch.runCount} was also completed.`;
           }
 
           let results = "No run metrics are currently available.";
           if (hasLatest) {
-            results = `The latest run produced ${run.metrics.pairCount} paired agents (matching strength = ${run.metrics.matchingStrength.toFixed(3)}; average search steps = ${run.metrics.averageSearchSteps.toFixed(2)}).`;
+            results = `The latest run produced ${run.metrics.pairCount} pairs (match quality = ${run.metrics.matchingStrength.toFixed(3)}; average search steps = ${run.metrics.averageSearchSteps.toFixed(2)}).`;
             if (hasBatch) {
-              results += ` Across the batch, mean pair count was ${batch.pairStats.mean.toFixed(1)} (95% CI: ${batch.pairStats.ciLow.toFixed(1)}–${batch.pairStats.ciHigh.toFixed(1)}) and mean matching strength was ${batch.strengthStats.mean.toFixed(3)} (95% CI: ${batch.strengthStats.ciLow.toFixed(3)}–${batch.strengthStats.ciHigh.toFixed(3)}).`;
+              results += ` Across many trials, average pair count was ${batch.pairStats.mean.toFixed(1)} (range: ${batch.pairStats.ciLow.toFixed(1)}–${batch.pairStats.ciHigh.toFixed(1)}) and average match quality was ${batch.strengthStats.mean.toFixed(3)} (range: ${batch.strengthStats.ciLow.toFixed(3)}–${batch.strengthStats.ciHigh.toFixed(3)}).`;
               const delta = (batch.spatialStats.mean - batch.nonSpatialStats.mean);
               const dir = delta > 0 ? "higher" : "lower";
               results += ` Spatial placement yielded ${Math.abs(delta).toFixed(3)} ${dir} mean strength than non-spatial placement.`;
             }
           }
 
-          const conclusions = "These findings demonstrate how spatial and preference parameters interact to constrain partner availability and assortative matching efficiency. The simulation results are consistent with theoretical predictions from evolutionary mate-choice models and may inform classroom discussion of sexual selection, search costs, and assortative mating in human populations.";
+          const conclusions = "These results show how movement, crowd size, and choice settings change who meets, how long search takes, and how strong matches are.";
 
-          const keywords = [modeLabel, prefLabel, "mate choice", "agent-based model", "assortative mating", "spatial constraint"].filter(Boolean).join("; ");
+          const keywords = [modeLabel, prefLabel, "matching simulation", "movement", "density"].filter(Boolean).join("; ");
 
           return (
             "<header>" +
             "<h1>" + title + "</h1>" +
-            "<p class=\"authors\">Simulation Report &mdash; Interactive Human Mate Choice Platform</p>" +
+            "<p class=\"authors\">Simulation Report &mdash; People Matching Simulation</p>" +
             "<p class=\"meta\">Generated: " + now.toLocaleString() + "&ensp;|&ensp;Scope: " + scope + "&ensp;|&ensp;Session runs: " + runCount + "</p>" +
             "</header>" +
             "<div class=\"abstract-box\">" +
-            "<h2>Abstract</h2>" +
-            "<div class=\"abstract-row\"><span class=\"abstract-label\">Background:</span><span>" + background + "</span></div>" +
-            "<div class=\"abstract-row\"><span class=\"abstract-label\">Methods:</span><span>" + methods + "</span></div>" +
-            "<div class=\"abstract-row\"><span class=\"abstract-label\">Results:</span><span>" + results + "</span></div>" +
-            "<div class=\"abstract-row\"><span class=\"abstract-label\">Conclusions:</span><span>" + conclusions + "</span></div>" +
+            "<h2>Quick Summary</h2>" +
+            "<div class=\"abstract-row\"><span class=\"abstract-label\">What this is:</span><span>" + background + "</span></div>" +
+            "<div class=\"abstract-row\"><span class=\"abstract-label\">Setup:</span><span>" + methods + "</span></div>" +
+            "<div class=\"abstract-row\"><span class=\"abstract-label\">What happened:</span><span>" + results + "</span></div>" +
+            "<div class=\"abstract-row\"><span class=\"abstract-label\">Takeaway:</span><span>" + conclusions + "</span></div>" +
             "<p class=\"abstract-kw\"><strong>Keywords:</strong> " + keywords + "</p>" +
             "</div>"
           );
         })() +
         (include("settings")
-          ? "<section><h2>Methods - Simulation Settings</h2><table><tbody>" + settingsTable + "</tbody></table></section>"
+          ? "<section><h2>Settings Used</h2><table><tbody>" + settingsTable + "</tbody></table></section>"
           : "") +
         (include("latest-metrics")
-          ? "<section><h2>Results - Latest Run Metrics</h2>" +
+          ? "<section><h2>Latest Run Results</h2>" +
             (run && run.metrics
               ? "<table><tbody><tr><th>Pairs formed</th><td>" +
                 run.metrics.pairCount +
@@ -4351,23 +4378,23 @@ class MateChoiceSimulation {
             "</section>"
           : "") +
         (include("batch-stats")
-          ? "<section><h2>Batch Analysis</h2>" +
+          ? "<section><h2>Many-Trials Summary</h2>" +
             (batch
-              ? "<p>Batch size: n=" +
+              ? "<p>Run count: n=" +
                 batch.runCount +
-                " paired simulations.</p><table><tbody><tr><th>Pairs mean (95% CI)</th><td>" +
+                " repeated runs.</p><table><tbody><tr><th>Average pairs (range)</th><td>" +
                 batch.pairStats.mean.toFixed(1) +
                 " (" +
                 batch.pairStats.ciLow.toFixed(1) +
                 " to " +
                 batch.pairStats.ciHigh.toFixed(1) +
-                ")</td></tr><tr><th>Strength mean (95% CI)</th><td>" +
+                ")</td></tr><tr><th>Average quality (range)</th><td>" +
                 batch.strengthStats.mean.toFixed(2) +
                 " (" +
                 batch.strengthStats.ciLow.toFixed(2) +
                 " to " +
                 batch.strengthStats.ciHigh.toFixed(2) +
-                ")</td></tr><tr><th>Average search mean (95% CI)</th><td>" +
+                ")</td></tr><tr><th>Average search time (range)</th><td>" +
                 batch.searchStats.mean.toFixed(1) +
                 " (" +
                 batch.searchStats.ciLow.toFixed(1) +
@@ -4382,24 +4409,24 @@ class MateChoiceSimulation {
             "</section>"
           : "") +
         (include("comparison")
-          ? "<section><h2>Run Comparison History</h2><table><thead><tr><th>Run</th><th>Scenario</th><th>Pairs</th><th>Strength</th><th>Avg search</th></tr></thead><tbody>" +
+          ? "<section><h2>Run Comparison</h2><table><thead><tr><th>Run</th><th>Scenario</th><th>Pairs</th><th>Strength</th><th>Avg search</th></tr></thead><tbody>" +
             comparisonRows +
             "</tbody></table>" +
-            (trendChartSvg ? "<div class=\"chart-card\"><p class=\"chart-title\">Figure 2. Matching-strength trend across tracked runs</p>" + trendChartSvg + "</div>" : "") +
+            (trendChartSvg ? "<div class=\"chart-card\"><p class=\"chart-title\">Figure 2. Match-quality trend across tracked runs</p>" + trendChartSvg + "</div>" : "") +
             "</section>"
           : "") +
         (include("findings")
-          ? "<section><h2>Interpretation and Findings</h2><p>" +
+          ? "<section><h2>What This Means</h2><p>" +
             (findingsText || "No interpretation text is currently available.") +
             "</p>" +
-            (reportData ? "<p>Assortative structure summary: " + reportData.structureLabel + ".</p>" : "") +
+            (reportData ? "<p>Match-pattern summary: " + reportData.structureLabel + ".</p>" : "") +
             "</section>"
           : "") +
         (include("citation")
           ? "<section><h2>Citation</h2><p>" + citation.replace(/\n/g, "<br />") + "</p></section>"
           : "") +
         (include("repro")
-          ? "<section><h2>Reproducibility Metadata</h2><table><tbody><tr><th>Timestamp</th><td>" +
+          ? "<section><h2>Run Details</h2><table><tbody><tr><th>Timestamp</th><td>" +
             now.toISOString() +
             "</td></tr><tr><th>Seed</th><td>" +
             seedText +
@@ -4413,36 +4440,36 @@ class MateChoiceSimulation {
           const figs = [];
           if (correlationSvg) figs.push(
             "<div class=\"chart-card\">" +
-            "<p class=\"chart-title\">Figure 3. Pairs formed vs. Matching strength &mdash; Pearson correlation scatter plot.</p>" +
-            "<p style=\"font-size:12.5px;color:#5a4a3a;margin:4px 0 8px\">Each point represents one tracked simulation run. The dashed orange line is the ordinary least-squares regression line. The Pearson <em>r</em> coefficient (top-right) quantifies the linear association between the number of pairs formed and the matching strength achieved; values closer to &plusmn;1 indicate a stronger relationship, while values near 0 suggest no linear trend. A positive <em>r</em> implies that conditions producing more pairs also tend to yield higher assortative matching quality.</p>" +
+            "<p class=\"chart-title\">Figure 3. Pairs formed vs. Match quality.</p>" +
+            "<p style=\"font-size:12.5px;color:#5a4a3a;margin:4px 0 8px\">Each point is one run. This chart helps you see whether runs with more pairs also tend to have higher match quality.</p>" +
             correlationSvg + "</div>"
           );
           if (batchCiSvg) figs.push(
             "<div class=\"chart-card\">" +
-            "<p class=\"chart-title\">Figure 4. Batch experiment key metrics with 95% confidence intervals.</p>" +
-            "<p style=\"font-size:12.5px;color:#5a4a3a;margin:4px 0 8px\">Bar heights represent the mean value for each metric across all batch runs. The vertical error bars (whiskers) denote the 95% confidence interval estimated as &plusmn;1.96 &times; (SD / &radic;<em>n</em>), providing a measure of the precision of each mean estimate. Strength is scaled &times;100 for visual comparability. Narrow CI bars indicate high reproducibility across repeated runs under the same parameter set.</p>" +
+            "<p class=\"chart-title\">Figure 4. Many-trials key metrics and ranges.</p>" +
+            "<p style=\"font-size:12.5px;color:#5a4a3a;margin:4px 0 8px\">Bar height shows the average result. Error bars show the range, so you can see how steady the result is across repeated runs.</p>" +
             batchCiSvg + "</div>"
           );
           if (gridSnapshotUrl) figs.push(
             "<div class=\"chart-card\">" +
             "<p class=\"chart-title\">Figure 5. Simulation grid &mdash; snapshot at last run state.</p>" +
-            "<p style=\"font-size:12.5px;color:#5a4a3a;margin:4px 0 8px\">This image captures the spatial layout of agents at the conclusion of the most recent simulation run. Paired agents are shown in their final positions; unpaired agents remain distributed across the grid. The spatial arrangement reflects the combined effect of mobility, density, and placement mode on partner search outcomes. Areas of higher agent clustering may correspond to elevated pairing rates visible in the heatmap (Figure 6).</p>" +
+            "<p style=\"font-size:12.5px;color:#5a4a3a;margin:4px 0 8px\">This image shows where agents ended up at the end of the latest run.</p>" +
             "<img src=\"" + gridSnapshotUrl + "\" style=\"max-width:100%;border-radius:6px;margin-top:6px\" alt=\"Simulation grid snapshot\" /></div>"
           );
           if (heatmapSnapshotUrl) figs.push(
             "<div class=\"chart-card\">" +
-            "<p class=\"chart-title\">Figure 6. Batch pairing hotspot heatmap &mdash; accumulated pairing frequency across batch runs.</p>" +
-            "<p style=\"font-size:12.5px;color:#5a4a3a;margin:4px 0 8px\">The heatmap overlays the grid with a colour-coded frequency surface representing how often each spatial cell was the site of a pairing event across all batch runs. Warmer colours indicate cells where pairings were repeatedly observed, revealing spatial hotspots driven by agent density and movement patterns. This cumulative view helps identify whether pairing is spatially homogeneous or concentrated in specific zones of the simulation environment.</p>" +
+            "<p class=\"chart-title\">Figure 6. Pairing hotspot heatmap across many trials.</p>" +
+            "<p style=\"font-size:12.5px;color:#5a4a3a;margin:4px 0 8px\">Brighter areas are where matches happened more often.</p>" +
             "<img src=\"" + heatmapSnapshotUrl + "\" style=\"max-width:100%;border-radius:6px;margin-top:6px\" alt=\"Batch heatmap snapshot\" /></div>"
           );
           if (fieldSnapshotUrl) figs.push(
             "<div class=\"chart-card\">" +
-            "<p class=\"chart-title\">Figure 7. Batch 3D / field view &mdash; statistical average field rendered at end of batch.</p>" +
-            "<p style=\"font-size:12.5px;color:#5a4a3a;margin:4px 0 8px\">This figure shows the batch-averaged field rendered in the 3D isometric view. Each column height encodes the mean occupancy or pairing activity at that grid cell across all sampled batch runs, providing a topographic representation of spatial density. Elevated columns correspond to zones of high cumulative agent activity. The perspective projection aids intuitive interpretation of the spatial distribution compared to the flat heatmap in Figure 6.</p>" +
+            "<p class=\"chart-title\">Figure 7. 3D average field across many trials.</p>" +
+            "<p style=\"font-size:12.5px;color:#5a4a3a;margin:4px 0 8px\">Taller columns show areas with more average activity.</p>" +
             "<img src=\"" + fieldSnapshotUrl + "\" style=\"max-width:100%;border-radius:6px;margin-top:6px\" alt=\"Batch 3D field snapshot\" /></div>"
           );
           return figs.length
-            ? "<section><h2>Supplemental Figures</h2><p style=\"font-size:13px;color:#5a4a3a;margin:0 0 14px\">The following figures provide visual representations of simulation output selected at report generation time. Each caption describes the data source, rendering method, and interpretive guidance for the displayed content.</p>" + figs.join("") + "</section>"
+            ? "<section><h2>Additional Figures</h2><p style=\"font-size:13px;color:#5a4a3a;margin:0 0 14px\">These figures give extra visual context for your report.</p>" + figs.join("") + "</section>"
             : "";
         })() +
         "</body></html>"
@@ -4459,7 +4486,7 @@ class MateChoiceSimulation {
       const citation = this.lastCitation || "No citation available for current scope.";
 
       const lines = [];
-      lines.push("# Human Mate Choice Models - Experiment Report");
+      lines.push("# People Matching Simulation - Experiment Report");
       lines.push("");
       lines.push("Generated: " + now.toISOString());
       lines.push("Scope: " + scope);
@@ -4487,12 +4514,12 @@ class MateChoiceSimulation {
 
       if (include("batch-stats")) {
         lines.push("");
-        lines.push("## Batch Analysis");
+        lines.push("## Many-Trials Summary");
         if (batch) {
-          lines.push("- Batch size: n=" + batch.runCount);
-          lines.push("- Pairs mean (95% CI): " + batch.pairStats.mean.toFixed(1) + " (" + batch.pairStats.ciLow.toFixed(1) + " to " + batch.pairStats.ciHigh.toFixed(1) + ")");
-          lines.push("- Strength mean (95% CI): " + batch.strengthStats.mean.toFixed(2) + " (" + batch.strengthStats.ciLow.toFixed(2) + " to " + batch.strengthStats.ciHigh.toFixed(2) + ")");
-          lines.push("- Avg search mean (95% CI): " + batch.searchStats.mean.toFixed(1) + " (" + batch.searchStats.ciLow.toFixed(1) + " to " + batch.searchStats.ciHigh.toFixed(1) + ")");
+          lines.push("- Run count: n=" + batch.runCount);
+          lines.push("- Average pairs (range): " + batch.pairStats.mean.toFixed(1) + " (" + batch.pairStats.ciLow.toFixed(1) + " to " + batch.pairStats.ciHigh.toFixed(1) + ")");
+          lines.push("- Average quality (range): " + batch.strengthStats.mean.toFixed(2) + " (" + batch.strengthStats.ciLow.toFixed(2) + " to " + batch.strengthStats.ciHigh.toFixed(2) + ")");
+          lines.push("- Average search time (range): " + batch.searchStats.mean.toFixed(1) + " (" + batch.searchStats.ciLow.toFixed(1) + " to " + batch.searchStats.ciHigh.toFixed(1) + ")");
         } else {
           lines.push("- No batch report is available.");
         }
@@ -4500,7 +4527,7 @@ class MateChoiceSimulation {
 
       if (include("comparison")) {
         lines.push("");
-        lines.push("## Run Comparison History");
+        lines.push("## Run Comparison");
         if (!this.runHistory.length) {
           lines.push("- No run history available.");
         } else {
@@ -4512,7 +4539,7 @@ class MateChoiceSimulation {
 
       if (include("findings")) {
         lines.push("");
-        lines.push("## Interpretation and Findings");
+        lines.push("## What This Means");
         lines.push("- " + (this.runInterpretationWhat ? this.runInterpretationWhat.textContent : "No interpretation available."));
         lines.push("- " + (this.runInterpretationWhy ? this.runInterpretationWhy.textContent : ""));
         lines.push("- " + (this.runInterpretationNext ? this.runInterpretationNext.textContent : ""));
@@ -4526,7 +4553,7 @@ class MateChoiceSimulation {
 
       if (include("repro")) {
         lines.push("");
-        lines.push("## Reproducibility Metadata");
+        lines.push("## Run Details");
         lines.push("- Timestamp: " + now.toISOString());
         lines.push("- Seed: " + (this.randomSeedInput && this.randomSeedInput.value ? this.randomSeedInput.value : "not set"));
         lines.push("- Total tracked runs: " + this.runHistory.length);
@@ -4538,7 +4565,7 @@ class MateChoiceSimulation {
 
     downloadCsv() {
       if (!this.state.lastRun) {
-        this.addChatMessage("Assistant", "Run first, then download the summary.");
+        this.addChatMessage("Assistant", "Run once first, then download the summary.");
         return false;
       }
 
@@ -4575,7 +4602,7 @@ class MateChoiceSimulation {
       if (!this.csvPreview || !this.csvPreviewContent) return;
       const reportData = this.buildPreviewReportData();
       if (!reportData) {
-        this.addChatMessage("Assistant", "Run first, then preview the summary.");
+        this.addChatMessage("Assistant", "Run once first, then open the report preview.");
         return;
       }
 
@@ -4655,39 +4682,31 @@ class MateChoiceSimulation {
 
       if (this.previewIntroText) {
         this.previewIntroText.textContent =
-          "This run evaluated " +
-          preferenceRule.toLowerCase() +
-          " in " +
-          modelType.toLowerCase() +
-          " mode with " +
+          "This run used " +
           agentCount +
-          " active agents" +
-          " matching under " +
+          " virtual people in " +
+          modelType.toLowerCase() +
+          " mode. Settings were " +
           densityLevel.toLowerCase() +
-          " density and " +
+          " density, " +
           mobilityLevel.toLowerCase() +
-          " mobility, with selectivity " +
-          selectivityLevel.toLowerCase() +
-          ", patience " +
-          patienceLevel.toLowerCase() +
-          ", and exploration " +
-            explorationLevel.toLowerCase() +
-            ". Pair-decision correlation within encounters was " +
-            metrics.pairDecisionCorrelation.toFixed(2) +
-            ".";
+          " mobility, and " +
+          preferenceRule.toLowerCase() +
+          " partner choice.";
       }
 
       if (this.previewBodyText) {
         this.previewBodyText.textContent =
-          "The simulation produced " +
+          "Result summary: " +
+          "the run produced " +
           metrics.pairCount +
-          " pairs and a matching strength of " +
+          " pairs. Match quality score was " +
           metrics.matchingStrength.toFixed(2) +
-          ", indicating a " +
+          ", which means pairs were " +
           structureLabel +
-          " pairing pattern. Average search steps reached " +
+          ". Average search time was " +
           metrics.averageSearchSteps.toFixed(1) +
-          ", which reflects how quickly agents found acceptable partners under these constraints.";
+          " steps.";
       }
 
       if (this.previewConclusionText) {
@@ -4706,25 +4725,25 @@ class MateChoiceSimulation {
             : "pair formation was substantial";
 
         this.previewConclusionText.textContent =
-          "Conclusion: Under " +
+          "Conclusion: With " +
           reportData.densityLevel.toLowerCase() +
           " density, " +
           reportData.mobilityLevel.toLowerCase() +
-          " mobility, and the " +
+          " mobility, and " +
           reportData.preferenceRule.toLowerCase() +
-          " rule, this run produced " +
+          " choice, this run produced " +
           metrics.pairCount +
-          " pairs with matching strength " +
+          " pairs with a match quality score of " +
           metrics.matchingStrength.toFixed(2) +
-          ". Overall, the system was " +
+          ". Overall, results were " +
           structureLabel +
-          ": " +
+          ", " +
           pairingResult +
-          " and " +
+          ", and " +
           searchEfficiency +
           " (avg search " +
           metrics.averageSearchSteps.toFixed(1) +
-          " steps). Use the hazard explorer to see which rule/movement combinations accelerate early matching, and use the pair-difference distribution to judge whether similarity came from strong preference filtering or local encounter constraints.";
+          " steps). Use this as evidence in your report and compare with another run where you change only one setting.";
       }
     }
 
@@ -4772,16 +4791,15 @@ class MateChoiceSimulation {
 
       if (this.previewMetricsInsight) {
         this.previewMetricsInsight.textContent =
-          "Insight: Pairs reached " +
+          "Insight: This run reached " +
           pairRate.toFixed(0) +
-          "% of the maximum possible count, matching strength is " +
+          "% of the possible pair count. Match quality score is " +
           metrics.matchingStrength.toFixed(2) +
-            " (Pearson r), " +
-            "assortment appears " +
+            ", pair quality looks " +
             structureLabel +
-            ", and average search used " +
+            ", and search used " +
             searchPercent.toFixed(0) +
-            "% of the run horizon. Higher search with lower pair/strength bars usually indicates tighter encounter constraints.";
+            "% of the run length.";
       }
 
       if (this.previewDifferenceInsight) {
@@ -4803,9 +4821,9 @@ class MateChoiceSimulation {
         this.previewDifferenceInsight.textContent =
           "Insight: " +
           lowDifferenceShare.toFixed(0) +
-          "% of pairs are in low-difference bins (0-2), and the peak bin is difference " +
+          "% of pairs are in low-difference bins (0-2), and the most common difference is " +
           peakBin +
-          ". More mass in lower bins means partners were more similar; heavier right-side bins indicate weaker assortment.";
+          ". More low-difference pairs means partners were more similar.";
       }
     }
 
@@ -5195,9 +5213,9 @@ class MateChoiceSimulation {
 
       if (this.ruleAnalyticsDefinitions) {
         this.ruleAnalyticsDefinitions.textContent =
-          "Statistics: each row reports mean with 95% CI from n=" +
+          "Each row shows averages from " +
           RULE_ANALYTICS_RUNS +
-          " synthetic runs. CI colors: green=tight, amber=medium, rose=wide.";
+          " repeated runs. Tighter ranges mean more stable results.";
       }
     }
 
@@ -5321,11 +5339,11 @@ class MateChoiceSimulation {
 
       if (this.ruleHazardInsight) {
         this.ruleHazardInsight.textContent =
-          "Insight: Hazard at step t is h(t)=matches(t)/atRisk(t). The highest peak hazard in this benchmark appears under " +
+          "Insight: This chart shows match speed over time. The highest early peak appears under " +
           peakRow.ruleLabel +
           " " +
           peakRow.movement +
-          ", meaning that combination yields the fastest early conversion from unmatched to matched states. See the zoom chart for readable early-step separation.";
+          ", which means that setup produced the fastest early matching.";
       }
       this.updateHazardDynamicExplainer(visibleRows, mode);
     }
@@ -5932,7 +5950,7 @@ class MateChoiceSimulation {
       }
       if (this.previewIntroText) {
         this.previewIntroText.textContent =
-          "Run a simulation, then use Preview run summary (CSV) to generate an interpreted report.";
+          "Run once, then open this report to read and export your results.";
       }
       if (this.previewBodyText) {
         this.previewBodyText.textContent =
@@ -5947,17 +5965,17 @@ class MateChoiceSimulation {
       if (this.previewKpiSearch) this.previewKpiSearch.textContent = "-";
       if (this.previewMetricsInsight) {
         this.previewMetricsInsight.textContent =
-          "Insight: This chart compares run-level outcomes where taller bars indicate stronger values.";
+          "Insight: This chart compares pair count, match quality, and search time.";
       }
       if (this.previewDifferenceInsight) {
         this.previewDifferenceInsight.textContent =
-          "Insight: This chart shows how similar partners were, with lower difference bins indicating stronger assortative matching.";
+          "Insight: This chart shows how similar matched partners were.";
       }
       if (this.ruleAnalyticsDefinitions) {
         this.ruleAnalyticsDefinitions.textContent =
-          "Statistics: each row reports mean with 95% CI from n=" +
+          "Each row shows averages from " +
           RULE_ANALYTICS_RUNS +
-          " synthetic runs. CI colors: green=tight, amber=medium, rose=wide.";
+          " repeated runs. Tighter ranges mean more stable results.";
       }
       if (this.ruleCodeExplainer) {
         this.ruleCodeExplainer.textContent = "Selected now: none selected.";
@@ -5967,7 +5985,7 @@ class MateChoiceSimulation {
       }
       if (this.ruleHazardInsight) {
         this.ruleHazardInsight.textContent =
-          "Insight: Hazard at step t is matches at t divided by agents still unmatched at the start of t.";
+          "Insight: This chart shows how quickly new matches formed at each step.";
       }
       if (resetMode !== "full") {
         return;
@@ -6102,17 +6120,17 @@ class MateChoiceSimulation {
     clearRunComparison() {
       this.runHistory = [];
       this.renderRunComparison();
-      this.addChatMessage("Assistant", "Run comparison history cleared.");
+      this.addChatMessage("Assistant", "Run history cleared.");
     }
 
     renderRunComparison() {
       if (!this.runComparisonBody) return;
 
       if (!this.runHistory.length) {
-        this.runComparisonBody.innerHTML = "<tr><td colspan=\"6\">No completed runs yet. Run once to set a baseline, then change one setting and rerun. Batch entries are labeled.</td></tr>";
+        this.runComparisonBody.innerHTML = "<tr><td colspan=\"6\">No runs yet. Run once, then change one setting and run again.</td></tr>";
         if (this.runComparisonSummary) {
           this.runComparisonSummary.textContent =
-            "Start with one baseline run. Batch rows are labeled and summarize aggregate means.";
+            "Start with one baseline run, then compare changes one setting at a time.";
         }
         return;
       }
@@ -6125,7 +6143,7 @@ class MateChoiceSimulation {
           const pairsText = run.entryType === "batch" ? run.pairCount.toFixed(1) : String(run.pairCount);
           const searchText = run.search.toFixed(1);
           const scenarioText = run.entryType === "batch"
-            ? "Batch n=" + run.batchN + " (aggregate means)"
+            ? "Many trials n=" + run.batchN + " (combined averages)"
             : run.density +
               " / " +
               run.mobility +
@@ -6193,14 +6211,14 @@ class MateChoiceSimulation {
 
       if (!reportData) {
         this.runInterpretationWhat.textContent =
-          "What you'll learn after a run: how many pairs formed and how quickly matching happened.";
+          "What this result means: how many pairs formed and how quickly they formed.";
         this.runInterpretationWhy.textContent =
-          "Why it likely happened: this section links your settings to observed outcomes.";
+          "Why it happened: this links your settings to what you just saw.";
         this.runInterpretationNext.textContent =
-          "Example insight: Dense + high mobility often increases pair counts while lowering average search steps.";
-        setBadge(this.runBadgeSearch, "Search guide", null);
-        setBadge(this.runBadgeAssortment, "Assortment guide", null);
-        setBadge(this.runBadgePairRate, "Pair-rate guide", null);
+          "Use this section to find patterns, then cite and report your result.";
+        setBadge(this.runBadgeSearch, "Search speed guide", null);
+        setBadge(this.runBadgeAssortment, "Match quality guide", null);
+        setBadge(this.runBadgePairRate, "Pair rate guide", null);
         return;
       }
 
@@ -6221,7 +6239,7 @@ class MateChoiceSimulation {
       const assortmentLabel = metrics.matchingStrength >= 0.35 ? "high" : metrics.matchingStrength >= 0.2 ? "medium" : "low";
 
       setBadge(this.runBadgeSearch, "Search: " + searchLabel, searchTone);
-      setBadge(this.runBadgeAssortment, "Assortment: " + assortmentLabel, assortmentTone);
+      setBadge(this.runBadgeAssortment, "Match quality: " + assortmentLabel, assortmentTone);
       setBadge(this.runBadgePairRate, "Pair rate: " + pairRate.toFixed(0) + "%", pairTone);
 
       const denseOrMobile = densityLevel === "Dense" || mobilityLevel === "High";
@@ -6294,7 +6312,7 @@ class MateChoiceSimulation {
         if (proposedSettings.patience === "High") {
           proposedSettings.patience = "Normal";
         }
-        recommendationReason = "assortment is weak, so the next test should make acceptance slightly stricter and reduce overly easy matching";
+        recommendationReason = "match quality is low, so the next test should make acceptance slightly stricter and reduce overly easy matching";
       } else if (pairRate < 40) {
         proposedSettings.patience = currentSettings.patience === "Low" ? "Normal" : "High";
         if (proposedSettings.selectivity === "High") {
@@ -6395,7 +6413,7 @@ class MateChoiceSimulation {
             this.state.lastRun.explorationLevel
           );
         } else {
-          this.addChatMessage("Assistant", "Run first, then copy the citation.");
+          this.addChatMessage("Assistant", "Run once first, then copy the citation.");
           return;
         }
       }
@@ -6412,14 +6430,14 @@ class MateChoiceSimulation {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(this.lastCitation)
           .then(() => {
-            this.addChatMessage("Assistant", "Citation copied.");
+            this.addChatMessage("Assistant", "Citation text copied.");
             if (this.copyCitationButton) {
               this.flashExportButton(this.copyCitationButton, "Copied", 1100);
             }
           })
           .catch((err) => {
             console.error("Clipboard error:", err);
-            this.addChatMessage("Assistant", "Clipboard blocked—copy manually from the chat.");
+            this.addChatMessage("Assistant", "Clipboard is blocked. Copy the citation text from chat.");
             this.resetExportButtonLabels();
           });
       } else {

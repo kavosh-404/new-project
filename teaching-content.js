@@ -10,9 +10,9 @@ class TeachingContent {
    */
   static getTeachingPlaceholderText(simpleMode = false) {
     if (simpleMode) {
-      return "Run the simulation, and this panel will explain the result in plain language using everyday terms.";
+      return "Run once, and this panel will explain your result in simple everyday language.";
     }
-    return "Run the simulation to generate a teaching explanation about how mobility, density, and preference rules shape assortative matching in this model.";
+    return "Run once to get a clear explanation of how movement, crowd size, and choice settings changed the result.";
   }
 
   /**
@@ -32,11 +32,11 @@ class TeachingContent {
 
     if (simpleMode) {
       // Simple mode: 3-sentence plain-language summary
-      narrative = `Plain-language summary: In this run, movement was ${this.getLevelLabel(mobilityLevel, "mobility")}, the crowd was ${this.getLevelLabel(densityLevel, "density")}, and the decision rule was ${preferenceRule}.
+      narrative = `Plain-language summary: In this run, movement was ${this.getLevelLabel(mobilityLevel, "mobility")}, crowd size was ${this.getLevelLabel(densityLevel, "density")}, and partner choice used ${preferenceRule}.
 
-The simulation formed ${metrics.pairs.length} pairs. The similarity score was ${metrics.matchingStrength.toFixed(2)} (${this.getStrengthLabel(metrics.matchingStrength)} similarity), and people needed about ${Math.round(metrics.averageSearchSteps)} steps on average to find a partner.
+The simulation formed ${metrics.pairs.length} pairs. Match quality was ${metrics.matchingStrength.toFixed(2)} (${this.getStrengthLabel(metrics.matchingStrength)}), and people needed about ${Math.round(metrics.averageSearchSteps)} steps on average to find a partner.
 
-How to read this: density and mobility decide who meets whom first, and the rule decides who says yes once two people meet.`;
+How to read this: crowd size and movement decide who meets first, and the choice rule decides who says yes once two people meet.`;
     } else {
       // Technical mode: 7-sentence breakdown
       narrative = `This run used ${this.getLevelLabel(mobilityLevel, "mobility")}, ${this.getLevelLabel(densityLevel, "density")}, selectivity=${selectivityLevel}, patience=${patienceLevel}, exploration=${explorationLevel}, and a ${preferenceRule} rule, producing ${metrics.pairs.length} pairs with matching strength ${metrics.matchingStrength.toFixed(2)}.

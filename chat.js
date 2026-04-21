@@ -340,7 +340,7 @@ class ChatEngine {
         interpretation: "I can still answer conceptual paper questions if you ask about density, mobility, matching, or preference rules.",
         citation: grounding.citation,
         confidence: "Low",
-        nextStep: "Click 'Start Simulation', then ask about a variable or mechanism.",
+        nextStep: "Click 'Run Simulation Now', then ask about one setting.",
       });
     }
 

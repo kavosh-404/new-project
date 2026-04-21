@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Human Mate Choice Models</title>
+    <title>People Matching Simulation</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -25,12 +25,12 @@
   <body>
     <div class="intro-overlay" id="intro-overlay" role="dialog" aria-live="polite" aria-modal="true" aria-label="Welcome overlay">
       <div class="intro-card">
-        <p class="intro-kicker">Interactive Research Experience</p>
-        <h2>Ready to explore Human Mate Choice Models?</h2>
+        <p class="intro-kicker">Welcome</p>
+        <h2>Ready to try a simple matching simulation?</h2>
         <p>
-          See how space, movement, and preference shape who pairs with whom.
+          You will watch virtual people move, meet, and decide whether to pair up.
         </p>
-        <button class="intro-start" id="intro-start" type="button">Start Exploring</button>
+        <button class="intro-start" id="intro-start" type="button">Open Simulation</button>
         <div class="intro-progress" aria-hidden="true"><span id="intro-progress-fill"></span></div>
       </div>
     </div>
@@ -38,74 +38,74 @@
       <div class="capability-card-backdrop" id="capability-card-backdrop"></div>
       <div class="capability-card">
         <div class="capability-card-header">
-          <h2>About Your Research Assistant</h2>
+          <h2>About This Helper</h2>
           <button class="capability-card-close" id="capability-card-close" type="button" aria-label="Close">×</button>
         </div>
         <div class="capability-card-content">
           <section class="capability-section">
-            <h3>✅ What I Can Help With</h3>
+            <h3>✅ What this helper can do</h3>
             <ul>
-              <li>Explain simulation variables (density, mobility, preference rules)</li>
-              <li>Interpret your run results and connect them to Smaldino & Schank (2012)</li>
-              <li>Compare your last 2 runs to identify parameter effects</li>
-              <li>Run metrics analysis and statistical comparisons</li>
-              <li>Provide citations grounded in research</li>
-              <li>Answer clarification questions about concepts</li>
+              <li>Explain what each setting means in plain language</li>
+              <li>Explain your latest run result and what likely caused it</li>
+              <li>Compare your last two runs so you can see what changed</li>
+              <li>Help you understand patterns in your results</li>
+              <li>Give citation text you can use in a report</li>
+              <li>Answer simple follow-up questions</li>
             </ul>
           </section>
           <section class="capability-section">
-            <h3>❌ What's Outside My Scope</h3>
+            <h3>❌ What this helper cannot do</h3>
             <ul>
-              <li>General theory beyond Smaldino & Schank (2012)</li>
-              <li>Other research papers on mate choice</li>
-              <li>Statistical software recommendations</li>
-              <li>Design of new simulation features</li>
+              <li>Cover unrelated topics outside this simulation</li>
+              <li>Summarize papers outside this built-in reference</li>
+              <li>Recommend outside software tools</li>
+              <li>Add new product features</li>
             </ul>
           </section>
           <section class="capability-section">
-            <h3>💡 Best Practices</h3>
+            <h3>💡 Tips for better results</h3>
             <ul>
-              <li><strong>Run 5–10 times per condition</strong> to reduce noise before drawing conclusions</li>
-              <li><strong>Ask follow-up questions</strong> — I build context over the conversation</li>
-              <li><strong>Use the confidence badge</strong> to see how sure I am of each answer</li>
-              <li><strong>Explore comparisons</strong> — changing one parameter at a time helps isolate effects</li>
+              <li><strong>Run each setup more than once</strong> so random luck affects results less</li>
+              <li><strong>Change one setting at a time</strong> so differences are easy to explain</li>
+              <li><strong>Ask follow-up questions</strong> when a result is unclear</li>
+              <li><strong>Export your report and data</strong> to use in assignments</li>
             </ul>
           </section>
         </div>
         <div class="capability-card-footer">
-          <button class="secondary-button" id="capability-card-got-it" type="button">Got it, let's explore</button>
+          <button class="secondary-button" id="capability-card-got-it" type="button">Got it, continue</button>
         </div>
       </div>
     </div>
     <div class="site-shell">
       <header class="hero">
         <div class="hero-top">
-          <p class="eyebrow">Interactive Research Experience</p>
+          <p class="eyebrow">Interactive Learning Tool</p>
           <div class="hero-actions">
             <a class="pill-link outline" href="#how-to">How to use</a>
             <a class="pill-link" href="paper.html" target="_blank" rel="noopener">View Research PDF</a>
           </div>
         </div>
-        <h1>Human Mate Choice Models</h1>
+        <h1>People Matching Simulation</h1>
         <p class="subtitle">
-          How environment and space shape matching patterns
+          Change a few settings, run it, and see what affects matching results.
         </p>
         <div class="hero-steps" id="how-to">
           <div class="step-card">
-            <strong>1. Choose settings</strong>
-            <span>Pick rule, mobility, density.</span>
+            <strong>Step 1 - Choose Settings</strong>
+            <span>Pick how people move, meet, and decide.</span>
           </div>
           <div class="step-card">
-            <strong>2. Run &amp; watch</strong>
-            <span>See agents move, pair, and link.</span>
+            <strong>Step 2 - Run and Watch</strong>
+            <span>Click run and watch meetings, rejections, and matches.</span>
           </div>
           <div class="step-card">
-            <strong>3. Read &amp; cite</strong>
-            <span>Explanations cite Smaldino &amp; Schank (2012).</span>
+            <strong>Step 3 - Read and Cite</strong>
+            <span>Read what happened and copy citation text.</span>
           </div>
           <div class="step-card">
-            <strong>4. Export &amp; Report</strong>
-            <span>Build a full experiment report, download CSV, PNG, or copy a citation.</span>
+            <strong>Step 4 - Export and Report</strong>
+            <span>Download report, data, and image for assignments.</span>
           </div>
         </div>
       </header>
@@ -114,33 +114,40 @@
         <section class="workspace-grid" aria-label="Main teaching interface">
           <aside class="panel panel-overview">
             <div class="panel-header">
-              <p class="panel-kicker">Background</p>
-              <h2>Model Overview</h2>
+              <p class="panel-kicker">Start Here</p>
+              <h2>Introduction</h2>
             </div>
 
-            <section class="module comparison-module" aria-labelledby="kalick-hamilton-title">
-              <h3 id="kalick-hamilton-title">Kalick &amp; Hamilton (1986)</h3>
+            <section class="module comparison-module" aria-labelledby="intro-title">
+              <h3 id="intro-title">What this website does</h3>
               <ul class="placeholder-list">
-                <li>Well-mixed population; no spatial constraints.</li>
-                <li>Random encounters among all individuals.</li>
-                <li>Matching emerges from preferences + simple rules.</li>
-                <li>Everyone has equal access to all potential partners.</li>
-                <li>Assumes fixed attractiveness-based preferences.</li>
+                <li>This website lets you run a simulation and watch matching happen in real time.</li>
+                <li>The simulation is a simple digital world where virtual people meet and decide yes or no.</li>
+                <li>Use it to learn how settings change pair results, search time, and match quality.</li>
+                <li>After each run, you get clear results you can cite and export for school or research.</li>
               </ul>
             </section>
 
-            <section class="module comparison-module" aria-labelledby="smaldino-schank-title">
-              <h3 id="smaldino-schank-title">Smaldino &amp; Schank (2012)</h3>
+            <section class="module comparison-module" aria-labelledby="before-you-start-title">
+              <h3 id="before-you-start-title">Before You Start</h3>
               <ul class="placeholder-list">
-                <li>Agents live on a 2D spatial grid.</li>
-                <li>Local neighborhoods restrict encounter opportunities.</li>
-                <li>Mobility changes partners over time.</li>
-                <li>Density affects encounter rates and search difficulty.</li>
-                <li>Satisficing: agents relax after repeated failures.</li>
-                <li>
-                  Ability to switch between attractiveness- and similarity-based
-                  mate choice.
-                </li>
+                <li>Behind the scenes, the computer creates virtual people called agents.</li>
+                <li>An agent is one simulated person on the screen.</li>
+                <li>Each step, agents move, look around, and decide yes or no.</li>
+                <li>A match happens only when both sides say yes.</li>
+                <li>When you change settings, you change behavior, so results change too.</li>
+              </ul>
+            </section>
+
+            <section class="module comparison-module" aria-labelledby="settings-explainer-title">
+              <h3 id="settings-explainer-title">Settings Explanation</h3>
+              <ul class="placeholder-list">
+                <li><strong>Preference Rule:</strong> changes how agents choose partners.</li>
+                <li><strong>Mobility:</strong> higher means more movement and more meetings.</li>
+                <li><strong>Density:</strong> higher means a more crowded space and faster encounters.</li>
+                <li><strong>Selectivity:</strong> higher means pickier choices and more rejection.</li>
+                <li><strong>Patience:</strong> controls how quickly standards relax during long search.</li>
+                <li><strong>Exploration:</strong> wider search checks more places instead of staying local.</li>
               </ul>
             </section>
           </aside>
@@ -148,12 +155,12 @@
           <section class="panel panel-simulation">
             <div class="panel-header">
               <p class="panel-kicker">Interactive Experiment</p>
-              <h2>Simulation Controls</h2>
+              <h2>Choose Your Settings</h2>
             </div>
 
-            <p class="flow-stage flow-stage-config">1. Configure settings</p>
+            <p class="flow-stage flow-stage-config">Step 1 - Choose Settings</p>
             <form class="controls-grid" id="simulation-controls" aria-label="Simulation controls">
-                            <p class="controls-group-label" aria-hidden="true">Core Rules</p>
+                            <p class="controls-group-label" aria-hidden="true">Main settings</p>
               <label class="control-field">
                 <span class="control-label">Preference Rule
                   <span class="control-help" tabindex="0" role="button" aria-expanded="false" aria-label="Preference Rule: Attractiveness-based prefers higher-attractiveness partners; similarity-based prefers partners with similar attractiveness.">?
@@ -207,7 +214,7 @@
                 </select>
               </label>
 
-              <p class="controls-group-label" aria-hidden="true">Behaviour</p>
+              <p class="controls-group-label" aria-hidden="true">Behavior</p>
               <label class="control-field">
                 <span class="control-label">Patience
                   <span class="control-help" tabindex="0" role="button" aria-expanded="false" aria-label="Patience: Controls how quickly acceptance relaxes with continued searching.">?
@@ -246,7 +253,7 @@
                 </select>
               </label>
 
-              <p class="controls-group-label" aria-hidden="true">Setup &amp; Reproducibility</p>
+              <p class="controls-group-label" aria-hidden="true">Start options</p>
               <label class="control-field">
                 <span class="control-label">Active Agents
                   <span class="control-help" tabindex="0" role="button" aria-expanded="false" aria-label="Active Agents: Directly set the number of agents shown in the live simulation, independent of batch runs.">?
@@ -282,13 +289,13 @@
               </label>
             </form>
 
-            <p class="flow-stage flow-stage-run">2. Start and watch</p>
+            <p class="flow-stage flow-stage-run">Step 2 - Run and Watch</p>
             <div class="execution-controls primary-surface" aria-label="Simulation execution controls">
               <button class="run-button" id="run-simulation" type="button">
-                Start Simulation
+                Run Simulation Now
               </button>
-              <button class="secondary-button" id="step-simulation" type="button">Step +1</button>
-              <button class="secondary-button" id="reset-simulation" type="button">Reset</button>
+              <button class="secondary-button" id="step-simulation" type="button">Run One Step</button>
+              <button class="secondary-button" id="reset-simulation" type="button">Start Over</button>
               <label class="speed-field" for="simulation-speed">
                 Speed
                 <select id="simulation-speed" name="simulation-speed">
@@ -308,7 +315,7 @@
               <div class="simulation-grid-header">
                 <h3 id="simulation-grid-title">Simulation Grid</h3>
                 <p id="simulation-status">
-                  Ready to simulate density, mobility, and mate choice encounters.
+                  Ready. Choose settings, then click Run Simulation Now.
                 </p>
                 <p class="decision-status" id="decision-status" aria-live="polite">
                   Decisions: both accept 0, A only 0, B only 0, both reject 0.
@@ -363,23 +370,6 @@
               </div>
             </section>
 
-            <p class="export-unlock-hint" id="export-unlock-hint" aria-live="polite">Run a simulation first to unlock export options.</p>
-            <div class="export-row" aria-label="Export and share actions">
-              <div class="export-group" aria-label="Report actions">
-                <p class="export-group-title">Report</p>
-                <div class="export-group-actions">
-                  <button class="secondary-button export-button export-primary" id="preview-csv" type="button" disabled data-default-label="Download Report">Download Report</button>
-                  <button class="secondary-button export-button" id="download-csv" type="button" disabled data-default-label="Download CSV">Download CSV</button>
-                </div>
-              </div>
-              <div class="export-group" aria-label="Share actions">
-                <p class="export-group-title">Share</p>
-                <div class="export-group-actions">
-                  <button class="secondary-button export-button" id="download-png" type="button" disabled data-default-label="Save PNG">Save PNG</button>
-                  <button class="secondary-button export-button" id="copy-citation" type="button" disabled data-default-label="Copy Citation">Copy Citation</button>
-                </div>
-              </div>
-            </div>
             <div class="run-summary" id="run-summary" aria-live="polite">
               <span class="summary-label">Last run</span>
               <span class="summary-divider" aria-hidden="true"></span>
@@ -387,25 +377,25 @@
               <span class="summary-metric" id="summary-strength">Strength —</span>
               <span class="summary-metric" id="summary-search">Avg search —</span>
             </div>
-            <p class="flow-stage flow-stage-read">3. Read and cite results</p>
+            <p class="flow-stage flow-stage-read">Step 3 - Read and Cite</p>
             <details class="mobile-collapsible mobile-collapsible-secondary" id="interpretation-collapse">
-              <summary class="mobile-collapsible-summary">How to read this run</summary>
+              <summary class="mobile-collapsible-summary">Step 3 - Read and Cite</summary>
               <div class="mobile-collapsible-content">
-                <section class="run-interpretation secondary-surface" id="run-interpretation-panel" aria-label="How to read this run">
-                  <h3>How to read this run</h3>
+                <section class="run-interpretation secondary-surface" id="run-interpretation-panel" aria-label="Read and cite this run">
+                  <h3>Read this run in plain language</h3>
                   <div class="run-interpretation-badges" aria-label="Run status badges">
-                    <span class="run-badge" id="run-badge-search" tabindex="0" data-tip="Search badge thresholds: fast at 12 or fewer steps, moderate at 12 to 16, slow above 16.">Search guide</span>
-                    <span class="run-badge" id="run-badge-assortment" tabindex="0" data-tip="Assortment thresholds: high at 0.35 or above, medium at 0.20 to 0.34, low below 0.20 matching strength.">Assortment guide</span>
-                    <span class="run-badge" id="run-badge-pair-rate" tabindex="0" data-tip="Pair-rate thresholds: good at 65 percent or above of possible pairs, warning at 40 to 64 percent, risk below 40 percent.">Pair-rate guide</span>
+                    <span class="run-badge" id="run-badge-search" tabindex="0" data-tip="Search speed guide: fast at 12 or fewer steps, moderate at 12 to 16, slow above 16.">Search speed guide</span>
+                    <span class="run-badge" id="run-badge-assortment" tabindex="0" data-tip="Match quality thresholds: high at 0.35 or above, medium at 0.20 to 0.34, low below 0.20.">Match quality guide</span>
+                    <span class="run-badge" id="run-badge-pair-rate" tabindex="0" data-tip="Pair-rate guide: good at 65 percent or above, warning at 40 to 64 percent, low below 40 percent.">Pair rate guide</span>
                   </div>
                   <p class="run-interpretation-line" id="run-interpretation-what">
-                    What you'll learn after a run: how many pairs formed and how quickly matching happened.
+                    What this result means: how many pairs formed and how quickly they formed.
                   </p>
                   <p class="run-interpretation-line" id="run-interpretation-why">
-                    Why it likely happened: this section links your settings to observed outcomes.
+                    Why it happened: this links your settings to the behavior you just saw.
                   </p>
                   <p class="run-interpretation-line" id="run-interpretation-next">
-                    Example insight: Dense + high mobility often increases pair counts while lowering average search steps.
+                    Use this section to find patterns, then cite and report your result.
                   </p>
                 </section>
               </div>
@@ -416,10 +406,10 @@
                 <section class="run-comparison tertiary-surface" id="run-comparison-panel" aria-label="Run-to-run comparison">
                   <div class="run-comparison-header">
                     <h3>Run Comparison</h3>
-                    <button class="secondary-button" id="clear-run-comparison" type="button">Clear history</button>
+                    <button class="secondary-button" id="clear-run-comparison" type="button">Clear Run History</button>
                   </div>
                   <p class="run-comparison-summary" id="run-comparison-summary">
-                    Compare completed runs side-by-side. Batch entries are labeled and show aggregate means.
+                    Compare finished runs side-by-side. Change one setting at a time for clear learning.
                   </p>
                   <div class="run-comparison-table-wrap">
                     <table class="run-comparison-table" aria-label="Comparison of recent simulation runs">
@@ -435,7 +425,7 @@
                       </thead>
                       <tbody id="run-comparison-body">
                         <tr>
-                          <td colspan="6">No completed runs yet. Run once to set a baseline, then change one setting and rerun. Batch entries are labeled.</td>
+                          <td colspan="6">No runs yet. Run once, then change one setting and run again.</td>
                         </tr>
                       </tbody>
                     </table>
@@ -443,10 +433,37 @@
                 </section>
               </div>
             </details>
+            <p class="flow-stage flow-stage-export">Step 4 - Export and Report</p>
+            <section class="run-interpretation secondary-surface" aria-label="Research assistance">
+              <h3>Research Assistance</h3>
+              <p class="run-interpretation-line">
+                Use this tool to test settings, compare runs, and collect clear evidence.
+              </p>
+              <p class="run-interpretation-line">
+                Then export your report, data table, image, and citation for assignments or analysis.
+              </p>
+            </section>
+            <p class="export-unlock-hint" id="export-unlock-hint" aria-live="polite">Run once to enable downloads.</p>
+            <div class="export-row" aria-label="Export and share actions">
+              <div class="export-group" aria-label="Report actions">
+                <p class="export-group-title">Report</p>
+                <div class="export-group-actions">
+                  <button class="secondary-button export-button export-primary" id="preview-csv" type="button" disabled data-default-label="Download Full Report">Download Full Report</button>
+                  <button class="secondary-button export-button" id="download-csv" type="button" disabled data-default-label="Download Data (CSV)">Download Data (CSV)</button>
+                </div>
+              </div>
+              <div class="export-group" aria-label="Share actions">
+                <p class="export-group-title">Share</p>
+                <div class="export-group-actions">
+                  <button class="secondary-button export-button" id="download-png" type="button" disabled data-default-label="Save Image (PNG)">Save Image (PNG)</button>
+                  <button class="secondary-button export-button" id="copy-citation" type="button" disabled data-default-label="Copy Citation Text">Copy Citation Text</button>
+                </div>
+              </div>
+            </div>
             <details class="mobile-collapsible mobile-collapsible-tertiary" id="batch-collapse">
-              <summary class="mobile-collapsible-summary">Batch experiment</summary>
+              <summary class="mobile-collapsible-summary">Many Trials (Optional)</summary>
               <div class="mobile-collapsible-content">
-                <div class="batch-tools tertiary-surface" aria-label="Batch experiment controls">
+                <div class="batch-tools tertiary-surface" aria-label="Many-trials controls">
                   <label class="batch-field" for="batch-run-count">
                     <span>Batch runs</span>
                     <select id="batch-run-count" name="batch-run-count">
@@ -455,26 +472,26 @@
                       <option>50</option>
                       <option>100</option>
                     </select>
-                    <small class="control-hint">Repeats the simulation many times to estimate means and 95% confidence intervals.</small>
-                    <small class="control-hint">Batch output is aggregate; a labeled summary row is also added to Run Comparison.</small>
+                    <small class="control-hint">Runs the same setup many times to reduce random luck.</small>
+                    <small class="control-hint">You get one combined summary row in Run Comparison.</small>
                   </label>
-                  <button class="secondary-button" id="run-batch" type="button">Run batch experiment</button>
+                  <button class="secondary-button" id="run-batch" type="button">Run Many Trials</button>
                 </div>
                 <div class="batch-progress" id="batch-progress" aria-live="polite" aria-hidden="true">
                   <div class="batch-progress-header">
-                    <p class="batch-progress-title" id="batch-progress-label">Batch progress</p>
+                    <p class="batch-progress-title" id="batch-progress-label">Many-trials progress</p>
                     <span class="batch-progress-count" id="batch-progress-count">0/0</span>
                   </div>
-                  <p class="batch-progress-phase" id="batch-progress-phase">Preparing batch runs...</p>
-                  <div class="batch-progress-bar" role="progressbar" aria-label="Batch progress">
+                  <p class="batch-progress-phase" id="batch-progress-phase">Preparing repeated runs...</p>
+                  <div class="batch-progress-bar" role="progressbar" aria-label="Many-trials progress">
                     <span class="batch-progress-fill" id="batch-progress-fill"></span>
                   </div>
                   <p class="batch-progress-eta" id="batch-progress-eta">Elapsed 0.0s</p>
                   <div class="batch-progress-live-grid">
-                    <p id="batch-progress-interactions">Sampled interactions: -</p>
-                    <p id="batch-progress-pairs">Rolling pairs mean: -</p>
-                    <p id="batch-progress-strength">Rolling strength mean: -</p>
-                    <p id="batch-progress-search">Rolling search mean: -</p>
+                    <p id="batch-progress-interactions">Interactions seen: -</p>
+                    <p id="batch-progress-pairs">Average pairs so far: -</p>
+                    <p id="batch-progress-strength">Average quality so far: -</p>
+                    <p id="batch-progress-search">Average search time so far: -</p>
                   </div>
                   <div class="batch-representative" aria-live="polite">
                     <p class="batch-representative-title">Statistical average field</p>
@@ -532,13 +549,13 @@
             <section class="csv-preview" id="csv-preview" aria-label="Run summary CSV preview">
               <div class="csv-preview-header">
                 <h3>Run Summary Report</h3>
-                <p>Polished interpretation of the latest simulation run with visual diagnostics.</p>
+                <p>Simple explanation of your latest run and what to report.</p>
               </div>
 
               <article class="report-section" aria-labelledby="preview-introduction-title">
                 <h4 id="preview-introduction-title">Introduction</h4>
                 <p id="preview-intro-text">
-                  Run a simulation, then use Preview run summary (CSV) to generate an interpreted report.
+                  Run once, then open this report to read and export your results.
                 </p>
               </article>
 
@@ -569,40 +586,40 @@
                   <figcaption>Run Metrics Overview</figcaption>
                   <canvas id="preview-metrics-chart" width="440" height="240" aria-label="Chart of pairs, matching strength, and average search"></canvas>
                   <p class="preview-chart-insight" id="preview-metrics-insight">
-                    Insight: This chart compares run-level outcomes where taller bars indicate stronger values.
+                    Insight: This chart compares pair count, match quality, and search time.
                   </p>
                 </figure>
                 <figure class="preview-chart-card">
                   <figcaption>Pair Difference Distribution</figcaption>
                   <canvas id="preview-difference-chart" width="440" height="240" aria-label="Chart of attractiveness differences across formed pairs"></canvas>
                   <p class="preview-chart-insight" id="preview-difference-insight">
-                    Insight: This chart shows how similar partners were, with lower difference bins indicating stronger assortative matching.
+                    Insight: This chart shows how similar matched partners were.
                   </p>
                 </figure>
               </div>
 
               <section class="report-section" aria-labelledby="research-graphs-title">
-                <h4 id="research-graphs-title">Regenerated Research-Style Figures</h4>
+                <h4 id="research-graphs-title">Research Comparison Charts</h4>
                 <p>
-                  These figures are regenerated from your simulation analytics to mirror the paper-style comparisons for Rule 1 and Rule 2 under NS/ZZ/BR conditions.
+                  These charts compare how matching changes under different rule and movement setups.
                 </p>
                 <div class="research-graph-grid">
                   <figure class="research-graph-card">
-                    <figcaption>Figure 5 (Recreated): Inter-pair Correlation</figcaption>
+                    <figcaption>Figure 5: Partner Similarity Score</figcaption>
                     <canvas class="research-graph-frame" id="recreated-figure5-chart" aria-label="Recreated figure 5 inter-pair correlation chart"></canvas>
                     <p class="preview-chart-insight" id="recreated-figure5-insight">
                       Insight: Correlation insight will update after each run.
                     </p>
                   </figure>
                   <figure class="research-graph-card">
-                    <figcaption>Figure 6 (Recreated): Mean Date to Mate</figcaption>
+                    <figcaption>Figure 6: Average Time to Match</figcaption>
                     <canvas class="research-graph-frame" id="recreated-figure6-chart" aria-label="Recreated figure 6 mean date to mate chart"></canvas>
                     <p class="preview-chart-insight" id="recreated-figure6-insight">
                       Insight: Time-to-mate insight will update after each run.
                     </p>
                   </figure>
                   <figure class="research-graph-card">
-                    <figcaption>Figure 7 (Recreated): Mating Hazard (Early Zoom)</figcaption>
+                    <figcaption>Figure 7: Early Match Speed</figcaption>
                     <canvas class="research-graph-frame" id="recreated-figure7-chart" aria-label="Recreated figure 7 mating hazard chart"></canvas>
                     <p class="preview-chart-insight" id="recreated-figure7-insight">
                       Insight: Early-hazard insight will update after each run.
@@ -612,25 +629,25 @@
               </section>
 
               <section class="report-section" aria-labelledby="rule-analytics-title">
-                <h4 id="rule-analytics-title">Paper-Aligned Rule Analytics</h4>
+                <h4 id="rule-analytics-title">Rule Comparison Table</h4>
                 <div class="rule-copy-layout">
                   <section class="rule-copy-block" aria-label="Metric definitions">
-                    <h5>Metric definitions</h5>
+                    <h5>What these columns mean</h5>
                     <ul class="rule-copy-list">
-                      <li><span class="metric-token">r</span> Inter-pair correlation: Pearson correlation between attractiveness values of matched partners.</li>
-                      <li><span class="metric-token">t_m</span> Mean date to mate: Average step where matched agents formed pairs.</li>
-                      <li><span class="metric-token">h(t)</span> Mating hazard at step t: matches(t) / atRisk(t).</li>
+                      <li><span class="metric-token">r</span> Partner similarity score: higher means matched pairs are more similar.</li>
+                      <li><span class="metric-token">t_m</span> Average time to match: lower means matching happened sooner.</li>
+                      <li><span class="metric-token">h(t)</span> Match speed at each step: shows how quickly new matches appeared.</li>
                     </ul>
                     <p id="rule-analytics-definitions" class="rule-copy-meta">
-                      Statistics: each row reports mean with 95% CI from n=20 synthetic runs. CI colors: green=tight, amber=medium, rose=wide.
+                      Each row shows averages from repeated runs. Tighter ranges mean more stable results.
                     </p>
                   </section>
                   <section class="rule-copy-block" aria-label="Code guide">
                     <h5>Code guide</h5>
                     <ul class="rule-copy-list">
-                      <li>R1 = Rule 1 (Attractiveness-based)</li>
-                      <li>R2 = Rule 2 (Similarity-based)</li>
-                      <li>NS = local neighborhood search, ZZ = balanced zig-zag search, BR = broad random search</li>
+                      <li>R1 = Attractiveness-based choice</li>
+                      <li>R2 = Similarity-based choice</li>
+                      <li>NS = local search, ZZ = balanced search, BR = wide search</li>
                     </ul>
                     <p id="rule-code-explainer" class="rule-copy-meta">
                       Selected now: all six codes.
@@ -643,9 +660,9 @@
                       <tr>
                         <th>Rule</th>
                         <th>Movement</th>
-                        <th>Inter-pair correlation (r, 95% CI)</th>
-                        <th>Mean date to mate (95% CI)</th>
-                        <th>Mean hazard (95% CI)</th>
+                        <th>Partner similarity (r, range)</th>
+                        <th>Average time to match (range)</th>
+                        <th>Average match speed (range)</th>
                       </tr>
                     </thead>
                     <tbody id="rule-analytics-body">
@@ -656,7 +673,7 @@
                   </table>
                 </div>
                 <figure class="preview-chart-card rule-hazard-card">
-                  <figcaption>Mating Hazard Comparison (Rule 1/2 × NS/ZZ/BR)</figcaption>
+                  <figcaption>Match Speed Comparison (R1/R2 x NS/ZZ/BR)</figcaption>
                   <div class="hazard-explorer-controls" aria-label="Hazard chart controls">
                     <label class="hazard-control-field" for="hazard-chart-mode">
                       Chart mode
@@ -684,17 +701,17 @@
                     </div>
                     <div class="hazard-series-toggles" id="hazard-series-toggles"></div>
                   </div>
-                  <canvas id="rule-hazard-chart" width="640" height="260" aria-label="Hazard comparison across rules and movement modes"></canvas>
+                  <canvas id="rule-hazard-chart" width="640" height="260" aria-label="Match speed comparison across rules and movement modes"></canvas>
                   <div class="chart-hover-tip" id="rule-hazard-tooltip" aria-hidden="true"></div>
                   <p class="preview-chart-insight" id="rule-hazard-insight">
-                    Insight: Hazard at step t is matches at t divided by agents still unmatched at the start of t.
+                    Insight: This chart shows how quickly new matches formed at each step.
                   </p>
                   <p class="preview-chart-insight" id="hazard-dynamic-explainer">
                     Dynamic explainer: select rule codes to compare fewer lines for clearer interpretation.
                   </p>
                 </figure>
                 <figure class="preview-chart-card rule-hazard-card">
-                  <figcaption>Mating Hazard Early-Phase Zoom (steps 1-15)</figcaption>
+                  <figcaption>Early Match Speed Zoom (steps 1-15)</figcaption>
                   <canvas id="rule-hazard-zoom-chart" width="640" height="260" aria-label="Early-phase hazard zoom"></canvas>
                   <div class="chart-hover-tip" id="rule-hazard-zoom-tooltip" aria-hidden="true"></div>
                 </figure>
@@ -744,26 +761,26 @@
           </section>
           <section class="chat-assistant" aria-label="Research chat assistant">
             <div class="chat-header">
-              <h3>Research Chat Assistant</h3>
+              <h3>Research Helper</h3>
               <div class="chat-controls">
                 <div class="chat-action-row">
-                  <button class="chat-utility-button" id="chat-capabilities" type="button">What can this assistant do?</button>
-                  <button class="chat-utility-button" id="chat-reset" type="button">Reset chat</button>
+                  <button class="chat-utility-button" id="chat-capabilities" type="button">What can this helper do?</button>
+                  <button class="chat-utility-button" id="chat-reset" type="button">Start New Chat</button>
                 </div>
                 <label class="chat-toggle-label">
                   <input type="checkbox" id="chat-simple-toggle" />
                   Simple mode
                 </label>
-                <p class="chat-subtitle">Ask about the run or request citations.</p>
+                <p class="chat-subtitle">Ask about your run, results, or citation.</p>
               </div>
             </div>
             <div class="chat-log" id="chat-log" aria-live="polite"></div>
             <div class="chat-suggestions" id="chat-suggestions" aria-label="Suggested insight questions"></div>
             <form class="chat-form" id="chat-form">
-              <label class="chat-label" for="chat-input">Chain-of-thought prompt</label>
+              <label class="chat-label" for="chat-input">Your question</label>
               <div class="chat-input-row">
-                <textarea id="chat-input" rows="2" placeholder="Ask how this run aligns with Smaldino & Schank (2012)…"></textarea>
-                <button type="submit" class="chat-send">Send</button>
+                <textarea id="chat-input" rows="2" placeholder="Ask what changed in this run and why..."></textarea>
+                <button type="submit" class="chat-send">Ask</button>
               </div>
             </form>
           </section>
@@ -774,18 +791,18 @@
       <div class="report-builder-backdrop" id="report-builder-close-backdrop"></div>
       <section class="report-builder-sheet" aria-labelledby="report-builder-title">
         <div class="report-builder-header">
-          <h3 id="report-builder-title">Build Experiment Report</h3>
+          <h3 id="report-builder-title">Build Report</h3>
           <button class="secondary-button report-builder-close" id="report-builder-close" type="button">Close</button>
         </div>
         <p class="report-builder-subtitle">
-          Choose what to include from available simulation outputs, then download a formal experiment report.
+          Choose what to include, then download a clear report you can use in class or analysis.
         </p>
         <p class="report-builder-selection-summary" id="report-builder-selection-summary" aria-live="polite">
           7 sections selected • 7 figures selected
         </p>
         <form class="report-builder-form" id="report-builder-form">
           <label class="report-field" for="report-scope">
-            <span>Data scope</span>
+            <span>What data to include</span>
             <select id="report-scope" name="report-scope">
               <option value="latest-run" selected>Latest simulation run</option>
               <option value="latest-batch">Latest batch experiment</option>
@@ -808,12 +825,12 @@
             </div>
             <p class="report-scope-hint is-hidden" id="report-section-scope-hint" aria-live="polite">All sections are available for this scope.</p>
             <label><input type="checkbox" name="report-section" value="settings" checked /> Simulation settings</label>
-            <label><input type="checkbox" name="report-section" value="latest-metrics" checked /> Latest run metrics</label>
-            <label><input type="checkbox" name="report-section" value="batch-stats" checked /> Batch statistics and confidence intervals</label>
+            <label><input type="checkbox" name="report-section" value="latest-metrics" checked /> Latest run results</label>
+            <label><input type="checkbox" name="report-section" value="batch-stats" checked /> Many-trials averages and ranges</label>
             <label><input type="checkbox" name="report-section" value="comparison" checked /> Run comparison history</label>
             <label><input type="checkbox" name="report-section" value="findings" checked /> Key findings and interpretation</label>
             <label><input type="checkbox" name="report-section" value="citation" checked /> Citation text</label>
-            <label><input type="checkbox" name="report-section" value="repro" checked /> Reproducibility metadata</label>
+            <label><input type="checkbox" name="report-section" value="repro" checked /> Run details (time and settings)</label>
           </fieldset>
           <fieldset class="report-charts">
             <legend>Include figures</legend>
@@ -824,14 +841,14 @@
             <label><input type="checkbox" name="report-chart" value="chart-metrics-bar" checked /> Fig 1 — Run metrics bar chart</label>
             <label><input type="checkbox" name="report-chart" value="chart-strength-trend" checked /> Fig 2 — Matching strength trend</label>
             <label><input type="checkbox" name="report-chart" value="chart-correlation" checked /> Fig 3 — Pairs vs Strength scatter (correlation)</label>
-            <label><input type="checkbox" name="report-chart" value="chart-batch-ci" checked /> Fig 4 — Batch CI comparison bars</label>
+            <label><input type="checkbox" name="report-chart" value="chart-batch-ci" checked /> Fig 4 — Many-trials range bars</label>
             <label><input type="checkbox" name="report-chart" value="chart-grid-snapshot" checked /> Fig 5 — Simulation grid snapshot</label>
             <label><input type="checkbox" name="report-chart" value="chart-heatmap-snapshot" checked /> Fig 6 — Batch pairing heatmap snapshot</label>
             <label><input type="checkbox" name="report-chart" value="chart-3d-snapshot" checked /> Fig 7 — Batch 3D / field view snapshot</label>
           </fieldset>
           <div class="report-builder-actions">
-            <button class="secondary-button" id="report-builder-preview" type="button">Preview</button>
-            <button class="secondary-button export-primary" id="report-builder-download" type="submit">Generate and Download</button>
+            <button class="secondary-button" id="report-builder-preview" type="button">Preview Report</button>
+            <button class="secondary-button export-primary" id="report-builder-download" type="submit">Build and Download Report</button>
           </div>
         </form>
       </section>
