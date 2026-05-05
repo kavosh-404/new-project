@@ -1781,8 +1781,9 @@ input[type="range"]:disabled {
 
 .preview-chart-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.7rem;
+  align-items: start;
 }
 
 .preview-chart-card {
@@ -1814,10 +1815,20 @@ input[type="range"]:disabled {
 .preview-chart-card canvas {
   display: block;
   width: 100%;
-  height: 180px;
+  height: 240px;
   border-radius: 8px;
   border: 1px dashed rgba(15, 118, 110, 0.18);
   background: rgba(15, 118, 110, 0.03);
+}
+
+@media (max-width: 900px) {
+  .preview-chart-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-chart-card canvas {
+    height: 210px;
+  }
 }
 
 .research-graph-grid {

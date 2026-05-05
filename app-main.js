@@ -5135,7 +5135,7 @@ class MateChoiceSimulation {
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      const chartSize = this.prepareHiDPICanvas(canvas, 190);
+      const chartSize = this.prepareHiDPICanvas(canvas, 240);
 
       const values = [
         reportData.metrics.pairCount / reportData.maxPairs,
@@ -5155,7 +5155,7 @@ class MateChoiceSimulation {
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      const chartSize = this.prepareHiDPICanvas(canvas, 190);
+      const chartSize = this.prepareHiDPICanvas(canvas, 240);
 
       const maxCount = Math.max(1, ...reportData.pairDifferenceBins);
       const values = reportData.pairDifferenceBins.map((count) => count / maxCount);
@@ -5179,7 +5179,7 @@ class MateChoiceSimulation {
         return;
       }
 
-      const chartSize = this.prepareHiDPICanvas(canvas, 190);
+      const chartSize = this.prepareHiDPICanvas(canvas, 240);
       const width = chartSize.width;
       const height = chartSize.height;
       ctx.clearRect(0, 0, width, height);
@@ -5265,7 +5265,7 @@ class MateChoiceSimulation {
         return;
       }
 
-      const chartSize = this.prepareHiDPICanvas(canvas, 190);
+      const chartSize = this.prepareHiDPICanvas(canvas, 240);
       const width = chartSize.width;
       const height = chartSize.height;
       ctx.clearRect(0, 0, width, height);
@@ -6588,7 +6588,7 @@ class MateChoiceSimulation {
       if (this.previewMetricsChart) {
         const metricsCtx = this.previewMetricsChart.getContext("2d");
         if (metricsCtx) {
-          const chartSize = this.prepareHiDPICanvas(this.previewMetricsChart, 190);
+          const chartSize = this.prepareHiDPICanvas(this.previewMetricsChart, 240);
           metricsCtx.clearRect(0, 0, chartSize.width, chartSize.height);
         }
       }
@@ -6596,7 +6596,7 @@ class MateChoiceSimulation {
       if (this.previewDifferenceChart) {
         const diffCtx = this.previewDifferenceChart.getContext("2d");
         if (diffCtx) {
-          const chartSize = this.prepareHiDPICanvas(this.previewDifferenceChart, 190);
+          const chartSize = this.prepareHiDPICanvas(this.previewDifferenceChart, 240);
           diffCtx.clearRect(0, 0, chartSize.width, chartSize.height);
         }
       }
