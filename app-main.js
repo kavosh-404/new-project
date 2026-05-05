@@ -107,6 +107,9 @@ class MateChoiceSimulation {
       this.batchHeatmapCanvas = document.getElementById("batch-heatmap-canvas");
       this.batchHeatmapNote = document.getElementById("batch-heatmap-note");
       this.batchHeatmapTooltip = document.getElementById("batch-heatmap-tooltip");
+      this.batchAttractivenessHeatmapCanvas = document.getElementById("batch-attractiveness-heatmap-canvas");
+      this.batchAttractivenessHeatmapNote = document.getElementById("batch-attractiveness-heatmap-note");
+      this.batchAttractivenessHeatmapTooltip = document.getElementById("batch-attractiveness-heatmap-tooltip");
       this.csvPreview = document.getElementById("csv-preview");
       this.csvPreviewContent = document.getElementById("csv-preview-content");
       this.previewIntroText = document.getElementById("preview-intro-text");
@@ -213,6 +216,7 @@ class MateChoiceSimulation {
       this.ruleHazardZoomHoverData = null;
       this.batchFieldHoverData = null;
       this.batchHeatmapHoverData = null;
+      this.batchAttractivenessHeatmapHoverData = null;
       this.previewAttractivenessHoverData = null;
       this.latestBatchFieldAccumulator = null;
       this.latestBatchFieldMeta = null;
@@ -230,6 +234,7 @@ class MateChoiceSimulation {
       this.batchGhostContext = null;
       this.batchSnapshotContext = null;
       this.batchHeatmapContext = null;
+      this.batchAttractivenessHeatmapContext = null;
       this.batchGhostParticles = [];
       this.batchGhostAnimationId = null;
       this.batchProgressHideTimer = null;
@@ -318,6 +323,7 @@ class MateChoiceSimulation {
       this.bindHazardTooltipEvents();
       this.bindBatchFieldTooltipEvents();
       this.bindBatchHeatmapTooltipEvents();
+      this.bindBatchAttractivenessHeatmapTooltipEvents();
       this.bindPreviewAttractivenessTooltipEvents();
       this.bindHazardExplorerEvents();
       this.bindControlHelpTooltips();
@@ -907,6 +913,7 @@ class MateChoiceSimulation {
       this.batchFieldRenderScale = qualityProfile.pixelScale;
       const batchFieldAccumulator = this.createBatchFieldAccumulator(qualityProfile.gridSize, qualityProfile.gridSize);
       const batchHeatAccumulator = this.createBatchHeatAccumulator(18, 10);
+      const batchAttractivenessAccumulator = this.createBatchPairAttractivenessAccumulator();
       const totalSamples = runCount * 2;
       const batchStartMs = performance.now ? performance.now() : Date.now();
       let processedSamples = 0;
@@ -931,6 +938,7 @@ class MateChoiceSimulation {
       this.clearBatchKeyFindings();
       this.resetBatchSnapshot("Preparing statistical average field...");
       this.resetBatchHeatmap("Preparing pairing-hotspot heatmap...");
+      this.resetBatchAttractivenessHeatmap("Preparing attractiveness-combination heatmap...");
       this.latestBatchFieldAccumulator = batchFieldAccumulator;
       this.latestBatchFieldMeta = { processed: 0, total: totalSamples };
 
@@ -991,6 +999,11 @@ class MateChoiceSimulation {
             processed: processedSamples,
             total: totalSamples,
           });
+          this.accumulateBatchPairAttractiveness(batchAttractivenessAccumulator, primaryResult.snapshot);
+          this.drawBatchAttractivenessHeatmap(batchAttractivenessAccumulator, {
+            processed: processedSamples,
+            total: totalSamples,
+          });
           await this.waitForBatchVisualPace();
 
           if (this.batchAbortRequested) break;
@@ -1031,6 +1044,11 @@ class MateChoiceSimulation {
           };
           this.accumulateBatchHeatmap(batchHeatAccumulator, compareResult.snapshot);
           this.drawBatchHeatmap(batchHeatAccumulator, {
+            processed: processedSamples,
+            total: totalSamples,
+          });
+          this.accumulateBatchPairAttractiveness(batchAttractivenessAccumulator, compareResult.snapshot);
+          this.drawBatchAttractivenessHeatmap(batchAttractivenessAccumulator, {
             processed: processedSamples,
             total: totalSamples,
           });
@@ -1158,6 +1176,10 @@ class MateChoiceSimulation {
           this.batchHeatmapNote.textContent =
             "Statistical hotspot heatmap across sampled runs. Cell intensity reflects where matched pairs concentrate.";
         }
+        if (this.batchAttractivenessHeatmapNote) {
+          this.batchAttractivenessHeatmapNote.textContent =
+            "Statistical attractiveness heatmap across sampled runs. Cell intensity reflects how often each attractiveness combination matched.";
+        }
       } catch (error) {
         console.error("Batch run failed", error);
         this.status.textContent = "Many-trials run failed. Please try again.";
@@ -1281,6 +1303,7 @@ class MateChoiceSimulation {
 
       this.resetBatchSnapshot("Many-trials view reset. Run again to regenerate the average field.");
       this.resetBatchHeatmap("Many-trials view reset. Run again to regenerate the pairing hotspot map.");
+      this.resetBatchAttractivenessHeatmap("Many-trials view reset. Run again to regenerate the attractiveness-combination map.");
 
       if (this.batchProgressLabel) this.batchProgressLabel.textContent = "Many-trials progress";
       if (this.batchProgressCount) this.batchProgressCount.textContent = "0/0";
@@ -2251,6 +2274,16 @@ class MateChoiceSimulation {
       };
     }
 
+    createBatchPairAttractivenessAccumulator() {
+      return {
+        columns: 10,
+        rows: 10,
+        grid: Array.from({ length: 10 }, () => Array(10).fill(0)),
+        pairEvents: 0,
+        samples: 0,
+      };
+    }
+
     resetBatchHeatmap(noteText) {
       if (!this.batchHeatmapCanvas) return;
       const ctx = this.batchHeatmapCanvas.getContext("2d");
@@ -2267,6 +2300,25 @@ class MateChoiceSimulation {
 
       if (this.batchHeatmapNote && noteText) {
         this.batchHeatmapNote.textContent = noteText;
+      }
+    }
+
+    resetBatchAttractivenessHeatmap(noteText) {
+      if (!this.batchAttractivenessHeatmapCanvas) return;
+      const ctx = this.batchAttractivenessHeatmapCanvas.getContext("2d");
+      if (!ctx) return;
+
+      const chartSize = this.prepareHiDPICanvas(this.batchAttractivenessHeatmapCanvas, 170);
+      ctx.clearRect(0, 0, chartSize.width, chartSize.height);
+      ctx.fillStyle = "rgba(255, 252, 246, 0.92)";
+      ctx.fillRect(0, 0, chartSize.width, chartSize.height);
+      ctx.fillStyle = "#5e4d3f";
+      ctx.font = "12px Instrument Sans, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("Attractiveness-combination map will appear after sampled runs.", 10, 18);
+
+      if (this.batchAttractivenessHeatmapNote && noteText) {
+        this.batchAttractivenessHeatmapNote.textContent = noteText;
       }
     }
 
@@ -2288,6 +2340,23 @@ class MateChoiceSimulation {
         const col = Math.floor(xNorm * columns);
         const row = Math.floor(yNorm * rows);
         accumulator.grid[row][col] += 1;
+        accumulator.pairEvents += 1;
+      });
+
+      accumulator.samples += 1;
+    }
+
+    accumulateBatchPairAttractiveness(accumulator, snapshot) {
+      if (!accumulator || !snapshot || !snapshot.agents || !snapshot.pairs) return;
+
+      snapshot.pairs.forEach((pair) => {
+        const first = snapshot.agents[pair.agent1];
+        const second = snapshot.agents[pair.agent2];
+        if (!first || !second) return;
+
+        const xIndex = this.clamp(Math.round(first.attractiveness) - 1, 0, 9);
+        const yIndex = this.clamp(Math.round(second.attractiveness) - 1, 0, 9);
+        accumulator.grid[yIndex][xIndex] += 1;
         accumulator.pairEvents += 1;
       });
 
@@ -2378,11 +2447,122 @@ class MateChoiceSimulation {
       }
     }
 
+    drawBatchAttractivenessHeatmap(accumulator, meta) {
+      if (!this.batchAttractivenessHeatmapCanvas || !accumulator) return;
+      if (!this.batchAttractivenessHeatmapContext) {
+        this.batchAttractivenessHeatmapContext = this.batchAttractivenessHeatmapCanvas.getContext("2d");
+      }
+      const ctx = this.batchAttractivenessHeatmapContext;
+      if (!ctx) return;
+
+      const chartSize = this.prepareHiDPICanvas(this.batchAttractivenessHeatmapCanvas, 170);
+      const width = chartSize.width;
+      const height = chartSize.height;
+      const left = 28;
+      const top = 16;
+      const right = width - 10;
+      const bottom = height - 24;
+      const chartWidth = right - left;
+      const chartHeight = bottom - top;
+      const cellW = chartWidth / accumulator.columns;
+      const cellH = chartHeight / accumulator.rows;
+
+      if (!accumulator.pairEvents) {
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = "rgba(255, 252, 246, 0.94)";
+        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = "#5e4d3f";
+        ctx.font = "12px Instrument Sans, sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText("No attractiveness combinations yet (few or no matches).", 10, 18);
+        if (this.batchAttractivenessHeatmapNote) {
+          this.batchAttractivenessHeatmapNote.textContent =
+            "Attractiveness-combination map: no matched-pair events accumulated yet.";
+        }
+        this.batchAttractivenessHeatmapHoverData = null;
+        this.hideHazardTooltip(this.batchAttractivenessHeatmapTooltip);
+        return;
+      }
+
+      const maxCellCount = Math.max(...accumulator.grid.flat(), 1);
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "rgba(255, 252, 246, 0.94)";
+      ctx.fillRect(0, 0, width, height);
+
+      for (let row = 0; row < accumulator.rows; row += 1) {
+        for (let col = 0; col < accumulator.columns; col += 1) {
+          const count = accumulator.grid[row][col] || 0;
+          const intensity = count > 0 ? Math.sqrt(count / maxCellCount) : 0;
+          const x = left + col * cellW;
+          const y = top + (accumulator.rows - row - 1) * cellH;
+          ctx.fillStyle = count
+            ? "rgba(15, 118, 110, " + (0.1 + intensity * 0.82).toFixed(3) + ")"
+            : "rgba(15, 118, 110, 0.03)";
+          ctx.fillRect(x, y, cellW, cellH);
+          ctx.strokeStyle = "rgba(79, 57, 36, 0.1)";
+          ctx.lineWidth = 0.8;
+          ctx.strokeRect(x, y, cellW, cellH);
+        }
+      }
+
+      ctx.strokeStyle = "rgba(79, 57, 36, 0.22)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(left, top, chartWidth, chartHeight);
+
+      ctx.fillStyle = "#3e352d";
+      ctx.font = "9px Instrument Sans, sans-serif";
+      for (let index = 0; index < 10; index += 1) {
+        const x = left + index * cellW + cellW / 2;
+        const yValue = 10 - index;
+        ctx.textAlign = "center";
+        ctx.fillText(String(index + 1), x, bottom + 12);
+        ctx.textAlign = "right";
+        ctx.fillText(String(yValue), left - 4, top + index * cellH + cellH / 2 + 3);
+      }
+
+      ctx.font = "10px Instrument Sans, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("Partner B", left + 4, top - 4);
+      ctx.textAlign = "center";
+      ctx.fillText("Partner A attractiveness", left + chartWidth / 2, height - 6);
+
+      const processed = meta && typeof meta.processed === "number" ? meta.processed : accumulator.samples;
+      const total = meta && typeof meta.total === "number" ? meta.total : accumulator.samples;
+      this.batchAttractivenessHeatmapHoverData = {
+        left,
+        top,
+        chartWidth,
+        chartHeight,
+        cellW,
+        cellH,
+        rows: accumulator.rows,
+        columns: accumulator.columns,
+        grid: accumulator.grid,
+        pairEvents: accumulator.pairEvents,
+        samples: accumulator.samples,
+      };
+
+      if (this.batchAttractivenessHeatmapNote) {
+        this.batchAttractivenessHeatmapNote.textContent =
+          "Attractiveness combinations from " + processed + "/" + total +
+          " sampled runs, based on " + accumulator.pairEvents +
+          " matched-pair events. Brighter cells mean that attractiveness pairing occurred more often.";
+      }
+    }
+
     bindBatchHeatmapTooltipEvents() {
       if (!this.batchHeatmapCanvas || !this.batchHeatmapTooltip) return;
 
       this.batchHeatmapCanvas.addEventListener("mousemove", (event) => this.handleBatchHeatmapTooltipMove(event));
       this.batchHeatmapCanvas.addEventListener("mouseleave", () => this.hideHazardTooltip(this.batchHeatmapTooltip));
+    }
+
+    bindBatchAttractivenessHeatmapTooltipEvents() {
+      if (!this.batchAttractivenessHeatmapCanvas || !this.batchAttractivenessHeatmapTooltip) return;
+
+      this.batchAttractivenessHeatmapCanvas.addEventListener("mousemove", (event) => this.handleBatchAttractivenessHeatmapTooltipMove(event));
+      this.batchAttractivenessHeatmapCanvas.addEventListener("mouseleave", () => this.hideHazardTooltip(this.batchAttractivenessHeatmapTooltip));
     }
 
     bindPreviewAttractivenessTooltipEvents() {
@@ -2483,6 +2663,57 @@ class MateChoiceSimulation {
       this.batchHeatmapTooltip.style.left = Math.min(tooltipX, parentRect.width - 240) + "px";
       this.batchHeatmapTooltip.style.top = Math.max(tooltipY, 24) + "px";
       this.batchHeatmapTooltip.classList.add("is-visible");
+    }
+
+    handleBatchAttractivenessHeatmapTooltipMove(event) {
+      if (!this.batchAttractivenessHeatmapCanvas || !this.batchAttractivenessHeatmapTooltip || !this.batchAttractivenessHeatmapHoverData) {
+        return;
+      }
+
+      const hoverData = this.batchAttractivenessHeatmapHoverData;
+      const rect = this.batchAttractivenessHeatmapCanvas.getBoundingClientRect();
+      const localX = event.clientX - rect.left;
+      const localY = event.clientY - rect.top;
+      const col = Math.floor((localX - hoverData.left) / hoverData.cellW);
+      const rowFromTop = Math.floor((localY - hoverData.top) / hoverData.cellH);
+
+      if (
+        col < 0 ||
+        col >= hoverData.columns ||
+        rowFromTop < 0 ||
+        rowFromTop >= hoverData.rows
+      ) {
+        this.hideHazardTooltip(this.batchAttractivenessHeatmapTooltip);
+        return;
+      }
+
+      const row = hoverData.rows - rowFromTop - 1;
+      const count = hoverData.grid[row] ? hoverData.grid[row][col] || 0 : 0;
+      const partnerA = col + 1;
+      const partnerB = row + 1;
+      const share = hoverData.pairEvents ? (count / hoverData.pairEvents) * 100 : 0;
+      const meanPerRun = hoverData.samples ? count / hoverData.samples : 0;
+
+      this.batchAttractivenessHeatmapTooltip.innerHTML =
+        "Partner A=" +
+        partnerA +
+        "<br>Partner B=" +
+        partnerB +
+        "<br>Total pairs=" +
+        count +
+        " (" +
+        share.toFixed(1) +
+        "%)<br>Avg per sampled run=" +
+        meanPerRun.toFixed(2);
+
+      const parentRect = this.batchAttractivenessHeatmapCanvas.parentElement
+        ? this.batchAttractivenessHeatmapCanvas.parentElement.getBoundingClientRect()
+        : rect;
+      const tooltipX = event.clientX - parentRect.left + 12;
+      const tooltipY = event.clientY - parentRect.top - 8;
+      this.batchAttractivenessHeatmapTooltip.style.left = Math.min(tooltipX, parentRect.width - 220) + "px";
+      this.batchAttractivenessHeatmapTooltip.style.top = Math.max(tooltipY, 24) + "px";
+      this.batchAttractivenessHeatmapTooltip.classList.add("is-visible");
     }
 
     stopBatchGhostAnimation() {

@@ -2,6 +2,13 @@
 
 A web-based teaching tool for exploring how spatial constraints, mobility, and preference rules shape assortative mating patterns in agent-based simulations, inspired by **Smaldino & Schank (2012)**.
 
+## Latest Shipped Update
+
+- Added a **pair correlation vs. time step** chart that updates the cumulative Pearson correlation each time a new pair forms.
+- Added a **run-level pair attractiveness heatmap** showing which attractiveness combinations matched in the latest simulation.
+- Added a **many-trials pair attractiveness heatmap** showing which attractiveness combinations matched most often across batch runs.
+- Added hover details for both attractiveness heatmaps so students can inspect frequency shares and average attractiveness values directly in the interface.
+
 ## Project Purpose
 
 This interactive simulation demonstrates key research findings from spatial mate choice theory:
