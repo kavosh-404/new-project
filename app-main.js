@@ -119,6 +119,11 @@ class MateChoiceSimulation {
       this.previewDifferenceChart = document.getElementById("preview-difference-chart");
       this.previewMetricsInsight = document.getElementById("preview-metrics-insight");
       this.previewDifferenceInsight = document.getElementById("preview-difference-insight");
+      this.previewCorrelationChart = document.getElementById("preview-correlation-chart");
+      this.previewAttractivenessHeatmap = document.getElementById("preview-attractiveness-heatmap");
+      this.previewCorrelationInsight = document.getElementById("preview-correlation-insight");
+      this.previewAttractivenessInsight = document.getElementById("preview-attractiveness-insight");
+      this.previewAttractivenessTooltip = document.getElementById("preview-attractiveness-tooltip");
       this.ruleAnalyticsDefinitions = document.getElementById("rule-analytics-definitions");
       this.ruleCodeExplainer = document.getElementById("rule-code-explainer");
       this.ruleAnalyticsBody = document.getElementById("rule-analytics-body");
@@ -208,6 +213,7 @@ class MateChoiceSimulation {
       this.ruleHazardZoomHoverData = null;
       this.batchFieldHoverData = null;
       this.batchHeatmapHoverData = null;
+      this.previewAttractivenessHoverData = null;
       this.latestBatchFieldAccumulator = null;
       this.latestBatchFieldMeta = null;
       this.batchFieldRenderScale = 1;
@@ -312,6 +318,7 @@ class MateChoiceSimulation {
       this.bindHazardTooltipEvents();
       this.bindBatchFieldTooltipEvents();
       this.bindBatchHeatmapTooltipEvents();
+      this.bindPreviewAttractivenessTooltipEvents();
       this.bindHazardExplorerEvents();
       this.bindControlHelpTooltips();
       if (this.canvas) {
@@ -802,8 +809,84 @@ class MateChoiceSimulation {
           bothReject: 0,
         },
         pairDecisionCorrelation: 0,
+        pairCorrelationAccumulator: this.createPairCorrelationAccumulator(),
+        pairCorrelationEvents: [],
+        pairAttractivenessGrid: this.createPairAttractivenessGrid(),
         lastRun: this.state ? this.state.lastRun : null,
       };
+    }
+
+    createPairCorrelationAccumulator() {
+      return {
+        count: 0,
+        sumX: 0,
+        sumY: 0,
+        sumXX: 0,
+        sumYY: 0,
+        sumXY: 0,
+      };
+    }
+
+    createPairAttractivenessGrid() {
+      return Array.from({ length: 10 }, () => Array(10).fill(0));
+    }
+
+    computeCorrelationFromAccumulator(accumulator) {
+      if (!accumulator || accumulator.count < 2) return 0;
+
+      const numerator = accumulator.count * accumulator.sumXY - accumulator.sumX * accumulator.sumY;
+      const denomX = accumulator.count * accumulator.sumXX - accumulator.sumX * accumulator.sumX;
+      const denomY = accumulator.count * accumulator.sumYY - accumulator.sumY * accumulator.sumY;
+      const denominator = Math.sqrt(Math.max(denomX, 0) * Math.max(denomY, 0));
+
+      if (!denominator) return 0;
+      return this.clamp(numerator / denominator, -1, 1);
+    }
+
+    recordPairFormationMetrics(firstAttractiveness, secondAttractiveness, stepNumber) {
+      const accumulator = this.state.pairCorrelationAccumulator || this.createPairCorrelationAccumulator();
+      this.state.pairCorrelationAccumulator = accumulator;
+
+      accumulator.count += 1;
+      accumulator.sumX += firstAttractiveness;
+      accumulator.sumY += secondAttractiveness;
+      accumulator.sumXX += firstAttractiveness * firstAttractiveness;
+      accumulator.sumYY += secondAttractiveness * secondAttractiveness;
+      accumulator.sumXY += firstAttractiveness * secondAttractiveness;
+
+      const grid = this.state.pairAttractivenessGrid || this.createPairAttractivenessGrid();
+      this.state.pairAttractivenessGrid = grid;
+      const xIndex = this.clamp(Math.round(firstAttractiveness) - 1, 0, 9);
+      const yIndex = this.clamp(Math.round(secondAttractiveness) - 1, 0, 9);
+      grid[yIndex][xIndex] += 1;
+
+      this.state.pairCorrelationEvents.push({
+        step: stepNumber,
+        pairCount: accumulator.count,
+        correlation: this.computeCorrelationFromAccumulator(accumulator),
+        meanX: accumulator.sumX / accumulator.count,
+        meanY: accumulator.sumY / accumulator.count,
+        meanPairAttractiveness: (accumulator.sumX + accumulator.sumY) / (accumulator.count * 2),
+        x: firstAttractiveness,
+        y: secondAttractiveness,
+      });
+    }
+
+    buildPairCorrelationStepSeries() {
+      const series = new Array(STEP_COUNT).fill(0);
+      const events = this.state.pairCorrelationEvents || [];
+      let currentCorrelation = 0;
+      let eventIndex = 0;
+
+      for (let step = 1; step <= STEP_COUNT; step += 1) {
+        while (eventIndex < events.length && events[eventIndex].step <= step) {
+          currentCorrelation = events[eventIndex].correlation;
+          eventIndex += 1;
+        }
+        series[step - 1] = currentCorrelation;
+      }
+
+      return series;
     }
 
     async handleBatchRun() {
@@ -2302,6 +2385,63 @@ class MateChoiceSimulation {
       this.batchHeatmapCanvas.addEventListener("mouseleave", () => this.hideHazardTooltip(this.batchHeatmapTooltip));
     }
 
+    bindPreviewAttractivenessTooltipEvents() {
+      if (!this.previewAttractivenessHeatmap || !this.previewAttractivenessTooltip) return;
+
+      this.previewAttractivenessHeatmap.addEventListener("mousemove", (event) => this.handlePreviewAttractivenessTooltipMove(event));
+      this.previewAttractivenessHeatmap.addEventListener("mouseleave", () => this.hideHazardTooltip(this.previewAttractivenessTooltip));
+    }
+
+    handlePreviewAttractivenessTooltipMove(event) {
+      if (!this.previewAttractivenessHeatmap || !this.previewAttractivenessTooltip || !this.previewAttractivenessHoverData) {
+        return;
+      }
+
+      const hoverData = this.previewAttractivenessHoverData;
+      const rect = this.previewAttractivenessHeatmap.getBoundingClientRect();
+      const localX = event.clientX - rect.left;
+      const localY = event.clientY - rect.top;
+      const col = Math.floor((localX - hoverData.left) / hoverData.cellW);
+      const rowFromTop = Math.floor((localY - hoverData.top) / hoverData.cellH);
+
+      if (
+        col < 0 ||
+        col >= hoverData.columns ||
+        rowFromTop < 0 ||
+        rowFromTop >= hoverData.rows
+      ) {
+        this.hideHazardTooltip(this.previewAttractivenessTooltip);
+        return;
+      }
+
+      const row = hoverData.rows - rowFromTop - 1;
+      const count = hoverData.grid[row] ? hoverData.grid[row][col] || 0 : 0;
+      const partnerA = col + 1;
+      const partnerB = row + 1;
+      const share = hoverData.totalPairs ? (count / hoverData.totalPairs) * 100 : 0;
+
+      this.previewAttractivenessTooltip.innerHTML =
+        "Partner A=" +
+        partnerA +
+        "<br>Partner B=" +
+        partnerB +
+        "<br>Pairs=" +
+        count +
+        " (" +
+        share.toFixed(1) +
+        "%)<br>Mean pair attractiveness=" +
+        ((partnerA + partnerB) / 2).toFixed(2);
+
+      const parentRect = this.previewAttractivenessHeatmap.parentElement
+        ? this.previewAttractivenessHeatmap.parentElement.getBoundingClientRect()
+        : rect;
+      const tooltipX = event.clientX - parentRect.left + 12;
+      const tooltipY = event.clientY - parentRect.top - 8;
+      this.previewAttractivenessTooltip.style.left = Math.min(tooltipX, parentRect.width - 220) + "px";
+      this.previewAttractivenessTooltip.style.top = Math.max(tooltipY, 24) + "px";
+      this.previewAttractivenessTooltip.classList.add("is-visible");
+    }
+
     handleBatchHeatmapTooltipMove(event) {
       if (!this.batchHeatmapCanvas || !this.batchHeatmapTooltip || !this.batchHeatmapHoverData) {
         return;
@@ -2842,6 +2982,7 @@ class MateChoiceSimulation {
       candidate.matchedAtStep = stepNumber;
 
       this.state.pairs.push({ agent1: agent.id, agent2: candidate.id });
+      this.recordPairFormationMetrics(agent.attractiveness, candidate.attractiveness, stepNumber);
     }
 
     finishRun() {
@@ -3758,6 +3899,7 @@ class MateChoiceSimulation {
       const averageSearchSteps = this.state.agents.length === 0
         ? 0
         : totalSearchSteps / this.state.agents.length;
+      const pairAccumulator = this.state.pairCorrelationAccumulator || this.createPairCorrelationAccumulator();
 
       const pairDifferences = this.state.pairs.map((pair) => {
         const first = this.state.agents[pair.agent1];
@@ -3769,7 +3911,7 @@ class MateChoiceSimulation {
         ? 9
         : pairDifferences.reduce((sum, difference) => sum + difference, 0) / pairDifferences.length;
 
-      const matchingStrength = this.computeInterPairCorrelation(this.state.agents, this.state.pairs);
+      const matchingStrength = this.computeCorrelationFromAccumulator(pairAccumulator);
 
       return {
         pairCount: this.state.pairs.length,
@@ -3777,6 +3919,12 @@ class MateChoiceSimulation {
         averageSearchSteps,
         matchingStrength,
         averagePairDifference: averageDifference,
+        meanPartnerAAttractiveness: pairAccumulator.count ? pairAccumulator.sumX / pairAccumulator.count : 0,
+        meanPartnerBAttractiveness: pairAccumulator.count ? pairAccumulator.sumY / pairAccumulator.count : 0,
+        meanPairAttractiveness: pairAccumulator.count ? (pairAccumulator.sumX + pairAccumulator.sumY) / (pairAccumulator.count * 2) : 0,
+        pairCorrelationTimeline: this.buildPairCorrelationStepSeries(),
+        pairCorrelationEvents: (this.state.pairCorrelationEvents || []).map((event) => ({ ...event })),
+        pairAttractivenessGrid: (this.state.pairAttractivenessGrid || this.createPairAttractivenessGrid()).map((row) => row.slice()),
         pairDecisionCorrelation: this.state.pairDecisionCorrelation,
         decisionStats: { ...this.state.decisionStats },
       };
@@ -4611,6 +4759,8 @@ class MateChoiceSimulation {
       this.populatePreviewNarrative(reportData);
       this.drawMetricsChart(reportData);
       this.drawDifferenceChart(reportData);
+      this.drawPairCorrelationChart(reportData);
+      this.drawPairAttractivenessHeatmap(reportData);
       this.populateChartInsights(reportData);
       this.populateRuleAnalytics(reportData);
     }
@@ -4784,6 +4934,175 @@ class MateChoiceSimulation {
       this.drawBarChart(ctx, chartSize.width, chartSize.height, values, labels, colors);
     }
 
+    drawPairCorrelationChart(reportData) {
+      if (!this.previewCorrelationChart) return;
+
+      const canvas = this.previewCorrelationChart;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const timeline = reportData.metrics.pairCorrelationTimeline || [];
+      const events = reportData.metrics.pairCorrelationEvents || [];
+      if (!events.length) {
+        this.drawNoHazardSeriesMessage(canvas, "Pair correlation appears here once a match forms.");
+        return;
+      }
+
+      const chartSize = this.prepareHiDPICanvas(canvas, 190);
+      const width = chartSize.width;
+      const height = chartSize.height;
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#fdfaf5";
+      ctx.fillRect(0, 0, width, height);
+
+      const left = 42;
+      const right = width - 14;
+      const top = 18;
+      const bottom = height - 30;
+      const chartWidth = right - left;
+      const chartHeight = bottom - top;
+      const toY = (value) => bottom - ((this.clamp(value, -1, 1) + 1) / 2) * chartHeight;
+
+      ctx.strokeStyle = "rgba(79, 57, 36, 0.25)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(left, top);
+      ctx.lineTo(left, bottom);
+      ctx.lineTo(right, bottom);
+      ctx.stroke();
+
+      [-1, -0.5, 0, 0.5, 1].forEach((tick) => {
+        const y = toY(tick);
+        ctx.strokeStyle = tick === 0 ? "rgba(185, 130, 54, 0.32)" : "rgba(79, 57, 36, 0.12)";
+        ctx.setLineDash(tick === 0 ? [4, 4] : []);
+        ctx.beginPath();
+        ctx.moveTo(left, y);
+        ctx.lineTo(right, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = "#5e4d3f";
+        ctx.font = "10px Instrument Sans, sans-serif";
+        ctx.textAlign = "right";
+        ctx.fillText(tick.toFixed(1), left - 6, y + 3);
+      });
+
+      ctx.beginPath();
+      timeline.forEach((value, index) => {
+        const x = left + (index / Math.max(1, timeline.length - 1)) * chartWidth;
+        const y = toY(value);
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = "#0f766e";
+      ctx.lineWidth = 2.4;
+      ctx.stroke();
+
+      events.forEach((event) => {
+        const x = left + ((event.step - 1) / Math.max(1, STEP_COUNT - 1)) * chartWidth;
+        const y = toY(event.correlation);
+        ctx.beginPath();
+        ctx.arc(x, y, 3.2, 0, Math.PI * 2);
+        ctx.fillStyle = "#b45309";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+        ctx.lineWidth = 1.1;
+        ctx.stroke();
+      });
+
+      ctx.fillStyle = "#3e352d";
+      ctx.font = "11px Instrument Sans, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("Cumulative pair correlation (r)", left + 4, top - 6);
+      ctx.textAlign = "center";
+      ctx.fillText("Time step", left + chartWidth / 2, height - 8);
+    }
+
+    drawPairAttractivenessHeatmap(reportData) {
+      if (!this.previewAttractivenessHeatmap) return;
+
+      const canvas = this.previewAttractivenessHeatmap;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const grid = reportData.metrics.pairAttractivenessGrid || [];
+      const totalPairs = reportData.metrics.pairCount || 0;
+      if (!totalPairs) {
+        this.previewAttractivenessHoverData = null;
+        this.hideHazardTooltip(this.previewAttractivenessTooltip);
+        this.drawNoHazardSeriesMessage(canvas, "Pair-attractiveness heatmap appears after the first match.");
+        return;
+      }
+
+      const chartSize = this.prepareHiDPICanvas(canvas, 190);
+      const width = chartSize.width;
+      const height = chartSize.height;
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#fdfaf5";
+      ctx.fillRect(0, 0, width, height);
+
+      const left = 34;
+      const top = 18;
+      const bottom = height - 28;
+      const right = width - 12;
+      const chartWidth = right - left;
+      const chartHeight = bottom - top;
+      const columns = 10;
+      const rows = 10;
+      const cellW = chartWidth / columns;
+      const cellH = chartHeight / rows;
+      const maxCount = Math.max(1, ...grid.flat());
+
+      for (let row = 0; row < rows; row += 1) {
+        for (let col = 0; col < columns; col += 1) {
+          const count = grid[row] ? grid[row][col] || 0 : 0;
+          const intensity = count > 0 ? Math.sqrt(count / maxCount) : 0;
+          const x = left + col * cellW;
+          const y = top + (rows - row - 1) * cellH;
+
+          ctx.fillStyle = count
+            ? "rgba(15, 118, 110, " + (0.12 + intensity * 0.82).toFixed(3) + ")"
+            : "rgba(15, 118, 110, 0.03)";
+          ctx.fillRect(x, y, cellW, cellH);
+          ctx.strokeStyle = "rgba(79, 57, 36, 0.12)";
+          ctx.lineWidth = 0.9;
+          ctx.strokeRect(x, y, cellW, cellH);
+        }
+      }
+
+      ctx.strokeStyle = "rgba(79, 57, 36, 0.25)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(left, top, chartWidth, chartHeight);
+
+      ctx.fillStyle = "#3e352d";
+      ctx.font = "10px Instrument Sans, sans-serif";
+      for (let index = 0; index < 10; index += 1) {
+        const x = left + index * cellW + cellW / 2;
+        const yValue = 10 - index;
+        ctx.textAlign = "center";
+        ctx.fillText(String(index + 1), x, bottom + 14);
+        ctx.textAlign = "right";
+        ctx.fillText(String(yValue), left - 6, top + index * cellH + cellH / 2 + 3);
+      }
+
+      ctx.textAlign = "left";
+      ctx.font = "11px Instrument Sans, sans-serif";
+      ctx.fillText("Partner B attractiveness", left + 4, top - 6);
+      ctx.textAlign = "center";
+      ctx.fillText("Partner A attractiveness", left + chartWidth / 2, height - 8);
+
+      this.previewAttractivenessHoverData = {
+        left,
+        top,
+        cellW,
+        cellH,
+        grid,
+        totalPairs,
+        rows,
+        columns,
+      };
+    }
+
     populateChartInsights(reportData) {
       const { metrics, maxPairs, pairDifferenceBins, structureLabel } = reportData;
       const pairRate = maxPairs > 0 ? (metrics.pairCount / maxPairs) * 100 : 0;
@@ -4806,24 +5125,43 @@ class MateChoiceSimulation {
         if (metrics.pairCount === 0) {
           this.previewDifferenceInsight.textContent =
             "Insight: No pairs formed in this run, so the distribution has no partner-difference data yet.";
-          return;
-        }
-
-        const lowDifferenceCount = pairDifferenceBins[0] + pairDifferenceBins[1] + pairDifferenceBins[2];
-        const lowDifferenceShare = (lowDifferenceCount / metrics.pairCount) * 100;
-        let peakBin = 0;
-        for (let i = 1; i < pairDifferenceBins.length; i += 1) {
-          if (pairDifferenceBins[i] > pairDifferenceBins[peakBin]) {
-            peakBin = i;
+        } else {
+          const lowDifferenceCount = pairDifferenceBins[0] + pairDifferenceBins[1] + pairDifferenceBins[2];
+          const lowDifferenceShare = (lowDifferenceCount / metrics.pairCount) * 100;
+          let peakBin = 0;
+          for (let i = 1; i < pairDifferenceBins.length; i += 1) {
+            if (pairDifferenceBins[i] > pairDifferenceBins[peakBin]) {
+              peakBin = i;
+            }
           }
-        }
 
-        this.previewDifferenceInsight.textContent =
-          "Insight: " +
-          lowDifferenceShare.toFixed(0) +
-          "% of pairs are in low-difference bins (0-2), and the most common difference is " +
-          peakBin +
-          ". More low-difference pairs means partners were more similar.";
+          this.previewDifferenceInsight.textContent =
+            "Insight: " +
+            lowDifferenceShare.toFixed(0) +
+            "% of pairs are in low-difference bins (0-2), and the most common difference is " +
+            peakBin +
+            ". More low-difference pairs means partners were more similar.";
+        }
+      }
+
+      if (this.previewCorrelationInsight) {
+        const events = metrics.pairCorrelationEvents || [];
+        const lastEvent = events.length ? events[events.length - 1] : null;
+        this.previewCorrelationInsight.textContent = lastEvent
+          ? "Insight: correlation is recomputed after each new pair using cumulative sums of Partner A, Partner B, A^2, B^2, and A×B. Final r=" +
+            metrics.matchingStrength.toFixed(2) +
+            " after " +
+            metrics.pairCount +
+            " pairs; cumulative mean pair attractiveness is " +
+            metrics.meanPairAttractiveness.toFixed(2) +
+            "."
+          : "Insight: the correlation line starts once the first pair forms.";
+      }
+
+      if (this.previewAttractivenessInsight) {
+        this.previewAttractivenessInsight.textContent = metrics.pairCount
+          ? "Insight: each cell counts how often a Partner A/Partner B attractiveness combination formed. Hover a cell to inspect frequency share and the mean pair attractiveness for that cell."
+          : "Insight: the heatmap will populate after the first successful match.";
       }
     }
 
