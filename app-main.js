@@ -3099,33 +3099,37 @@ class MateChoiceSimulation {
     }
 
     resolveSpatialEncounters(currentStep) {
+      // Paper model (Smaldino & Schank 2012): one date per agent per step.
+      // Each agent is randomly paired with ONE candidate from their local neighbourhood.
+      // Using an encounteredThisStep set ensures no agent dates more than once per step,
+      // which matches the KH mechanism and gives the correct BR/ZZ/NS ordering of r values.
       const unmatchedAgents = this.shuffle(this.state.agents.filter((agent) => !agent.matched));
+      const encounteredThisStep = new Set();
+      const radius = this.getEncounterDistance();
 
-      for (let index = 0; index < unmatchedAgents.length; index += 1) {
-        const agent = unmatchedAgents[index];
+      for (const agent of unmatchedAgents) {
+        if (agent.matched || encounteredThisStep.has(agent.id)) continue;
 
-        if (agent.matched) {
-          continue;
-        }
+        // Collect all eligible candidates in range who haven't had their date yet this step
+        const candidates = unmatchedAgents.filter((c) =>
+          c.id !== agent.id &&
+          !c.matched &&
+          !encounteredThisStep.has(c.id) &&
+          this.getDistance(agent, c) <= radius
+        );
 
-        for (let otherIndex = index + 1; otherIndex < unmatchedAgents.length; otherIndex += 1) {
-          const candidate = unmatchedAgents[otherIndex];
+        if (!candidates.length) continue;
 
-          if (candidate.matched) {
-            continue;
-          }
+        // Pick one at random (paper: random encounter within neighbourhood)
+        const candidate = candidates[Math.floor(this.random() * candidates.length)];
+        encounteredThisStep.add(agent.id);
+        encounteredThisStep.add(candidate.id);
 
-          if (this.getDistance(agent, candidate) > this.getEncounterDistance()) {
-            continue;
-          }
+        const outcome = this.evaluateEncounter(agent, candidate);
+        this.registerInteraction(agent, candidate, outcome, currentStep);
 
-          const outcome = this.evaluateEncounter(agent, candidate);
-          this.registerInteraction(agent, candidate, outcome, currentStep);
-
-          if (outcome.acceptA && outcome.acceptB) {
-            this.matchAgents(agent, candidate, currentStep);
-            break;
-          }
+        if (outcome.acceptA && outcome.acceptB) {
+          this.matchAgents(agent, candidate, currentStep);
         }
       }
     }
@@ -5009,7 +5013,7 @@ class MateChoiceSimulation {
         const second = this.state.agents[pair.agent2];
         if (!first || !second) return;
         const diff = Math.abs(first.attractiveness - second.attractiveness);
-        pairDifferenceBins[diff] += 1;
+        pairDifferenceBins[Math.min(9, Math.floor(diff))] += 1;
       });
 
       const structureLabel =
@@ -5146,6 +5150,7 @@ class MateChoiceSimulation {
       const colors = ["#0f766e", "#b98236", "#3b6ea8"];
 
       this.drawBarChart(ctx, chartSize.width, chartSize.height, values, labels, colors);
+      this.populateCalcMetrics(reportData);
     }
 
     drawDifferenceChart(reportData) {
@@ -5163,6 +5168,7 @@ class MateChoiceSimulation {
       const colors = labels.map((_, index) => (index <= 2 ? "#0f766e" : "#6c7a89"));
 
       this.drawBarChart(ctx, chartSize.width, chartSize.height, values, labels, colors);
+      this.populateCalcDifference(reportData);
     }
 
     drawPairCorrelationChart(reportData) {
@@ -5172,12 +5178,18 @@ class MateChoiceSimulation {
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      const timeline = reportData.metrics.pairCorrelationTimeline || [];
       const events = reportData.metrics.pairCorrelationEvents || [];
       if (!events.length) {
-        this.drawNoHazardSeriesMessage(canvas, "Pair correlation appears here once a match forms.");
+        this.drawNoHazardSeriesMessage(canvas, "Intrapair correlation appears here once a match forms.");
+        this.populateCalcCorrelation(reportData);
         return;
       }
+
+      // r-vs-steps line chart: running Pearson r as pairs accumulate over the run
+      const timeline = reportData.metrics.pairCorrelationTimeline || [];
+      const steps = timeline.length;
+      const finalR = timeline[steps - 1] || 0;
+      const n = events.length;
 
       const chartSize = this.prepareHiDPICanvas(canvas, 240);
       const width = chartSize.width;
@@ -5186,15 +5198,37 @@ class MateChoiceSimulation {
       ctx.fillStyle = "#fdfaf5";
       ctx.fillRect(0, 0, width, height);
 
-      const left = 42;
-      const right = width - 14;
-      const top = 18;
-      const bottom = height - 30;
+      const left = 44;
+      const right = width - 16;
+      const top = 20;
+      const bottom = height - 36;
       const chartWidth = right - left;
       const chartHeight = bottom - top;
-      const toY = (value) => bottom - ((this.clamp(value, -1, 1) + 1) / 2) * chartHeight;
+      const toX = (step) => left + ((step - 1) / Math.max(steps - 1, 1)) * chartWidth;
+      const toY = (rVal) => bottom - this.clamp(rVal, 0, 1) * chartHeight;
 
-      ctx.strokeStyle = "rgba(79, 57, 36, 0.25)";
+      // Horizontal grid lines at r = 0.2, 0.4, 0.6, 0.8
+      ctx.strokeStyle = "rgba(79, 57, 36, 0.12)";
+      ctx.lineWidth = 1;
+      [0, 0.2, 0.4, 0.6, 0.8, 1.0].forEach((rTick) => {
+        ctx.beginPath();
+        ctx.moveTo(left, toY(rTick));
+        ctx.lineTo(right, toY(rTick));
+        ctx.stroke();
+      });
+
+      // Reference line at r = 0.6 (NS paper target)
+      ctx.strokeStyle = "rgba(185, 130, 54, 0.4)";
+      ctx.setLineDash([5, 4]);
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(left, toY(0.6));
+      ctx.lineTo(right, toY(0.6));
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Axes
+      ctx.strokeStyle = "rgba(79, 57, 36, 0.3)";
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(left, top);
@@ -5202,51 +5236,63 @@ class MateChoiceSimulation {
       ctx.lineTo(right, bottom);
       ctx.stroke();
 
-      [-1, -0.5, 0, 0.5, 1].forEach((tick) => {
-        const y = toY(tick);
-        ctx.strokeStyle = tick === 0 ? "rgba(185, 130, 54, 0.32)" : "rgba(79, 57, 36, 0.12)";
-        ctx.setLineDash(tick === 0 ? [4, 4] : []);
-        ctx.beginPath();
-        ctx.moveTo(left, y);
-        ctx.lineTo(right, y);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        ctx.fillStyle = "#5e4d3f";
-        ctx.font = "10px Instrument Sans, sans-serif";
-        ctx.textAlign = "right";
-        ctx.fillText(tick.toFixed(1), left - 6, y + 3);
+      // Y-axis tick labels (r)
+      ctx.fillStyle = "#5e4d3f";
+      ctx.font = "10px Instrument Sans, sans-serif";
+      ctx.textAlign = "right";
+      [0, 0.2, 0.4, 0.6, 0.8, 1.0].forEach((rTick) => {
+        ctx.fillText(rTick.toFixed(1), left - 5, toY(rTick) + 3);
       });
 
-      ctx.beginPath();
-      timeline.forEach((value, index) => {
-        const x = left + (index / Math.max(1, timeline.length - 1)) * chartWidth;
-        const y = toY(value);
-        if (index === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.strokeStyle = "#0f766e";
-      ctx.lineWidth = 2.4;
-      ctx.stroke();
-
-      events.forEach((event) => {
-        const x = left + ((event.step - 1) / Math.max(1, STEP_COUNT - 1)) * chartWidth;
-        const y = toY(event.correlation);
-        ctx.beginPath();
-        ctx.arc(x, y, 3.2, 0, Math.PI * 2);
-        ctx.fillStyle = "#b45309";
-        ctx.fill();
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
-        ctx.lineWidth = 1.1;
-        ctx.stroke();
-      });
-
-      ctx.fillStyle = "#3e352d";
-      ctx.font = "11px Instrument Sans, sans-serif";
-      ctx.textAlign = "left";
-      ctx.fillText("Cumulative pair correlation (r)", left + 4, top - 6);
+      // X-axis tick labels (steps)
       ctx.textAlign = "center";
-      ctx.fillText("Time step", left + chartWidth / 2, height - 8);
+      const stepTicks = [1, Math.round(steps / 4), Math.round(steps / 2), Math.round((3 * steps) / 4), steps];
+      stepTicks.forEach((s) => {
+        ctx.fillText(String(s), toX(s), bottom + 14);
+      });
+
+      // r=0.6 dashed label
+      ctx.fillStyle = "rgba(185, 130, 54, 0.75)";
+      ctx.font = "9px Instrument Sans, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("r=0.6", left + 4, toY(0.6) - 3);
+
+      // r-vs-steps line
+      if (steps > 1) {
+        ctx.beginPath();
+        ctx.moveTo(toX(1), toY(timeline[0]));
+        for (let i = 1; i < steps; i += 1) {
+          ctx.lineTo(toX(i + 1), toY(timeline[i]));
+        }
+        ctx.strokeStyle = "rgba(15, 118, 110, 0.9)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // Final r dot
+      ctx.beginPath();
+      ctx.arc(toX(steps), toY(finalR), 4, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(15, 118, 110, 1)";
+      ctx.fill();
+
+      // Final r label
+      ctx.fillStyle = "#3e352d";
+      ctx.font = "bold 13px Instrument Sans, sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText("r = " + finalR.toFixed(3) + "  (n = " + n + ")", right - 4, top + 14);
+
+      // Axis labels
+      ctx.fillStyle = "#5e4d3f";
+      ctx.font = "11px Instrument Sans, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("Step", left + chartWidth / 2, height - 2);
+      ctx.save();
+      ctx.translate(11, top + chartHeight / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText("Intrapair r", 0, 0);
+      ctx.restore();
+
+      this.populateCalcCorrelation(reportData);
     }
 
     drawPairAttractivenessHeatmap(reportData) {
@@ -5377,16 +5423,23 @@ class MateChoiceSimulation {
 
       if (this.previewCorrelationInsight) {
         const events = metrics.pairCorrelationEvents || [];
-        const lastEvent = events.length ? events[events.length - 1] : null;
-        this.previewCorrelationInsight.textContent = lastEvent
-          ? "Insight: correlation is recomputed after each new pair using cumulative sums of Partner A, Partner B, A^2, B^2, and A×B. Final r=" +
-            metrics.matchingStrength.toFixed(2) +
-            " after " +
-            metrics.pairCount +
-            " pairs; cumulative mean pair attractiveness is " +
-            metrics.meanPairAttractiveness.toFixed(2) +
-            "."
-          : "Insight: the correlation line starts once the first pair forms.";
+        if (events.length) {
+          const n = events.length;
+          let sumX = 0, sumY = 0, sumXX = 0, sumYY = 0, sumXY = 0;
+          events.forEach((e) => { sumX += e.x; sumY += e.y; sumXX += e.x*e.x; sumYY += e.y*e.y; sumXY += e.x*e.y; });
+          const num = n * sumXY - sumX * sumY;
+          const dX = n * sumXX - sumX * sumX;
+          const dY = n * sumYY - sumY * sumY;
+          const den = Math.sqrt(Math.max(dX, 0) * Math.max(dY, 0));
+          const r = den ? Math.min(1, Math.max(-1, num / den)) : 0;
+          this.previewCorrelationInsight.textContent =
+            "Insight: Smaldino & Schank (2012) method — single Pearson r on all " + n +
+            " matched pairs at end of run. r = " + r.toFixed(3) +
+            ". Each dot is one pair; the dashed diagonal is perfect assortment (r = 1).";
+        } else {
+          this.previewCorrelationInsight.textContent =
+            "Insight: scatter plot appears once the first pair forms. Each dot is one matched pair; Pearson r is computed once over all pairs at end of run (Smaldino & Schank 2012).";
+        }
       }
 
       if (this.previewAttractivenessInsight) {
@@ -5419,6 +5472,7 @@ class MateChoiceSimulation {
       this.drawRecreatedFigure6(analyticsRows);
       this.drawRecreatedFigure7(analyticsRows);
       this.updateRecreatedFigureInsights(analyticsRows);
+      this.populateCalcFigures(analyticsRows);
     }
 
     updateRecreatedFigureInsights(rows) {
@@ -5640,19 +5694,33 @@ class MateChoiceSimulation {
     }
 
     getAcceptanceScoreWithSettings(agent, candidate, preferenceRule, selectivityLevel, patienceLevel, explicitBias) {
-      const selectivity = selectivityMultipliers[selectivityLevel || "Medium"] || 1;
-      const patienceRate = patienceRates[patienceLevel || "Normal"] || 0.01;
-      const patienceBoost = agent.searchSteps * patienceRate;
-      const bias = typeof explicitBias === "number"
-        ? explicitBias
-        : (parseFloat(this.acceptanceBiasInput ? this.acceptanceBiasInput.value : "0") || 0);
+      // KH power-law satisficing formula (Smaldino & Schank 2012, eq. 1 + rule formulas):
+      //   k = (D - d) / D  where d = searchSteps (steps elapsed unmatched), D = patience budget
+      //   Rule 1: p = (Aj / 10)^(k * n)   [prefer attractive]
+      //   Rule 2: p = (1 - |Ai-Aj| / 9)^(k * n)   [prefer similar]
+      //
+      // Using searchSteps (increments once per step, never multiple times per step) instead of
+      // per-encounter failedDates counters, so spatial and NS modes degrade patience at the same rate.
+      //
+      // Selectivity → n:  Low=1.5, Medium=2, High=3 (KH value)
+      // Patience    → D:  Fast=25, Normal=50 (KH value), Slow=100
+      const choosinessN = { Low: 1.5, Medium: 2, High: 3 }[selectivityLevel || "Medium"] || 2;
+      const maxDatesD   = { Fast: 25, Normal: 50, Slow: 100 }[patienceLevel || "Normal"] || 50;
 
+      const d = (agent.searchSteps || 0);
+      const k = Math.max((maxDatesD - d) / maxDatesD, 0);
+      const exponent = k * choosinessN;
+
+      let baseProb;
       if (preferenceRule === "Similarity-based") {
-        const difference = Math.abs(agent.attractiveness - candidate.attractiveness);
-        return this.clamp((1 - difference / 9) * selectivity + patienceBoost + bias, 0.1, 1);
+        const similarity = 1 - Math.abs(agent.attractiveness - candidate.attractiveness) / 9;
+        baseProb = exponent === 0 ? 1 : Math.pow(Math.max(similarity, 0.001), exponent);
+      } else {
+        const normalised = candidate.attractiveness / 10;
+        baseProb = exponent === 0 ? 1 : Math.pow(normalised, exponent);
       }
 
-      return this.clamp((candidate.attractiveness / 10) * selectivity + patienceBoost + bias, 0.1, 1);
+      return this.clamp(baseProb, 0, 1);
     }
 
     computeInterPairCorrelation(agents, pairs) {
@@ -5915,6 +5983,7 @@ class MateChoiceSimulation {
           ", which means that setup produced the fastest early matching.";
       }
       this.updateHazardDynamicExplainer(visibleRows, mode);
+      this.populateCalcHazard(rows);
     }
 
     drawRuleHazardZoomChart(rows, maxStep) {
@@ -5993,6 +6062,7 @@ class MateChoiceSimulation {
           values: this.getHazardDisplayValues(row.hazardSeries, mode).slice(0, maxStep),
         })),
       };
+      this.populateCalcHazardZoom(rows, maxStep);
     }
 
     bindHazardExplorerEvents() {
@@ -7117,6 +7187,225 @@ class MateChoiceSimulation {
     clamp(value, min, max) {
       return Math.min(max, Math.max(min, value));
     }
+
+    // ── Calculation data panels ────────────────────────────────────
+
+    populateCalcMetrics(reportData) {
+      const el = document.getElementById("calc-metrics");
+      if (!el) return;
+      const m = reportData.metrics;
+      const pairsNorm = m.pairCount / reportData.maxPairs;
+      const strengthNorm = (m.matchingStrength + 1) / 2;
+      const searchNorm = Math.min(1, m.averageSearchSteps / STEP_COUNT);
+      el.innerHTML =
+        "<p class=\"calc-section-label\">Bar chart normalised values</p>" +
+        "<table class=\"calc-table\"><thead><tr>" +
+        "<th>Bar</th><th>Raw value</th><th>Formula</th><th>Normalised (bar height)</th>" +
+        "</tr></thead><tbody>" +
+        "<tr><td>Pairs</td><td class=\"calc-val\">" + m.pairCount + " / " + reportData.maxPairs + "</td>" +
+        "<td class=\"calc-formula\">pairCount / maxPairs</td><td class=\"calc-val\">" + pairsNorm.toFixed(4) + "</td></tr>" +
+        "<tr><td>Strength</td><td class=\"calc-val\">" + m.matchingStrength.toFixed(4) + "</td>" +
+        "<td class=\"calc-formula\">(matchingStrength + 1) / 2</td><td class=\"calc-val\">" + strengthNorm.toFixed(4) + "</td></tr>" +
+        "<tr><td>Search</td><td class=\"calc-val\">" + m.averageSearchSteps.toFixed(2) + " / " + STEP_COUNT + " steps</td>" +
+        "<td class=\"calc-formula\">min(1, avgSearch / STEP_COUNT)</td><td class=\"calc-val\">" + searchNorm.toFixed(4) + "</td></tr>" +
+        "</tbody></table>";
+    }
+
+    populateCalcDifference(reportData) {
+      const el = document.getElementById("calc-difference");
+      if (!el) return;
+      const bins = reportData.pairDifferenceBins;
+      const maxCount = Math.max(1, ...bins);
+      let rows = bins.map((count, index) =>
+        "<tr><td>" + index + "</td><td class=\"calc-val\">" + count + "</td>" +
+        "<td class=\"calc-formula\">" + count + " / " + maxCount + "</td>" +
+        "<td class=\"calc-val\">" + (count / maxCount).toFixed(4) + "</td></tr>"
+      ).join("");
+      el.innerHTML =
+        "<p class=\"calc-section-label\">Pair difference bins (attractiveness gap between matched partners)</p>" +
+        "<table class=\"calc-table\"><thead><tr>" +
+        "<th>Gap</th><th>Count</th><th>Formula (count / max)</th><th>Bar height</th>" +
+        "</tr></thead><tbody>" + rows + "</tbody></table>" +
+        "<p style=\"font-size:0.75rem;color:#7a8f8c;margin-top:0.3rem;\">maxCount = " + maxCount + "</p>";
+    }
+
+    populateCalcCorrelation(reportData) {
+      const el = document.getElementById("calc-correlation");
+      if (!el) return;
+      const events = reportData.metrics.pairCorrelationEvents || [];
+      if (!events.length) {
+        el.innerHTML = "<em>No pairs matched yet — run the simulation further.</em>";
+        return;
+      }
+
+      // Paper's method: single Pearson r on all n pairs at end of run
+      const n = events.length;
+      let sumX = 0, sumY = 0, sumXX = 0, sumYY = 0, sumXY = 0;
+      events.forEach((e) => {
+        sumX  += e.x;
+        sumY  += e.y;
+        sumXX += e.x * e.x;
+        sumYY += e.y * e.y;
+        sumXY += e.x * e.y;
+      });
+      const numerator = n * sumXY - sumX * sumY;
+      const denomX    = n * sumXX - sumX * sumX;
+      const denomY    = n * sumYY - sumY * sumY;
+      const denom     = Math.sqrt(Math.max(denomX, 0) * Math.max(denomY, 0));
+      const r         = denom ? Math.min(1, Math.max(-1, numerator / denom)) : 0;
+
+      const pairRows = events.map((e, i) =>
+        "<tr><td>" + (i + 1) + "</td>" +
+        "<td>step " + e.step + "</td>" +
+        "<td class=\"calc-val\">" + e.x.toFixed(2) + "</td>" +
+        "<td class=\"calc-val\">" + e.y.toFixed(2) + "</td>" +
+        "<td class=\"calc-val\">" + (e.x * e.x).toFixed(2) + "</td>" +
+        "<td class=\"calc-val\">" + (e.y * e.y).toFixed(2) + "</td>" +
+        "<td class=\"calc-val\">" + (e.x * e.y).toFixed(2) + "</td></tr>"
+      ).join("");
+
+      el.innerHTML =
+        "<p class=\"calc-section-label\">Smaldino &amp; Schank (2012) method — Pearson r on all " + n + " pairs at end of run</p>" +
+        "<p style=\"font-size:0.74rem;color:#555;margin-bottom:0.5rem;\">" +
+        "<strong>r = [n·Σxy − Σx·Σy] / √([n·Σx² − (Σx)²] · [n·Σy² − (Σy)²])</strong><br>" +
+        "x = Partner A attractiveness · y = Partner B attractiveness · n = total matched pairs</p>" +
+
+        "<p class=\"calc-section-label\" style=\"margin-top:0.6rem;\">Step 1 — pair-by-pair values</p>" +
+        "<div style=\"max-height:10rem;overflow:auto;\">" +
+        "<table class=\"calc-table\"><thead><tr>" +
+        "<th>#</th><th>Step matched</th><th>x</th><th>y</th><th>x²</th><th>y²</th><th>xy</th>" +
+        "</tr></thead><tbody>" + pairRows + "</tbody></table></div>" +
+
+        "<p class=\"calc-section-label\" style=\"margin-top:0.65rem;\">Step 2 — sums over all " + n + " pairs</p>" +
+        "<table class=\"calc-table\"><thead><tr>" +
+        "<th>n</th><th>Σx</th><th>Σy</th><th>Σx²</th><th>Σy²</th><th>Σxy</th>" +
+        "</tr></thead><tbody><tr>" +
+        "<td class=\"calc-val\">" + n + "</td>" +
+        "<td class=\"calc-val\">" + sumX.toFixed(3) + "</td>" +
+        "<td class=\"calc-val\">" + sumY.toFixed(3) + "</td>" +
+        "<td class=\"calc-val\">" + sumXX.toFixed(3) + "</td>" +
+        "<td class=\"calc-val\">" + sumYY.toFixed(3) + "</td>" +
+        "<td class=\"calc-val\">" + sumXY.toFixed(3) + "</td>" +
+        "</tr></tbody></table>" +
+
+        "<p class=\"calc-section-label\" style=\"margin-top:0.65rem;\">Step 3 — final r</p>" +
+        "<table class=\"calc-table\"><thead><tr>" +
+        "<th>Numerator (n·Σxy − Σx·Σy)</th><th>n·Σx²−(Σx)²</th><th>n·Σy²−(Σy)²</th><th>Denominator √(a·b)</th><th style=\"color:#0f766e\">r</th>" +
+        "</tr></thead><tbody><tr>" +
+        "<td class=\"calc-val\">" + numerator.toFixed(4) + "</td>" +
+        "<td class=\"calc-val\">" + denomX.toFixed(4) + "</td>" +
+        "<td class=\"calc-val\">" + denomY.toFixed(4) + "</td>" +
+        "<td class=\"calc-val\">" + denom.toFixed(4) + "</td>" +
+        "<td class=\"calc-val\" style=\"color:#0f766e;font-weight:700;font-size:1rem;\">" + r.toFixed(4) + "</td>" +
+        "</tr></tbody></table>";
+    }
+
+    populateCalcFigures(rows) {
+      // Figure 5 – inter-pair correlation
+      const el5 = document.getElementById("calc-figure5");
+      if (el5) {
+        let body5 = rows.map((row) => {
+          const delta = row.interPairCorrelation - row.interPairCorrelationReplacement;
+          return "<tr><td>" + row.ruleShort + "-" + row.movement + "</td>" +
+            "<td class=\"calc-val\">" + row.interPairCorrelation.toFixed(4) + "</td>" +
+            "<td class=\"calc-val\">" + row.interPairCorrelationCiLow.toFixed(4) + "</td>" +
+            "<td class=\"calc-val\">" + row.interPairCorrelationCiHigh.toFixed(4) + "</td>" +
+            "<td class=\"calc-formula\">" + (row.interPairCorrelationCiHigh - row.interPairCorrelationCiLow).toFixed(4) + "</td>" +
+            "<td class=\"calc-val\">" + row.interPairCorrelationReplacement.toFixed(4) + "</td>" +
+            "<td class=\"calc-val\">" + (delta >= 0 ? "+" : "") + delta.toFixed(4) + "</td></tr>";
+        }).join("");
+        el5.innerHTML =
+          "<p class=\"calc-section-label\">Inter-pair correlation — mean over " + RULE_ANALYTICS_RUNS + " runs · 95 % CI = mean ± 1.96·(σ/√n)</p>" +
+          "<table class=\"calc-table\"><thead><tr>" +
+          "<th>Condition</th><th>r (no repl)</th><th>CI low</th><th>CI high</th><th>CI width</th><th>r (repl)</th><th>Δ (no−repl)</th>" +
+          "</tr></thead><tbody>" + body5 + "</tbody></table>";
+      }
+
+      // Figure 6 – mean date to mate
+      const el6 = document.getElementById("calc-figure6");
+      if (el6) {
+        let body6 = rows.map((row) => {
+          const delta = row.meanDateToMate - row.meanDateToMateReplacement;
+          return "<tr><td>" + row.ruleShort + "-" + row.movement + "</td>" +
+            "<td class=\"calc-val\">" + row.meanDateToMate.toFixed(3) + "</td>" +
+            "<td class=\"calc-val\">" + row.meanDateToMateCiLow.toFixed(3) + "</td>" +
+            "<td class=\"calc-val\">" + row.meanDateToMateCiHigh.toFixed(3) + "</td>" +
+            "<td class=\"calc-formula\">" + (row.meanDateToMateCiHigh - row.meanDateToMateCiLow).toFixed(3) + "</td>" +
+            "<td class=\"calc-val\">" + row.meanDateToMateReplacement.toFixed(3) + "</td>" +
+            "<td class=\"calc-val\">" + (delta >= 0 ? "+" : "") + delta.toFixed(3) + "</td></tr>";
+        }).join("");
+        el6.innerHTML =
+          "<p class=\"calc-section-label\">Mean date to mate (t_m) — mean over " + RULE_ANALYTICS_RUNS + " runs · 95 % CI = mean ± 1.96·(σ/√n)</p>" +
+          "<table class=\"calc-table\"><thead><tr>" +
+          "<th>Condition</th><th>t_m (no repl)</th><th>CI low</th><th>CI high</th><th>CI width</th><th>t_m (repl)</th><th>Δ (no−repl)</th>" +
+          "</tr></thead><tbody>" + body6 + "</tbody></table>";
+      }
+
+      // Figure 7 – hazard series first 15 steps
+      const el7 = document.getElementById("calc-figure7");
+      if (el7 && rows.length) {
+        const maxStep = 15;
+        const header = rows.map((r) => "<th>" + r.ruleShort + "-" + r.movement + "</th>").join("");
+        let bodyRows = "";
+        for (let step = 0; step < maxStep; step += 1) {
+          const cells = rows.map((r) => {
+            const val = r.hazardSeries[step] !== undefined ? r.hazardSeries[step] : 0;
+            return "<td class=\"calc-val\">" + val.toFixed(4) + "</td>";
+          }).join("");
+          bodyRows += "<tr><td>" + (step + 1) + "</td>" + cells + "</tr>";
+        }
+        el7.innerHTML =
+          "<p class=\"calc-section-label\">Hazard h(t) = (matches at step t) / (still-unmatched agents before step t) · averaged over " + RULE_ANALYTICS_RUNS + " runs</p>" +
+          "<table class=\"calc-table\"><thead><tr><th>Step</th>" + header + "</tr></thead><tbody>" + bodyRows + "</tbody></table>";
+      }
+    }
+
+    populateCalcHazard(rows) {
+      const el = document.getElementById("calc-hazard");
+      if (!el || !rows.length) return;
+      const visibleRows = this.getVisibleHazardRows(rows);
+      const displayRows = visibleRows.length ? visibleRows : rows;
+      const mode = this.getHazardChartMode();
+      const header = displayRows.map((r) => "<th>" + r.ruleShort + "-" + r.movement + "</th>").join("");
+      let bodyRows = "";
+      for (let step = 0; step < STEP_COUNT; step += 1) {
+        const cells = displayRows.map((r) => {
+          const vals = this.getHazardDisplayValues(r.hazardSeries, mode);
+          const val = vals[step] !== undefined ? vals[step] : 0;
+          return "<td class=\"calc-val\">" + val.toFixed(4) + "</td>";
+        }).join("");
+        bodyRows += "<tr><td>" + (step + 1) + "</td>" + cells + "</tr>";
+      }
+      const modeNote = mode === "cumulative" ? "Cumulative h(t): running sum of h(1)…h(t)" : mode === "step" ? "Step h(t): raw hazard per step" : "Line h(t): raw hazard per step";
+      el.innerHTML =
+        "<p class=\"calc-section-label\">Hazard explorer data — mode: " + mode + " · showing " + displayRows.length + " condition(s)</p>" +
+        "<p style=\"font-size:0.74rem;color:#555;margin-bottom:0.3rem;\">" + modeNote + "</p>" +
+        "<div style=\"max-height:14rem;overflow:auto;\">" +
+        "<table class=\"calc-table\"><thead><tr><th>Step</th>" + header + "</tr></thead><tbody>" + bodyRows + "</tbody></table>" +
+        "</div>";
+    }
+
+    populateCalcHazardZoom(rows, maxStep) {
+      const el = document.getElementById("calc-hazard-zoom");
+      if (!el || !rows.length) return;
+      const visibleRows = this.getVisibleHazardRows(rows);
+      const displayRows = visibleRows.length ? visibleRows : rows;
+      const mode = this.getHazardChartMode();
+      const header = displayRows.map((r) => "<th>" + r.ruleShort + "-" + r.movement + "</th>").join("");
+      let bodyRows = "";
+      for (let step = 0; step < maxStep; step += 1) {
+        const cells = displayRows.map((r) => {
+          const vals = this.getHazardDisplayValues(r.hazardSeries, mode);
+          const val = vals[step] !== undefined ? vals[step] : 0;
+          return "<td class=\"calc-val\">" + val.toFixed(4) + "</td>";
+        }).join("");
+        bodyRows += "<tr><td>" + (step + 1) + "</td>" + cells + "</tr>";
+      }
+      el.innerHTML =
+        "<p class=\"calc-section-label\">Early hazard zoom (steps 1–" + maxStep + ") — mode: " + mode + "</p>" +
+        "<table class=\"calc-table\"><thead><tr><th>Step</th>" + header + "</tr></thead><tbody>" + bodyRows + "</tbody></table>";
+    }
+
   }
 
 // Export class for bootstrap

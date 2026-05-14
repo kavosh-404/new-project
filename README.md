@@ -2,13 +2,51 @@
 
 A web-based teaching tool for exploring how spatial constraints, mobility, and preference rules shape assortative mating patterns in agent-based simulations, inspired by **Smaldino & Schank (2012)**.
 
-## Latest Shipped Update
+## Latest Shipped Update (Week of 2026-05-12)
 
-- Added a **pair correlation vs. time step** chart that updates the cumulative Pearson correlation each time a new pair forms.
-- Added a **run-level pair attractiveness heatmap** showing which attractiveness combinations matched in the latest simulation.
-- Added a **many-trials pair attractiveness heatmap** showing which attractiveness combinations matched most often across batch runs.
-- Added hover details for both attractiveness heatmaps so students can inspect frequency shares and average attractiveness values directly in the interface.
-- Expanded report chart sizing and layout usage so preview graphs use available space more effectively.
+### Bug fixes — replicating Smaldino & Schank (2012) Figure 2A
+
+**Problem 1 — wrong acceptance formula**
+The acceptance probability was a simple linear function of attractiveness. The paper uses a power-law satisficing rule (KH model):
+
+```
+p = (Aj / 10)^(k × n)        [Rule 1: attractiveness-based]
+p = (1 − |Ai − Aj| / 9)^(k × n)   [Rule 2: similarity-based]
+k = (D − d) / D
+```
+
+where `d` = steps searched so far, `D` = patience budget, `n` = choosiness exponent.
+**Fix:** Replaced the linear formula with the KH power law in `getAcceptanceScoreWithSettings`.
+
+**Problem 2 — 0.05 probability floor**
+A `clamp(0.05, 1)` floor prevented agents from ever having near-zero acceptance probability, which inflated r above the paper's values.
+**Fix:** Changed to `clamp(0, 1)` — no minimum. This alone moved NS r from ~0.51 to ~0.61.
+
+**Problem 3 — patience counter overcounting in spatial mode**
+`failedDates` was incremented once per rejected encounter, so an agent in a dense cluster could lose several patience points per step — far faster than the NS condition.
+**Fix:** Replaced `failedDates` with `searchSteps`, incremented once per step per unmatched agent regardless of how many encounters occurred.
+
+**Problem 4 — spatial mode encountering all nearby candidates per step**
+`resolveSpatialEncounters` iterated through every candidate within the radius until a match was found. Agents in dense areas could date 5–10 times per step, depleting patience too quickly and producing r values too high (BR ≈ 0.48 vs. paper's 0.42).
+**Fix:** Rewrote `resolveSpatialEncounters` to give each agent **one randomly chosen encounter per step** using an `encounteredThisStep` Set — matching the paper's mechanism.
+
+**Problem 5 — Acceptance Threshold Shift control (not in paper)**
+A UI slider was adding a constant bias to acceptance probability that has no counterpart in Smaldino & Schank (2012).
+**Fix:** Removed the control entirely from HTML and all JS references.
+
+### Results after fixes
+
+| Condition | Target (paper Fig 2A) | Achieved |
+|---|---|---|
+| NS (Non-Spatial) | r ≈ 0.60 | r ≈ 0.61 ✓ |
+| ZZ (Spatial, High mobility) | r ≈ 0.50 | r ≈ 0.52 ✓ |
+| BR (Spatial, Low mobility) | r ≈ 0.42 | r ≈ 0.43 ✓ |
+
+### UI change — Intrapair Correlation chart
+Changed from a Partner A vs. Partner B scatter plot to an **r-vs-steps line chart**, showing how the cumulative Pearson r builds as pairs form over the run. A dashed gold reference line at r = 0.6 marks the NS paper target.
+
+### Visible calculation panels
+Added `<details>` calc panels under all 8 charts so every formula and intermediate value is inspectable in the UI.
 
 ## Development Timeline (Week-by-Week, Git Timestamped)
 
@@ -28,10 +66,19 @@ This timeline is pulled from git commit history and lists upgrades from the firs
 ### Week 3 (2026-04-21)
 - First-time-user copy refinement and documentation/content cleanup.
 
-### Week 4 (2026-05-05, current week)
+### Week 4 (2026-05-05)
 - Added pair-correlation-over-time chart and run-level attractiveness heatmap.
 - Added batch-level attractiveness heatmap.
 - Added README shipped-update notes and improved report chart sizing/layout usage.
+
+### Week 5 (2026-05-12, current week)
+- **Replicated Smaldino & Schank (2012) Figure 2A r values** — fixed 5 bugs that were preventing the simulation from matching the paper (see Latest Shipped Update above).
+- Replaced linear acceptance formula with KH power-law satisficing rule.
+- Removed 0.05 probability floor from acceptance calculation.
+- Fixed patience counter: switched from per-encounter `failedDates` to per-step `searchSteps`.
+- Fixed spatial encounter loop: one random date per agent per step instead of iterating all neighbours.
+- Removed Acceptance Threshold Shift control (not in paper).
+- Changed Intrapair Correlation chart from scatter plot to r-vs-steps line chart.
 
 ### Full Chronological Commit Ledger
 

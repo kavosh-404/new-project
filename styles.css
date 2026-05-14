@@ -2110,6 +2110,84 @@ input[type="range"]:disabled {
   white-space: pre;
 }
 
+/* ── Calculation details panels ──────────────────────────────── */
+.calc-details {
+  border: 1px dashed rgba(15, 118, 110, 0.30);
+  border-radius: 10px;
+  padding: 0.45rem 0.65rem;
+  margin-top: 0.55rem;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.calc-details summary {
+  cursor: pointer;
+  color: #0f4f4a;
+  font-weight: 600;
+  font-size: 0.83rem;
+  user-select: none;
+}
+
+.calc-details summary:hover {
+  color: #0f766e;
+}
+
+.calc-details > div {
+  margin-top: 0.55rem;
+  font-size: 0.80rem;
+  color: #2d3a38;
+}
+
+.calc-details em {
+  color: #7a8f8c;
+}
+
+.calc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+  margin-top: 0.35rem;
+}
+
+.calc-table th {
+  background: rgba(15, 118, 110, 0.08);
+  color: #0f4f4a;
+  font-weight: 700;
+  text-align: left;
+  padding: 0.28rem 0.45rem;
+  border: 1px solid rgba(15, 118, 110, 0.18);
+}
+
+.calc-table td {
+  padding: 0.25rem 0.45rem;
+  border: 1px solid rgba(15, 118, 110, 0.13);
+  vertical-align: top;
+}
+
+.calc-table tr:nth-child(even) td {
+  background: rgba(15, 118, 110, 0.03);
+}
+
+.calc-table td.calc-formula {
+  color: #555;
+  font-style: italic;
+}
+
+.calc-table td.calc-val {
+  color: #0f4f4a;
+  font-weight: 600;
+}
+
+.calc-section-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #0f4f4a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0.5rem 0 0.2rem;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
 .simulation-grid {
   position: relative;
   z-index: 1;

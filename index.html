@@ -265,20 +265,6 @@
               </label>
 
               <label class="control-field">
-                <span class="control-label">Acceptance Threshold Shift
-                  <span class="control-help" tabindex="0" role="button" aria-expanded="false" aria-label="Acceptance Threshold Shift: Moves baseline acceptance down for stricter behavior or up for more lenient behavior.">?
-                    <span class="control-tooltip">Moves baseline acceptance down for stricter behavior or up for more lenient behavior.</span>
-                  </span>
-                </span>
-                <input id="acceptance-bias" name="acceptance-bias" type="range" min="-0.3" max="0.3" step="0.02" value="0" />
-                <div class="range-end-labels" aria-hidden="true">
-                  <span>More selective</span>
-                  <span>More lenient</span>
-                </div>
-                <small class="control-hint" id="acceptance-bias-effect">Current effect: neutral (no threshold shift).</small>
-              </label>
-
-              <label class="control-field">
                 <span class="control-label">Random Seed
                   <span class="control-help" tabindex="0" role="button" aria-expanded="false" aria-label="Random Seed: Use the same seed to reproduce the same run trajectory and summary statistics.">?
                     <span class="control-tooltip">Use the same seed to reproduce the same run trajectory and summary statistics.</span>
@@ -596,6 +582,10 @@
                   <p class="preview-chart-insight" id="preview-metrics-insight">
                     Insight: This chart compares pair count, match quality, and search time.
                   </p>
+                  <details class="calc-details">
+                    <summary>Show calculation data</summary>
+                    <div id="calc-metrics"><em>Run a simulation to see values.</em></div>
+                  </details>
                 </figure>
                 <figure class="preview-chart-card">
                   <figcaption>Pair Difference Distribution</figcaption>
@@ -603,13 +593,21 @@
                   <p class="preview-chart-insight" id="preview-difference-insight">
                     Insight: This chart shows how similar matched partners were.
                   </p>
+                  <details class="calc-details">
+                    <summary>Show calculation data</summary>
+                    <div id="calc-difference"><em>Run a simulation to see values.</em></div>
+                  </details>
                 </figure>
                 <figure class="preview-chart-card">
-                  <figcaption>Pair Correlation by Time Step</figcaption>
-                  <canvas id="preview-correlation-chart" width="440" height="240" aria-label="Chart of cumulative pair correlation across time steps"></canvas>
+                  <figcaption>Intrapair Attractiveness Correlation (Smaldino &amp; Schank 2012)</figcaption>
+                  <canvas id="preview-correlation-chart" width="440" height="240" aria-label="Scatter plot of partner A vs partner B attractiveness with final Pearson r"></canvas>
                   <p class="preview-chart-insight" id="preview-correlation-insight">
                     Insight: This chart updates the cumulative correlation after each new pair.
                   </p>
+                  <details class="calc-details">
+                    <summary>Show calculation data</summary>
+                    <div id="calc-correlation"><em>Run a simulation to see values.</em></div>
+                  </details>
                 </figure>
                 <figure class="preview-chart-card">
                   <figcaption>Pair Attractiveness Heatmap</figcaption>
@@ -633,6 +631,10 @@
                     <p class="preview-chart-insight" id="recreated-figure5-insight">
                       Insight: Correlation insight will update after each run.
                     </p>
+                    <details class="calc-details">
+                      <summary>Show calculation data</summary>
+                      <div id="calc-figure5"><em>Run batch analytics to see values.</em></div>
+                    </details>
                   </figure>
                   <figure class="research-graph-card">
                     <figcaption>Figure 6: Average Time to Match</figcaption>
@@ -640,6 +642,10 @@
                     <p class="preview-chart-insight" id="recreated-figure6-insight">
                       Insight: Time-to-mate insight will update after each run.
                     </p>
+                    <details class="calc-details">
+                      <summary>Show calculation data</summary>
+                      <div id="calc-figure6"><em>Run batch analytics to see values.</em></div>
+                    </details>
                   </figure>
                   <figure class="research-graph-card">
                     <figcaption>Figure 7: Early Match Speed</figcaption>
@@ -647,6 +653,10 @@
                     <p class="preview-chart-insight" id="recreated-figure7-insight">
                       Insight: Early-hazard insight will update after each run.
                     </p>
+                    <details class="calc-details">
+                      <summary>Show calculation data</summary>
+                      <div id="calc-figure7"><em>Run batch analytics to see values.</em></div>
+                    </details>
                   </figure>
                 </div>
               </section>
@@ -732,11 +742,19 @@
                   <p class="preview-chart-insight" id="hazard-dynamic-explainer">
                     Dynamic explainer: select rule codes to compare fewer lines for clearer interpretation.
                   </p>
+                  <details class="calc-details">
+                    <summary>Show calculation data</summary>
+                    <div id="calc-hazard"><em>Run batch analytics to see values.</em></div>
+                  </details>
                 </figure>
                 <figure class="preview-chart-card rule-hazard-card">
                   <figcaption>Early Match Speed Zoom (steps 1-15)</figcaption>
                   <canvas id="rule-hazard-zoom-chart" width="640" height="260" aria-label="Early-phase hazard zoom"></canvas>
                   <div class="chart-hover-tip" id="rule-hazard-zoom-tooltip" aria-hidden="true"></div>
+                  <details class="calc-details">
+                    <summary>Show calculation data</summary>
+                    <div id="calc-hazard-zoom"><em>Run batch analytics to see values.</em></div>
+                  </details>
                 </figure>
               </section>
 
